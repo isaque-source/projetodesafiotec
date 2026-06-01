@@ -360,7 +360,7 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                 URL da Foto de Perfil
               </label>
               <div className="relative">
-                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted w-4 h-4" />
+                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted w-4 h-4 border border-[#e6b926] bg-[#e42222]" />
                 <input
                   className="w-full h-10 pl-9 pr-4 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-800 dark:text-white font-sans text-sm rounded-lg focus:outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40"
                   id="prof_photo"

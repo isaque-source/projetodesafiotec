@@ -17,7 +17,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
     // Entity validations
@@ -28,14 +28,13 @@ service cloud.firestore {
         && user.category is string && user.category.size() <= 100
         && user.registered is bool
         && user.email is string && user.email.size() <= 200
-        && (!user.keys().contains('phoneNumber') || (user.phoneNumber is string && user.phoneNumber.size() <= 50))
-        && (!user.keys().contains('photoUrl') || (user.photoUrl is string && user.photoUrl.size() <= 2000))
-        && (!user.keys().contains('darkModeEnabled') || user.darkModeEnabled is bool);
+        && (!user.keys().hasAny(['phoneNumber']) || user.phoneNumber == null || (user.phoneNumber is string && user.phoneNumber.size() <= 50))
+        && (!user.keys().hasAny(['photoUrl']) || user.photoUrl == null || (user.photoUrl is string && user.photoUrl.size() <= 2000))
+        && (!user.keys().hasAny(['darkModeEnabled']) || user.darkModeEnabled == null || user.darkModeEnabled is bool);
     }
 
     function isValidSale(sale) {
       return sale.keys().hasAll(['date', 'time', 'amount', 'itemDescription', 'quantity'])
-        && sale.keys().size() == 5
         && sale.date is string && sale.date.size() == 10
         && sale.time is string && sale.time.size() == 5
         && sale.amount is number && sale.amount >= 0
@@ -45,24 +44,22 @@ service cloud.firestore {
 
     function isValidInventoryItem(item) {
       return item.keys().hasAll(['name', 'quantity', 'minQuantity', 'price', 'category'])
-        && (item.keys().size() == 5 || (item.keys().size() == 6 && item.keys().hasAll(['imageUrl']) && item.imageUrl is string && item.imageUrl.size() <= 2000))
         && item.name is string && item.name.size() <= 200
         && item.quantity is number
         && item.minQuantity is number && item.minQuantity >= 0
         && item.price is number && item.price >= 0
-        && item.category is string && item.category.size() <= 100;
+        && item.category is string && item.category.size() <= 100
+        && (!item.keys().hasAny(['imageUrl']) || item.imageUrl == null || (item.imageUrl is string && item.imageUrl.size() <= 2000));
     }
 
     function isValidGoal(goal) {
       return goal.keys().hasAll(['targetAmount', 'period'])
-        && goal.keys().size() == 2
         && goal.targetAmount is number && goal.targetAmount >= 0
         && goal.period is string && goal.period.size() <= 50;
     }
 
     function isValidProgress(prog) {
       return prog.keys().hasAll(['storeNiche', 'currentTaskIndex', 'engagement', 'linkClicks', 'followers'])
-        && prog.keys().size() == 5
         && prog.storeNiche is string && prog.storeNiche.size() <= 100
         && prog.currentTaskIndex is number && prog.currentTaskIndex >= 0 && prog.currentTaskIndex <= 10
         && prog.engagement is number
@@ -72,7 +69,6 @@ service cloud.firestore {
 
     function isValidFeedback(feed) {
       return feed.keys().hasAll(['taskId', 'title', 'feedback'])
-        && feed.keys().size() == 3
         && feed.taskId is number && feed.taskId >= 0
         && feed.title is string && feed.title.size() <= 200
         && feed.feedback is string && feed.feedback.size() <= 10000;
@@ -82,47 +78,32 @@ service cloud.firestore {
     match /usuarios/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.email == resource.data.email;
-      allow delete: if false; // profiles are permanent until support clears them
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if false;
 
       // Sales subcollection
       match /sales/{saleId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(saleId) && isValidSale(request.resource.data);
-        allow update: if isOwner(userId) && isValidId(saleId) && isValidSale(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Inventory Catalog subcollection
       match /inventory/{itemId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(itemId) && isValidInventoryItem(request.resource.data);
-        allow update: if isOwner(userId) && isValidId(itemId) && isValidInventoryItem(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Goals subcollection
       match /goals/{goalId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(goalId) && isValidGoal(request.resource.data);
-        allow update: if isOwner(userId) && isValidId(goalId) && isValidGoal(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Instagram progress document (single doc path)
       match /instagram/progress {
-        allow get: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidProgress(request.resource.data);
-        allow update: if isOwner(userId) && isValidProgress(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get, create, update, delete: if isOwner(userId);
       }
 
       // Instagram feedbacks subcollection
       match /instagramFeedbacks/{feedbackId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(request.resource.data);
-        allow update: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(request.resource.data);
-        allow delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId);
       }
     }
 

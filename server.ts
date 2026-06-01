@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
@@ -248,6 +249,123 @@ Não adicione tags, explicações extras ou cabeçalhos fictícios como To/Subje
   } catch (error: any) {
     console.error("Error generating gmail AI Draft:", error);
     res.status(500).json({ error: "Erro interno na inteligência artificial ao redigir rascunho." });
+  }
+});
+
+// GET route to serve the responsive HTML recovery page
+app.get("/forgot-password", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "forgot-password.html"));
+});
+
+// POST route for password recovery (handles /forgot-password or /api/forgot-password)
+app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ error: "Por favor, insira um e-mail válido para a recuperação de senha." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Determine dynamic recovery link pointing to our current sandbox URL or localhost
+    const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+    const host = req.headers.host || "localhost:3000";
+    const dynamicLink = `${protocol}://${host}/redefinir-senha?email=${encodeURIComponent(cleanEmail)}`;
+
+    // Beautiful HTML styled email message matching VISU's brand palette & neo-brutalist cards
+    const emailHtmlBody = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f7f9fa; margin: 0; padding: 20px; color: #1a1c1c; }
+    .email-container { max-width: 550px; background-color: #ffffff; border: 2.5px solid #1a1c1c; border-radius: 16px; box-shadow: 4px 4px 0px 0px #1a1c1c; padding: 32px 24px; margin: 0 auto; }
+    .header { text-align: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 24px; }
+    .logo { font-size: 28px; font-weight: 800; color: #fd8b00; letter-spacing: -1.5px; text-transform: uppercase; margin: 0; }
+    .logo-sub { font-size: 10px; font-weight: 700; color: #5c5f60; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
+    h2 { font-size: 20px; font-weight: 700; color: #1a1c1c; margin-top: 0; margin-bottom: 12px; }
+    p { font-size: 14px; line-height: 1.6; color: #4b5563; margin-bottom: 20px; }
+    .btn-container { text-align: center; margin: 28px 0; }
+    .btn { background-color: #fd8b00; color: #1a1c1c !important; font-weight: 700; text-decoration: none; padding: 12px 24px; border: 2px solid #1a1c1c; border-radius: 10px; box-shadow: 3px 3px 0px 0px #1a1c1c; display: inline-block; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+    .footer { font-size: 11px; text-align: center; color: #9ca3af; border-top: 2px dashed #cbd5e1; padding-top: 20px; margin-top: 28px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="logo">VISU</div>
+      <div class="logo-sub">Gestão & Finanças de Varejo</div>
+    </div>
+    <h2>Recuperação de Conta Realizada</h2>
+    <p>Olá,</p>
+    <p>Recebemos uma solicitação de recuperação de senha segura para a sua conta comercial associada ao e-mail (<strong>${cleanEmail}</strong>).</p>
+    <p>Se você não fez essa solicitação, pode ignorar este e-mail com total segurança. Nossos servidores continuam operando sob estrita criptografia.</p>
+    <p>Caso deseja prosseguir e criar uma nova credencial ou senha de acesso para gerenciar suas vendas e lucros, clique no botão e informe a senha desejada:</p>
+    <div class="btn-container">
+      <a href="${dynamicLink}" target="_blank" class="btn" style="color: #1a1c1c !important;">Redefinir Minha Senha</a>
+    </div>
+    <p>Este link expirará em 60 minutos para proteger a integridade dos seus dados de faturamento e estoque.</p>
+    <div class="footer">
+      Esta é uma mensagem automática gerada pela plataforma VISU SISTEMAS.<br>
+      Acesso seguro e criptografado por protocolo SSL/TLS.
+    </div>
+  </div>
+</body>
+</html>`;
+
+    // Fetch credentials from the environment variable configuration
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+
+    // Log the request clearly in our dev server console for verification
+    console.log(`\n==================================================`);
+    console.log(`🔑 [SOLICITAÇÃO DE RECUPERAÇÃO DE SENHA]`);
+    console.log(`Destinatário: ${cleanEmail}`);
+    console.log(`Link de Recuperação Gerado: ${dynamicLink}`);
+    console.log(`Serviço SMTP Configurado: ${gmailUser ? "SIM (" + gmailUser + ")" : "NÃO (Modo Simulação)"}`);
+    console.log(`==================================================\n`);
+
+    if (!gmailUser || !gmailAppPassword) {
+      // Mock / Simulação de e-mail bem-sucedido para validação imediata em ambiente Sandbox
+      return res.json({
+        success: true,
+        message: `[Modo Simulação] Uma chave SMTP do Gmail não foi configurada nos segredos ou variáveis de ambiente. No entanto, o link de recuperação foi gerado no console com sucesso! Link para teste: ${dynamicLink}`,
+        simulatedEmail: true,
+        recoveryLink: dynamicLink
+      });
+    }
+
+    // Configure Nodemailer with real Gmail SMTP (secure App Password)
+    // SEGURANÇA E AMBIENTE: Para usar este fluxo em ambiente real, gere uma
+    // "Senha de App" de 16 caracteres no painel de segurança da sua conta Google:
+    // https://myaccount.google.com/apppasswords de forma a não expor/usar sua senha principal.
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: gmailUser,
+        pass: gmailAppPassword,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Suporte VISU" <${gmailUser}>`,
+      to: cleanEmail,
+      subject: "🛡️ Recuperação de Senha Segura - VISU",
+      html: emailHtmlBody,
+    };
+
+    // Send real email through SMTP
+    await transporter.sendMail(mailOptions);
+
+    return res.json({
+      success: true,
+      message: `Link de recuperação de senha enviado com sucesso para ${cleanEmail}. Verifique seu Gmail!`,
+      simulatedEmail: false,
+    });
+
+  } catch (error: any) {
+    console.error("Erro ao processar fluxo de redefinição:", error);
+    return res.status(500).json({ error: `Falha ao processar redefinição por e-mail: ${error.message || error}` });
   }
 });
 

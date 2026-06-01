@@ -52,9 +52,13 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
     };
 
     // Store passcode & settings
-    localStorage.setItem("visu_local_password", password || "123456");
-    localStorage.setItem("visu_always_require_password", "true");
-    sessionStorage.setItem("visu_session_unlocked", "true");
+    try {
+      localStorage.setItem("visu_local_password", password || "123456");
+      localStorage.setItem("visu_always_require_password", "true");
+      sessionStorage.setItem("visu_session_unlocked", "true");
+    } catch (e) {
+      console.warn("Storage restricted on local registration fallback:", e);
+    }
 
     // Clear Firebase just in case
     onRegisterComplete(newUser, finalGoal, undefined);
@@ -66,15 +70,13 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         alert("Por favor, preencha todos os campos antes de continuar (Nome, Telefone e Nome da Loja são obrigatórios).");
         return;
       }
-      if (!auth.currentUser) {
-        if (!email.trim() || !password.trim()) {
-          alert("Por favor, preencha os campos de e-mail e defina uma senha de acesso.");
-          return;
-        }
-        if (password.length < 6) {
-          alert("A senha de acesso criada deve conter pelo menos 6 caracteres.");
-          return;
-        }
+      if (!email.trim() || !password.trim()) {
+        alert("Por favor, preencha os campos de e-mail e defina uma senha de acesso.");
+        return;
+      }
+      if (password.length < 6) {
+        alert("A senha de acesso criada deve conter pelo menos 6 caracteres.");
+        return;
       }
       setStep(2);
     }
@@ -88,14 +90,15 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
     }
 
     setRegisterLoading(true);
-    let finalEmail = auth.currentUser?.email || email.trim();
+    let finalEmail = email.trim();
 
     try {
-      if (!auth.currentUser) {
-        // Create standard Firebase Auth user
-        const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        finalEmail = credential.user.email || email.trim();
+      if (auth.currentUser) {
+        await auth.signOut();
       }
+      // Create standard Firebase Auth user
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      finalEmail = credential.user.email || email.trim();
 
       // Assemble final user profile
       const newUser: User = {
@@ -112,9 +115,13 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         period: goalPeriod,
       };
 
-      localStorage.removeItem("visu_local_password"); // Clear local passcode if real auth successful
-      localStorage.setItem("visu_app_password", password); // Store for lock screen verification
-      sessionStorage.setItem("visu_session_unlocked", "true");
+      try {
+        localStorage.removeItem("visu_local_password"); // Clear local passcode if real auth successful
+        localStorage.setItem("visu_app_password", password); // Store for lock screen verification
+        sessionStorage.setItem("visu_session_unlocked", "true");
+      } catch (e) {
+        console.warn("Storage restricted on finish registration:", e);
+      }
       onRegisterComplete(newUser, finalGoal, undefined);
     } catch (err: any) {
       console.error("Erro ao registrar no Firebase:", err);
@@ -217,40 +224,36 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
                 />
               </div>
 
-              {!auth.currentUser && (
-                <>
-                  <div className="flex flex-col gap-1 text-left">
-                    <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_email">
-                      Seu E-mail (Ex: Gmail)
-                    </label>
-                    <input
-                      className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40"
-                      id="register_email"
-                      type="email"
-                      placeholder="Ex: marta.gerente@gmail.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
+              <div className="flex flex-col gap-1 text-left">
+                <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_email">
+                  Seu E-mail (Ex: Gmail)
+                </label>
+                <input
+                  className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c]"
+                  id="register_email"
+                  type="email"
+                  placeholder="Ex: marta.gerente@gmail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
 
-                  <div className="flex flex-col gap-1 text-left">
-                    <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_password">
-                      Defina sua Senha de Acesso
-                    </label>
-                    <input
-                      className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40"
-                      id="register_password"
-                      type="password"
-                      placeholder="Mínimo 6 caracteres"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha para entrar no app e proteger seus dados comerciais.</p>
-                  </div>
-                </>
-              )}
+              <div className="flex flex-col gap-1 text-left">
+                <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_password">
+                  Defina sua Senha de Acesso
+                </label>
+                <input
+                  className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c]"
+                  id="register_password"
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha para entrar no app e proteger seus dados comerciais.</p>
+              </div>
 
               <div className="flex flex-col gap-1 text-left">
                 <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="store_name">

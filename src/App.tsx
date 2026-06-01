@@ -61,8 +61,14 @@ export default function App() {
   // Initialize and synchronise state components on startup or auth change
   useEffect(() => {
     // If always require passcode is toggled or biometric is enabled, and session not unlocked yet:
-    const requireLock = (localStorage.getItem("visu_always_require_password") === "true" || localStorage.getItem("visu_biometric_enabled") === "true");
-    const isSessionUnlocked = sessionStorage.getItem("visu_session_unlocked") === "true";
+    let requireLock = false;
+    let isSessionUnlocked = false;
+    try {
+      requireLock = (localStorage.getItem("visu_always_require_password") === "true" || localStorage.getItem("visu_biometric_enabled") === "true");
+      isSessionUnlocked = sessionStorage.getItem("visu_session_unlocked") === "true";
+    } catch (e) {
+      console.warn("Storage access restricted on mobile wrapper check:", e);
+    }
     
     if (requireLock && !isSessionUnlocked) {
       setIsLocked(true);
@@ -76,7 +82,12 @@ export default function App() {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       setLoadingFirebase(true);
       if (firebaseUser) {
-        sessionStorage.setItem("visu_session_unlocked", "true");
+        try {
+          sessionStorage.setItem("visu_session_unlocked", "true");
+        } catch (e) {
+          console.warn("sessionStorage save restricted:", e);
+        }
+
         try {
           // Attempt to get or create safe email mapping to unified UID
           const userEmail = firebaseUser.email || "";
@@ -100,38 +111,78 @@ export default function App() {
           if (profile) {
             setUser(profile);
             
-            // Sync rest of the data
-            const dbSales = await fetchSales(mappedUid);
-            const dbInventory = await fetchInventory(mappedUid);
-            const dbGoal = await fetchGoal(mappedUid);
+            // Sync rest of the data, wrapping each fetch individually so network/permission/index errors don't crash login
+            let dbSales: Sale[] = [];
+            let dbInventory: InventoryItem[] = [];
+            let dbGoal: Goal | null = null;
+
+            try {
+              dbSales = await fetchSales(mappedUid);
+            } catch (err) {
+              console.error("[Firestore Sync] Erro ao buscar vendas:", err);
+            }
+
+            try {
+              dbInventory = await fetchInventory(mappedUid);
+            } catch (err) {
+              console.error("[Firestore Sync] Erro ao buscar estoque:", err);
+            }
+
+            try {
+              dbGoal = await fetchGoal(mappedUid);
+            } catch (err) {
+              console.error("[Firestore Sync] Erro ao buscar metas:", err);
+            }
             
-            setSales(dbSales);
-            setInventory(dbInventory);
+            setSales(dbSales || []);
+            setInventory(dbInventory || []);
             if (dbGoal) {
               setGoal(dbGoal);
             }
             
-            if (isInitialAuthCheckRef.current) {
-              setActiveTab("login");
-            } else {
-              setActiveTab("home");
-            }
+            setActiveTab("home");
           } else {
-            // Newly logged-in user but no profile completed in db, go to register
-            setUser({
-              name: firebaseUser.displayName?.split(" ")[0] || "Usuário",
-              storeName: "",
-              category: "Artesanato",
-              registered: false,
-              email: firebaseUser.email || "",
-            });
-            // Clear simulated mock records so they aren't carried into or written to the real account
-            setSales([]);
-            setInventory([]);
-            setGoal({ targetAmount: 15000, period: "Mensal" });
-            if (isInitialAuthCheckRef.current) {
-              setActiveTab("login");
+            // Newly logged-in user but no profile completed in db.
+            // If the user arrived from the login flow or initial loader, auto-create a standard default profile so they go directly to Home and bypass registration entirely (avoiding email-already-in-use block)
+            if (activeTab === "login" || isInitialAuthCheckRef.current) {
+              const defaultProfile: User = {
+                name: firebaseUser.displayName?.split(" ")[0] || firebaseUser.email?.split("@")[0] || "Usuário",
+                storeName: "Minha Loja",
+                category: "Artesanato",
+                registered: true,
+                email: firebaseUser.email || "",
+              };
+              try {
+                await saveUserProfile(mappedUid, defaultProfile);
+              } catch (err) {
+                console.error("Erro ao salvar cadastro do perfil padrão:", err);
+              }
+              setUser(defaultProfile);
+              
+              // Seed defaults
+              try {
+                await saveGoal(mappedUid, { targetAmount: 15180, period: "Mensal" });
+              } catch (err) {
+                console.error("Erro ao salvar faturamento inicial:", err);
+              }
+              setGoal({ targetAmount: 15180, period: "Mensal" });
+              setSales([]);
+              setInventory([]);
+              
+              setActiveTab("home");
             } else {
+              // They are explicitly in the registration flow
+              setUser({
+                name: firebaseUser.displayName?.split(" ")[0] || "Usuário",
+                storeName: "",
+                category: "Artesanato",
+                registered: false,
+                email: firebaseUser.email || "",
+              });
+              // Clear simulated mock records so they aren't carried into or written to the real account
+              setSales([]);
+              setInventory([]);
+              setGoal({ targetAmount: 15000, period: "Mensal" });
               setActiveTab("register");
             }
           }
@@ -144,13 +195,27 @@ export default function App() {
       } else {
         // Fallback to local storage (Offline test mode / simulated login)
         isInitialAuthCheckRef.current = false;
-        const savedUser = localStorage.getItem("visu_user");
-        const savedSales = localStorage.getItem("visu_sales");
-        const savedInventory = localStorage.getItem("visu_inventory");
-        const savedGoal = localStorage.getItem("visu_goal");
+        
+        let savedUser = null;
+        let savedSales = null;
+        let savedInventory = null;
+        let savedGoal = null;
+
+        try {
+          savedUser = localStorage.getItem("visu_user");
+          savedSales = localStorage.getItem("visu_sales");
+          savedInventory = localStorage.getItem("visu_inventory");
+          savedGoal = localStorage.getItem("visu_goal");
+        } catch (e) {
+          console.warn("Storage access restricted on local fallback check:", e);
+        }
 
         if (savedUser) {
-          setUser(JSON.parse(savedUser));
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (_) {
+            setUser(null);
+          }
           // Always land on the Login screen first rather than bypassing to the progress tab
           setActiveTab("login");
         } else {
@@ -159,19 +224,31 @@ export default function App() {
         }
 
         if (savedSales) {
-          setSales(JSON.parse(savedSales));
+          try {
+            setSales(JSON.parse(savedSales));
+          } catch (_) {
+            setSales(SEED_SALES);
+          }
         } else {
           setSales(SEED_SALES);
         }
 
         if (savedInventory) {
-          setInventory(JSON.parse(savedInventory));
+          try {
+            setInventory(JSON.parse(savedInventory));
+          } catch (_) {
+            setInventory(SEED_INVENTORY);
+          }
         } else {
           setInventory(SEED_INVENTORY);
         }
 
         if (savedGoal) {
-          setGoal(JSON.parse(savedGoal));
+          try {
+            setGoal(JSON.parse(savedGoal));
+          } catch (_) {
+            setGoal(SEED_GOAL);
+          }
         } else {
           setGoal(SEED_GOAL);
         }
@@ -198,76 +275,33 @@ export default function App() {
     updatedInventory: InventoryItem[],
     updatedGoal: Goal
   ) => {
-    if (updatedUser) {
-      localStorage.setItem("visu_user", JSON.stringify(updatedUser));
-    } else {
-      localStorage.removeItem("visu_user");
+    try {
+      if (updatedUser) {
+        localStorage.setItem("visu_user", JSON.stringify(updatedUser));
+      } else {
+        localStorage.removeItem("visu_user");
+      }
+      localStorage.setItem("visu_sales", JSON.stringify(updatedSales));
+      localStorage.setItem("visu_inventory", JSON.stringify(updatedInventory));
+      localStorage.setItem("visu_goal", JSON.stringify(updatedGoal));
+    } catch (e) {
+      console.warn("localStorage block ignored:", e);
     }
-    localStorage.setItem("visu_sales", JSON.stringify(updatedSales));
-    localStorage.setItem("visu_inventory", JSON.stringify(updatedInventory));
-    localStorage.setItem("visu_goal", JSON.stringify(updatedGoal));
   };
 
   // Login handler
   const handleLoginSuccess = async (email: string) => {
-    sessionStorage.setItem("visu_session_unlocked", "true");
+    try {
+      sessionStorage.setItem("visu_session_unlocked", "true");
+    } catch (e) {
+      console.warn("sessionStorage block ignored:", e);
+    }
     
     // Explicitly set initial check to false on user login interaction to avoid any background race resetting screen to 'login'
     isInitialAuthCheckRef.current = false;
     
     if (auth.currentUser) {
-      setLoadingFirebase(true);
-      try {
-        let activeUid = auth.currentUser.uid;
-        const userEmail = auth.currentUser.email || "";
-        if (userEmail) {
-          const safeEmail = userEmail.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
-          const existingUid = await getEmailToUidMapping(safeEmail);
-          if (existingUid) {
-            activeUid = existingUid;
-          } else {
-            await saveEmailToUidMapping(safeEmail, auth.currentUser.uid);
-          }
-        }
-        setDataOwnerUid(activeUid);
-        
-        const profile = await getUserProfile(activeUid);
-        if (profile) {
-          setUser(profile);
-          
-          // Clear any state from a previous/stale account to load fresh mapped records
-          const dbSales = await fetchSales(activeUid);
-          const dbInventory = await fetchInventory(activeUid);
-          const dbGoal = await fetchGoal(activeUid);
-          
-          setSales(dbSales);
-          setInventory(dbInventory);
-          if (dbGoal) {
-            setGoal(dbGoal);
-          }
-          
-          setActiveTab("home");
-        } else {
-          // New account, redirect to registration
-          setUser({
-            name: auth.currentUser.displayName?.split(" ")[0] || "Usuário",
-            storeName: "",
-            category: "Artesanato",
-            registered: false,
-            email: auth.currentUser.email || "",
-          });
-          setSales([]);
-          setInventory([]);
-          setGoal({ targetAmount: 15000, period: "Mensal" });
-          setActiveTab("register");
-        }
-      } catch (err) {
-        console.error("Erro ao redirecionar após login:", err);
-        // Fallback to register
-        setActiveTab("register");
-      } finally {
-        setLoadingFirebase(false);
-      }
+      // Firebase auth is already active. The onAuthStateChanged listener handles central fetching and profile redirect, so we do not double-trigger.
       return; 
     }
     
@@ -343,7 +377,11 @@ export default function App() {
     }
     
     setUser(null);
-    localStorage.removeItem("visu_user");
+    try {
+      localStorage.removeItem("visu_user");
+    } catch (e) {
+      console.warn("localStorage block ignored:", e);
+    }
     setActiveTab("login");
   };
 

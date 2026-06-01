@@ -36,7 +36,7 @@ try {
   
   // Prioritize explicit firestoreDatabaseId from the provisioned config file
   const rawEnvDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
-  const targetDatabaseId = firebaseAppletConfig.firestoreDatabaseId || 
+  const targetDatabaseId = (firebaseAppletConfig as any).firestoreDatabaseId || 
                             (rawEnvDbId && rawEnvDbId !== "(default)" ? rawEnvDbId : "") || 
                             "(default)";
 
