@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile definitions and business context",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the store owner" },
+        "storeName": { "type": "string", "description": "The custom business name" },
+        "category": { "type": "string", "description": "The category niche of the business catalog" },
+        "registered": { "type": "boolean", "description": "Whether auth registration got finalized" },
+        "email": { "type": "string", "description": "The email address of the business owner" },
+        "phoneNumber": { "type": "string", "description": "Optional phone number of the owner" },
+        "photoUrl": { "type": "string", "description": "Optional custom profile picture URL" },
+        "darkModeEnabled": { "type": "boolean", "description": "Whether Dark Mode is active in the user interface" }
+      },
+      "required": ["name", "storeName", "category", "registered", "email"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A single logged sales transaction ledgers entry",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD date representation" },
+        "time": { "type": "string", "description": "HH:MM timestamp representation" },
+        "amount": { "type": "number", "description": "Total purchase monetary price" },
+        "itemDescription": { "type": "string", "description": "Product name description from stock catalog" },
+        "quantity": { "type": "number", "description": "Amount of products bought" }
+      },
+      "required": ["date", "time", "amount", "itemDescription", "quantity"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "A product available in the store catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "The product moniker" },
+        "quantity": { "type": "number", "description": "Current number in stock" },
+        "minQuantity": { "type": "number", "description": "Low-stock alert threshold limit" },
+        "price": { "type": "number", "description": "Default unit price" },
+        "category": { "type": "string", "description": "Product department categorization" },
+        "imageUrl": { "type": "string", "description": "Optional customized product image web URL" }
+      },
+      "required": ["name", "quantity", "minQuantity", "price", "category"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "The financial faturamento objective goal",
+      "type": "object",
+      "properties": {
+        "targetAmount": { "type": "number", "description": "Gross monthly faturamento target" },
+        "period": { "type": "string", "description": "Period frequency constraint, e.g. Mensal" }
+      },
+      "required": ["targetAmount", "period"]
+    },
+    "InstagramProgress": {
+      "title": "InstagramProgress",
+      "description": "State tracker tracking the gamified learning trilha progress",
+      "type": "object",
+      "properties": {
+        "storeNiche": { "type": "string", "description": "Configured category niche of the Instagram profile" },
+        "currentTaskIndex": { "type": "number", "description": "Current active task index from 0 to 9" },
+        "engagement": { "type": "number", "description": "Simulated engagement metric multiplier rate" },
+        "linkClicks": { "type": "number", "description": "Simulated link clicks accumulators" },
+        "followers": { "type": "number", "description": "Simulated followers count" }
+      },
+      "required": ["storeNiche", "currentTaskIndex", "engagement", "linkClicks", "followers"]
+    },
+    "InstagramFeedback": {
+      "title": "InstagramFeedback",
+      "description": "A feedback item delivered by our AI Coach mentorship",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "number", "description": "Assigned task identifier index" },
+        "title": { "type": "string", "description": "Name of the gamified task" },
+        "feedback": { "type": "string", "description": "The AI structured feedback markdown string" }
+      },
+      "required": ["taskId", "title", "feedback"]
+    }
+  },
+  "firestore": {
+    "/usuarios/{userId}": {
+      "schema": "User",
+      "description": "Main user account profiles metadata"
+    },
+    "/usuarios/{userId}/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Subcollection storing sales logged by user"
+    },
+    "/usuarios/{userId}/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Subcollection representing catalog products of user"
+    },
+    "/usuarios/{userId}/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "Subcollection housing user sales objectives"
+    },
+    "/usuarios/{userId}/instagram/progress": {
+      "schema": "InstagramProgress",
+      "description": "Global settings document for the Instagram gamified progress state"
+    },
+    "/usuarios/{userId}/instagramFeedbacks/{feedbackId}": {
+      "schema": "InstagramFeedback",
+      "description": "Log history of feedbacks created for this user"
+    }
+  }
+}

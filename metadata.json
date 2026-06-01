@@ -1,0 +1,6 @@
+{
+  "name": "Visu",
+  "description": "Gestão clara e eficiente para o seu negócio crescer de forma organizada e produtiva.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
