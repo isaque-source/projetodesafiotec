@@ -7,6 +7,8 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 
 dotenv.config();
+// Fallback to load configuration from .env.example if not set in .env (for workspaces/sandbox)
+dotenv.config({ path: path.join(process.cwd(), ".env.example") });
 
 const app = express();
 const PORT = 3000;
@@ -313,9 +315,9 @@ app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
 </body>
 </html>`;
 
-    // Fetch credentials from the environment variable configuration
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+    // Fetch credentials from the environment variable configuration and trim whitespace
+    const gmailUser = (process.env.GMAIL_USER || "").trim();
+    const gmailAppPassword = (process.env.GMAIL_APP_PASSWORD || "").trim();
 
     // Log the request clearly in our dev server console for verification
     console.log(`\n==================================================`);

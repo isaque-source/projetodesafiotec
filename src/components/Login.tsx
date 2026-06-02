@@ -332,6 +332,10 @@ export default function Login({
             
             <p className="text-xs text-zinc-500 dark:text-zinc-400 font-semibold mb-4 leading-relaxed">
               Esqueceu sua senha? Não se preocupe! Informe seu Gmail associado para disparar um link oficial de redefinição de senha diretamente.
+              <br />
+              <a href="/forgot-password" className="text-[#fd8b00] hover:underline font-bold mt-2.5 inline-block">
+                Acessar página de recuperação HTML5 dedicada →
+              </a>
             </p>
 
             {resetSuccess && (
