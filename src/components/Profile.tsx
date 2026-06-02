@@ -17,6 +17,24 @@ import {
   AlertCircle 
 } from "lucide-react";
 
+const maskEmail = (email: string): string => {
+  if (!email) return "******";
+  const parts = email.split("@");
+  if (parts.length !== 2) return "******";
+  const [username, domain] = parts;
+  const maskedUsername = username.length > 2 
+    ? username[0] + "*".repeat(username.length - 2) + username[username.length - 1]
+    : "*".repeat(username.length);
+  
+  const domainParts = domain.split(".");
+  const maskedDomain = domainParts.map((part, index) => {
+    if (index === domainParts.length - 1) return part;
+    return part.length > 1 ? part[0] + "*".repeat(part.length - 1) : "*";
+  }).join(".");
+  
+  return `${maskedUsername}@${maskedDomain}`;
+};
+
 interface ProfileProps {
   user: User;
   onUpdateUser: (updated: User) => void;
@@ -238,7 +256,7 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
             </div>
 
             <h3 className="font-display font-bold text-lg text-brand-primary dark:text-brand-orange leading-tight">{user.name || "Sem Nome"}</h3>
-            <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-semibold mt-1 truncate max-w-full">{user.email}</p>
+            <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-semibold mt-1 truncate max-w-full">{maskEmail(user.email)}</p>
             
             <div className="mt-2 bg-brand-yellow/10 border border-brand-dark px-3 py-1 rounded-full font-display text-[11px] font-black uppercase text-brand-primary">
               {user.category || "Ramo de Atuação"}

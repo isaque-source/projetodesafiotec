@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { Lock, Unlock, Eye, EyeOff, Fingerprint, RefreshCw, AlertCircle } from "lucide-react";
 
+const maskEmail = (email: string): string => {
+  if (!email) return "******";
+  const parts = email.split("@");
+  if (parts.length !== 2) return "******";
+  const [username, domain] = parts;
+  const maskedUsername = username.length > 2 
+    ? username[0] + "*".repeat(username.length - 2) + username[username.length - 1]
+    : "*".repeat(username.length);
+  
+  const domainParts = domain.split(".");
+  const maskedDomain = domainParts.map((part, index) => {
+    if (index === domainParts.length - 1) return part;
+    return part.length > 1 ? part[0] + "*".repeat(part.length - 1) : "*";
+  }).join(".");
+  
+  return `${maskedUsername}@${maskedDomain}`;
+};
+
 interface LockScreenProps {
   onUnlock: () => void;
   userEmail: string;
@@ -229,7 +247,7 @@ export default function LockScreen({ onUnlock, userEmail, storeName }: LockScree
 
         {/* Action Help and Switch Accounts */}
         <div className="mt-6 flex justify-between items-center text-xs font-bold text-brand-primary select-none px-1">
-          <span className="text-brand-muted">Logado como: {userEmail}</span>
+          <span className="text-brand-muted">Logado como: {maskEmail(userEmail)}</span>
         </div>
 
       </div>

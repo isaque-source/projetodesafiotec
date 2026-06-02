@@ -153,6 +153,10 @@ export default function Dashboard({
   const todaySales = sales.filter((s) => s.date === todayStr);
   const todaySalesSum = todaySales.reduce((acc, s) => acc + s.amount, 0);
 
+  // Dynamic monthly calculations for revenue meta-goals
+  const monthlySalesSum = sales.reduce((acc, s) => acc + s.amount, 0);
+  const progressPercent = Math.min(100, Math.round((monthlySalesSum / (goal?.targetAmount || 15000)) * 100));
+
   // Low stock calculation: item.quantity < item.minQuantity
   const lowStockItems = inventory.filter((item) => item.quantity < item.minQuantity);
   const lowStockCount = lowStockItems.length;
@@ -243,7 +247,7 @@ export default function Dashboard({
               </span>
             </div>
 
-            <div className="flex items-end gap-2 mb-6">
+            <div className="flex items-end gap-2 mb-4">
               <span className="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-zinc-100">
                 R$ {todaySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
               </span>
@@ -251,6 +255,26 @@ export default function Dashboard({
                 <TrendingUp className="w-4 h-4" />
                 +12%
               </span>
+            </div>
+
+            {/* Live Interactive Revenue Goal Widget directly on the main Dashboard */}
+            <div className="mb-4 p-3 bg-brand-yellow/10 dark:bg-zinc-800/60 border-2 border-brand-dark rounded-xl shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] text-left">
+              <div className="flex justify-between items-center text-xs mb-1.5 font-bold text-brand-dark dark:text-zinc-200">
+                <span className="uppercase tracking-wider">🎯 Progresso da Meta de Faturamento:</span>
+                <span className="font-mono text-[11px] text-brand-orange bg-brand-dark/10 dark:bg-brand-orange/10 px-2 py-0.5 rounded border border-brand-dark/10">
+                  {progressPercent}%
+                </span>
+              </div>
+              <div className="w-full bg-brand-gray dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden border border-brand-dark">
+                <div
+                  style={{ width: `${progressPercent}%` }}
+                  className="bg-[#fd8b00] h-full transition-all duration-500 rounded-full"
+                ></div>
+              </div>
+              <p className="font-sans text-[10px] font-bold text-brand-muted dark:text-zinc-400 mt-1.5 flex justify-between">
+                <span>Vendido: <strong>R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</strong></span>
+                <span>Meta: <strong>R$ {goal?.targetAmount?.toLocaleString("pt-BR", { minimumFractionDigits: 0 }) || "15.000"}</strong></span>
+              </p>
             </div>
           </div>
 

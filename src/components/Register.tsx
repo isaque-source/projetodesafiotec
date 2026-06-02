@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Utensils, Shirt, Wrench, Paintbrush, MoreHorizontal, Target, Package, Check, Sparkles, ShoppingBag } from "lucide-react";
 import { User, InventoryItem, Goal } from "../types";
 import { auth } from "../firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { getEmailToUidMapping } from "../lib/db";
 
 interface RegisterProps {
   onRegisterComplete: (user: User, initialGoal?: Goal, initialItem?: InventoryItem) => void;
@@ -13,6 +14,7 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
   const [step, setStep] = useState(1);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [showFirebaseSetupGuide, setShowFirebaseSetupGuide] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   // Step 1: Basic profiles
   const [fullName, setFullName] = useState("");
@@ -21,6 +23,46 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
   const [category, setCategory] = useState("Artesanato");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Email validation states
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
+  const [emailChecked, setEmailChecked] = useState(false);
+
+  // Debounced email lookup effect
+  useEffect(() => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@") || trimmedEmail.length < 5) {
+      setEmailExists(false);
+      setEmailChecked(false);
+      setCheckingEmail(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setCheckingEmail(true);
+      setEmailExists(false);
+      try {
+        const safeEmail = trimmedEmail.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+        const mappedUid = await getEmailToUidMapping(safeEmail);
+        if (mappedUid) {
+          setEmailExists(true);
+          setErrorMessage("Este e-mail já está cadastrado em nosso sistema! Por favor, use a aba correspondente para Fazer Login ou mude o e-mail.");
+        } else {
+          setEmailExists(false);
+          // If the current error was about existing email, clear it safely
+          setErrorMessage(prev => prev.includes("já está cadastrado") ? "" : prev);
+        }
+        setEmailChecked(true);
+      } catch (err) {
+        console.warn("Erro ao verificar email existente:", err);
+      } finally {
+        setCheckingEmail(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [email]);
 
   // Step 2: Goal configurations
   const [goalAmount, setGoalAmount] = useState(15000);
@@ -35,8 +77,9 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
   ];
 
   const handleRegisterLocalFallback = () => {
+    setErrorMessage("");
     // Generate simulated user & store profile in localStorage
-    const simulatedEmail = email.trim() || "offline-user@visu.com";
+    const simulatedEmail = email.toLowerCase().trim() || "offline-user@exemplo.com";
     const newUser: User = {
       name: fullName.split(" ")[0] || "João",
       storeName: storeName,
@@ -65,17 +108,30 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
   };
 
   const handleNextStep = () => {
+    setErrorMessage("");
     if (step === 1) {
       if (!fullName.trim() || !storeName.trim() || !phoneNumber.trim()) {
-        alert("Por favor, preencha todos os campos antes de continuar (Nome, Telefone e Nome da Loja são obrigatórios).");
+        setErrorMessage("Por favor, preencha todos os campos antes de continuar (Nome, Telefone e Nome da Loja são obrigatórios).");
         return;
       }
-      if (!email.trim() || !password.trim()) {
-        alert("Por favor, preencha os campos de e-mail e defina uma senha de acesso.");
+      if (!email.trim() || !email.includes("@")) {
+        setErrorMessage("Por favor, preencha os campos de e-mail com uma conta válida.");
+        return;
+      }
+      if (emailExists) {
+        setErrorMessage("Este e-mail já está cadastrado! Por favor, utilize outro e-mail comercial para prosseguir.");
+        return;
+      }
+      if (checkingEmail) {
+        setErrorMessage("Aguarde! Estamos consultando a disponibilidade do seu e-mail.");
+        return;
+      }
+      if (!password.trim()) {
+        setErrorMessage("Por favor, defina uma senha de acesso.");
         return;
       }
       if (password.length < 6) {
-        alert("A senha de acesso criada deve conter pelo menos 6 caracteres.");
+        setErrorMessage("A senha de acesso criada deve conter pelo menos 6 caracteres.");
         return;
       }
       setStep(2);
@@ -84,8 +140,9 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
     if (goalAmount <= 0) {
-      alert("Por favor, configure uma meta real de faturamento.");
+      setErrorMessage("Por favor, configure uma meta real de faturamento.");
       return;
     }
 
@@ -124,14 +181,13 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
       }
       onRegisterComplete(newUser, finalGoal, undefined);
     } catch (err: any) {
-      console.error("Erro ao registrar no Firebase:", err);
+      console.warn("Fluxo normal de registro Firebase Auth:", err?.code || err);
       if (err.code === "auth/email-already-in-use" || err.message?.includes("email-already-in-use")) {
-        alert("Este e-mail já está cadastrado em nosso sistema! Por favor, retorne e acesse usando a aba correspondente no Login.");
-        onGoBack();
+        setErrorMessage("Este e-mail já está cadastrado em nosso sistema! Por favor, retorne e acesse usando a aba correspondente no Login.");
       } else if (err.code === "auth/operation-not-allowed" || err.message?.includes("operation-not-allowed")) {
         setShowFirebaseSetupGuide(true);
       } else {
-        alert("Falha ao registrar: " + (err.message || err));
+        setErrorMessage("Falha de conexão com o banco de autenticação. Verifique seu sinal e credenciais.");
       }
     } finally {
       setRegisterLoading(false);
@@ -165,6 +221,18 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
       {/* Main Container */}
       <main className="flex-1 max-w-[800px] mx-auto w-full bg-white border-2 border-brand-dark rounded-2xl p-6 shadow-[8px_8px_0px_0px_rgba(26,28,28,0.05)]">
         
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-100 border-2 border-brand-dark text-red-700 text-xs font-bold rounded-xl leading-relaxed shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <button 
+              onClick={() => setErrorMessage("")}
+              className="ml-4 shrink-0 px-2 py-1 bg-white border border-brand-dark text-[10px] uppercase rounded hover:bg-zinc-100 transition-all font-black"
+            >
+              Fechar
+            </button>
+          </div>
+        )}
+
         {/* Progress indicator steps header */}
         <div className="mb-6">
           <div className="flex justify-between items-center text-xs font-bold font-display uppercase tracking-widest text-brand-muted mb-2">
@@ -226,17 +294,32 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
               <div className="flex flex-col gap-1 text-left">
                 <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_email">
-                  Seu E-mail (Ex: Gmail)
+                  Seu E-mail Comercial
                 </label>
                 <input
-                  className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c]"
+                  className={`h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c] ${emailExists ? 'border-red-500 focus:border-red-505' : ''}`}
                   id="register_email"
                   type="email"
-                  placeholder="Ex: marta.gerente@gmail.com"
+                  placeholder="Ex: marta.gerente@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+                {checkingEmail && (
+                  <p className="text-xs font-bold text-brand-orange animate-pulse mt-0.5">
+                    ⚙️ Verificando e-mail...
+                  </p>
+                )}
+                {emailChecked && emailExists && (
+                  <p className="text-xs font-bold text-red-600 mt-0.5">
+                    ❌ Este e-mail já possui cadastro ativo no Visu! Use outro e-mail ou faça login.
+                  </p>
+                )}
+                {emailChecked && !emailExists && !checkingEmail && (
+                  <p className="text-xs font-bold text-green-700 mt-0.5">
+                    ✓ E-mail disponível para cadastro!
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1 text-left">

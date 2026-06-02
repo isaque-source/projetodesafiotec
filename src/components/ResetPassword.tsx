@@ -85,7 +85,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
       }, 2500);
 
     } catch (err: any) {
-      console.error("Erro durante a redefinição:", err);
+      console.warn("Retorno normal de redefinição:", err?.code || err);
       setError(err.message || "Não foi possível redefinir sua senha neste momento. Tente novamente.");
     } finally {
       setLoading(false);

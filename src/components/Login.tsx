@@ -4,6 +4,24 @@ import { auth } from "../firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { User } from "../types";
 
+const maskEmail = (email: string): string => {
+  if (!email) return "******";
+  const parts = email.split("@");
+  if (parts.length !== 2) return "******";
+  const [username, domain] = parts;
+  const maskedUsername = username.length > 2 
+    ? username[0] + "*".repeat(username.length - 2) + username[username.length - 1]
+    : "*".repeat(username.length);
+  
+  const domainParts = domain.split(".");
+  const maskedDomain = domainParts.map((part, index) => {
+    if (index === domainParts.length - 1) return part;
+    return part.length > 1 ? part[0] + "*".repeat(part.length - 1) : "*";
+  }).join(".");
+  
+  return `${maskedUsername}@${maskedDomain}`;
+};
+
 interface LoginProps {
   onLoginSuccess: (email: string) => void;
   onGoToRegister: () => void;
@@ -49,9 +67,9 @@ export default function Login({
     try {
       const cleanEmail = resetEmail.trim().toLowerCase();
       await sendPasswordResetEmail(auth, cleanEmail);
-      setResetSuccess("E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada no Gmail.");
+      setResetSuccess("E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
     } catch (error: any) {
-      console.error("Erro ao enviar recuperação de senha:", error);
+      console.warn("Notificação de recuperação de senha:", error?.code || error);
       const errorCode = error.code;
       if (errorCode === "auth/user-not-found") {
         setResetSuccess("Instruções de redefinição enviadas! Um link foi encaminhado para o e-mail digitado caso esteja cadastrado.");
@@ -60,7 +78,7 @@ export default function Login({
       } else if (errorCode === "auth/too-many-requests") {
         setResetError("Muitas tentativas em pouco tempo. Aguarde alguns minutos antes de tentar novamente.");
       } else {
-        setResetError(`Erro de conexão com o Firebase: ${error.message || "Erro desconhecido"}`);
+        setResetError("Falha na conexão de redefinição de senha. Verifique sua rede.");
       }
     } finally {
       setResetLoading(false);
@@ -97,14 +115,14 @@ export default function Login({
         onLoginSuccess(result.user.email);
       }
     } catch (err: any) {
-      console.error("Erro no login Firebase Auth:", err);
+      console.warn("Fluxo normal de autenticação Firebase Auth:", err?.code || err);
       let friendlyError = "";
       if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/user-not-found") {
         friendlyError = "E-mail ou senha incorretos. Por favor, verifique suas credenciais de acesso.";
       } else if (err.code === "auth/too-many-requests") {
         friendlyError = "Acesso temporariamente bloqueado por muitas tentativas mal-sucedidas. Tente novamente mais tarde.";
       } else {
-        friendlyError = `Falha de conexão com o Firebase: ${err.message || err}`;
+        friendlyError = "Falha de conexão com o servidor de autenticação. Verifique suas configurações de rede.";
       }
       setErrorMessage(friendlyError);
     } finally {
@@ -186,7 +204,7 @@ export default function Login({
                   Responsável: {currentUser.name}
                 </p>
                 <p className="font-sans text-[10px] text-zinc-400 dark:text-zinc-400 font-semibold">
-                  E-mail: {currentUser.email}
+                  E-mail: {maskEmail(currentUser.email)}
                 </p>
               </div>
             </div>
@@ -216,17 +234,17 @@ export default function Login({
           /* EMAIL & PASSWORD LOGIN FORM */
           <div className="space-y-5 animate-fade-in">
             <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
-              {/* E-mail / Gmail */}
+              {/* E-mail */}
               <div className="space-y-1">
                 <label className="font-sans font-extrabold text-[10px] text-zinc-500 dark:text-zinc-300 uppercase tracking-widest block">
-                  Endereço de Gmail / E-mail
+                  E-mail de Acesso
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
                   <input
                     type="email"
                     required
-                    placeholder="exemplo@gmail.com"
+                    placeholder="seuemail@exemplo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full h-11 pl-10 pr-3 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-950 text-brand-dark dark:text-zinc-100 font-sans text-xs rounded-xl focus:outline-none"
@@ -342,14 +360,14 @@ export default function Login({
             <form onSubmit={handleForgotPassword} className="space-y-4 text-left">
               <div className="space-y-1">
                 <label className="text-[10px] font-sans font-extrabold text-zinc-400 dark:text-zinc-350 uppercase tracking-widest block">
-                  Seu E-mail do Gmail
+                  Seu E-mail de Cadastro
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
                   <input
                     type="email"
                     required
-                    placeholder="seu.email@gmail.com"
+                    placeholder="seuemail@exemplo.com"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                     className="w-full text-xs h-10 pl-9 pr-3 border-2 border-brand-dark bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 rounded-lg focus:outline-none focus:border-brand-orange"
