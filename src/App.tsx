@@ -31,10 +31,39 @@ import NewSaleModal from "./components/NewSaleModal";
 import AdjustGoalModal from "./components/AdjustGoalModal";
 import LockScreen from "./components/LockScreen";
 import Profile from "./components/Profile";
-import GmailCentral from "./components/GmailCentral";
+import ResetPassword from "./components/ResetPassword";
+
+const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
+  if (!items) return [];
+  const usedCodes = new Set<string>();
+  
+  // Collect existing valid codes
+  items.forEach((item) => {
+    if (item.code && item.code.length === 4 && /^\d{4}$/.test(item.code)) {
+      usedCodes.add(item.code);
+    }
+  });
+
+  return items.map((item) => {
+    if (item.code && item.code.length === 4 && /^\d{4}$/.test(item.code)) {
+      return item;
+    }
+    // Generate a unique 4-digit code
+    let codeStr = "";
+    if (item.id && item.id.startsWith("inv-") && item.id.length <= 6) {
+      const numPart = item.id.replace("inv-", "");
+      codeStr = `100${numPart}`.slice(-4);
+    }
+    while (!codeStr || usedCodes.has(codeStr)) {
+      codeStr = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+    usedCodes.add(codeStr);
+    return { ...item, code: codeStr };
+  });
+};
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"login" | "register" | "home" | "sales" | "inventory" | "progress" | "profile" | "gmail">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile">("login");
   const [isLocked, setIsLocked] = useState(false);
   const isInitialAuthCheckRef = useRef(true);
   
@@ -42,8 +71,37 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [inventoryState, setInventoryState] = useState<InventoryItem[]>([]);
+
+  const setInventory = (newInv: InventoryItem[] | ((prev: InventoryItem[]) => InventoryItem[])) => {
+    setInventoryState((prev) => {
+      const resolved = typeof newInv === "function" ? newInv(prev) : newInv;
+      return ensureAllItemsHaveCodes(resolved);
+    });
+  };
+
+  const inventory = inventoryState;
+
   const [goal, setGoal] = useState<Goal>({ targetAmount: 15180, period: "Mensal" });
+
+  // Coins and streak shared states for gamified activities
+  const [visuCoins, setVisuCoins] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("visu_gamified_points");
+      return saved ? parseInt(saved, 10) : 450;
+    } catch (_) {
+      return 450;
+    }
+  });
+
+  const [streak, setStreak] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("visu_gamified_streak");
+      return saved ? parseInt(saved, 10) : 3;
+    } catch (_) {
+      return 3;
+    }
+  });
 
   // Loading state for Firebase
   const [loadingFirebase, setLoadingFirebase] = useState(true);
@@ -60,6 +118,22 @@ export default function App() {
 
   // Initialize and synchronise state components on startup or auth change
   useEffect(() => {
+    // Detect custom recovery route parameters
+    try {
+      const currentUrl = new URL(window.location.href);
+      if (
+        currentUrl.pathname === "/redefinir-senha" || 
+        currentUrl.pathname.includes("redefinir-senha") || 
+        currentUrl.searchParams.has("email")
+      ) {
+        if (currentUrl.searchParams.get("email")) {
+          setActiveTab("reset-password");
+        }
+      }
+    } catch (err) {
+      console.warn("Could not parse location query:", err);
+    }
+
     // If always require passcode is toggled or biometric is enabled, and session not unlocked yet:
     let requireLock = false;
     let isSessionUnlocked = false;
@@ -596,6 +670,16 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Interactive Coin Tracker in Header */}
+            <div 
+              onClick={() => setActiveTab("progress")}
+              className="flex items-center gap-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-2 border-yellow-500/50 px-2.5 h-9 rounded-lg font-display text-xs font-black uppercase cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_0px_rgba(234,179,8,0.2)]"
+              title="Suas Visu Coins ganhas em Atividades! Clique para ver tudo."
+            >
+              <Coins className="w-4 h-4 text-yellow-500 animate-pulse" />
+              <span>{visuCoins} Coins</span>
+            </div>
+
             <button
               onClick={() => setActiveTab("profile")}
               className={`flex items-center gap-1.5 border-2 border-brand-dark px-3 h-9 rounded-lg font-display text-xs font-black uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all ${
@@ -621,7 +705,7 @@ export default function App() {
       )}
 
       {/* Main Container Core Viewports router router */}
-      <main className={`flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' ? 'pb-28' : ''}`}>
+      <main className={`flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' && activeTab !== 'reset-password' ? 'pb-28' : ''}`}>
         
         {activeTab === "login" && (
           <Login
@@ -637,6 +721,13 @@ export default function App() {
           <Register
             onRegisterComplete={handleRegisterComplete}
             onGoBack={() => setActiveTab("login")}
+          />
+        )}
+
+        {activeTab === "reset-password" && (
+          <ResetPassword
+            onLoginSuccess={handleLoginSuccess}
+            onGoToLogin={() => setActiveTab("login")}
           />
         )}
 
@@ -678,6 +769,10 @@ export default function App() {
             sales={sales}
             goal={goal}
             onOpenAdjustGoal={() => setIsAdjustGoalOpen(true)}
+            points={visuCoins}
+            setPoints={setVisuCoins}
+            streak={streak}
+            setStreak={setStreak}
           />
         )}
 
@@ -690,17 +785,10 @@ export default function App() {
           />
         )}
 
-        {user && activeTab === "gmail" && (
-          <GmailCentral
-            user={user}
-            sales={sales}
-            inventory={inventory}
-          />
-        )}
       </main>
 
       {/* Bottom Sticky Interactive Floating Navigation Bar */}
-      {user && activeTab !== "login" && activeTab !== "register" && (
+      {user && activeTab !== "login" && activeTab !== "register" && activeTab !== "reset-password" && (
         <nav className="fixed bottom-0 left-0 w-full h-[72px] flex justify-around items-center px-4 bg-[#f9f9f9] dark:bg-zinc-900 border-t-2 border-brand-dark dark:border-zinc-800 z-40 select-none">
           {/* Goal progress tab (Progresso) - FIRST OPTION */}
           <button
@@ -758,21 +846,6 @@ export default function App() {
           >
             <Package className="w-5 h-5 mb-0.5" />
             <span className="font-sans font-bold text-xs">Estoque</span>
-          </button>
-
-          {/* Gmail Central Tab - FIFTH OPTION */}
-          <button
-            onClick={() => {
-              setActiveTab("gmail");
-            }}
-            className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
-              activeTab === "gmail"
-                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
-            }`}
-          >
-            <Mail className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Gmail</span>
           </button>
         </nav>
       )}

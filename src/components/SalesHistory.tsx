@@ -30,8 +30,8 @@ export default function SalesHistory({ sales, onRemoveSale }: SalesHistoryProps)
       
       {/* Title */}
       <section className="py-2">
-        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand-dark dark:text-zinc-150">
-          Livro de Vendas
+        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+          Livro de Vendas 📖
         </h2>
         <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
           Histórico e detalhamento detalhado de todas as transações da sua loja.
@@ -97,10 +97,10 @@ export default function SalesHistory({ sales, onRemoveSale }: SalesHistoryProps)
                   <Calendar className="w-5 h-5 text-brand-muted dark:text-zinc-400" />
                 </div>
                 <div>
-                  <h4 className="font-display font-extrabold text-sm md:text-base text-brand-dark dark:text-zinc-150">
+                  <h4 className="font-display font-black text-sm text-white bg-zinc-900 border-2 border-brand-dark rounded-lg inline-block px-2.5 py-1 shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] uppercase tracking-wide">
                     {sale.itemDescription}
                   </h4>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted dark:text-zinc-400 font-bold mt-1">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
                     <span>{sale.date} às {sale.time}</span>
                     <span>•</span>
                     <span className="bg-brand-gray dark:bg-zinc-850 px-2 py-0.5 rounded uppercase">{sale.quantity} unid.</span>
@@ -111,8 +111,8 @@ export default function SalesHistory({ sales, onRemoveSale }: SalesHistoryProps)
               {/* Right Column: Amount Value and helper action */}
               <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0 border-brand-gray/30 dark:border-zinc-800">
                 <div className="text-left sm:text-right">
-                  <span className="font-sans text-[11px] font-bold text-brand-muted dark:text-zinc-400 uppercase block">Valor Total</span>
-                  <span className="font-display font-extrabold text-base md:text-lg text-brand-dark dark:text-zinc-200">
+                  <span className="font-sans text-[10px] font-black text-white bg-orange-600 border-2 border-brand-dark rounded px-1.5 py-0.5 uppercase inline-block mb-1 shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">Valor Total</span>
+                  <span className="font-display font-black text-sm md:text-base text-white bg-zinc-900 border-2 border-brand-dark rounded-lg px-2.5 py-1 block shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
                     R$ {sale.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </span>
                 </div>

@@ -13,6 +13,19 @@ interface DashboardProps {
   onLockApp: () => void;
 }
 
+const SALES_TIPS = [
+  "Abra caixas de perguntas nos stories para descobrir o que seus clientes mais buscam!",
+  "Publique depoimentos de clientes satisfeitos nos seus destaques. Isso quebra objeções de compra instantaneamente.",
+  "A legenda ideal de um post de produto deve ter: O benefício, o preço claro e uma chamada para ação direta no direct.",
+  "Clientes preferem praticidade. Garanta que o link na sua bio leve direto para o seu WhatsApp com uma mensagem pronta.",
+  "Tire fotos de seus produtos sob luz natural próxima a uma janela. Fotos claras aumentam o desejo de compra em até 80%.",
+  "Mostre os bastidores da fabricação ou preparação do pedido. Pessoas compram de pessoas, mostre seu cuidado!",
+  "Crie urgência real: quando restarem poucas unidades de um item no estoque, avise nos stories para acelerar decisões.",
+  "Faça enquetes simples de escolha direta (ex: Produto A ou B) para reativar seguidores que não engajam há tempos.",
+  "Sua hora de maior volume de vendas é geralmente após as 14h ou 19h. Planeje seus posts perto desses horários!",
+  "Mande uma mensagem carinhosa de agradecimento no WhatsApp 3 dias após a entrega do produto para fidelizar e ter recompra."
+];
+
 export default function Dashboard({
   user,
   sales,
@@ -24,6 +37,20 @@ export default function Dashboard({
   onLockApp,
 }: DashboardProps) {
   
+  // Tip of the hour state (updates every hour)
+  const [currentTip, setCurrentTip] = useState(() => {
+    const hoursSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60));
+    return SALES_TIPS[hoursSinceEpoch % SALES_TIPS.length];
+  });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hoursSinceEpoch = Math.floor(Date.now() / (1000 * 60 * 60));
+      setCurrentTip(SALES_TIPS[hoursSinceEpoch % SALES_TIPS.length]);
+    }, 1000 * 30); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   // Security & Biometric states
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -141,8 +168,8 @@ export default function Dashboard({
     <div className="animate-fade-in space-y-6">
       {/* Welcome Greeting and Profile Context */}
       <section className="text-left py-2">
-        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand-dark dark:text-zinc-150">
-          Olá, {user.name}!
+        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+          Olá, {user.name}! 🌟
         </h2>
         <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
           Pronto para gerenciar seu negócio hoje?
@@ -208,7 +235,7 @@ export default function Dashboard({
         <div className="lg:col-span-3 bg-white dark:bg-zinc-900 p-6 rounded-xl border-2 border-brand-dark dark:border-zinc-800 text-left relative overflow-hidden flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(112,93,0,0.1)]">
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h4 className="font-display font-extrabold text-lg text-brand-dark dark:text-zinc-150">
+              <h4 className="font-display font-black text-sm text-white bg-zinc-900 px-3 py-1.5 border-2 border-brand-dark rounded-lg inline-flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] uppercase tracking-wide">
                 Visão de Vendas
               </h4>
               <span className="font-display font-bold text-sm text-[#fd8b00] bg-[#fd8b00]/10 px-3 py-1 rounded-full border border-[#fd8b00]/30 select-none">
@@ -304,13 +331,25 @@ export default function Dashboard({
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div className="mt-2">
-              <p className="font-display font-extrabold text-xs uppercase tracking-wide text-brand-dark dark:text-zinc-200 text-center">
-                Dica do Visu
+            <div className="mt-2 w-full">
+              <p className="font-display font-black text-xs uppercase tracking-wide text-brand-dark dark:text-zinc-200 text-center flex items-center justify-center gap-1.5 flex-wrap">
+                <span>💡 Dica do Visu</span>
+                <span className="text-[9px] font-sans font-black bg-brand-yellow border border-brand-dark px-1.5 py-0.5 rounded text-brand-dark animate-pulse uppercase">A cada 1h</span>
               </p>
-              <p className="font-sans text-xs font-bold text-brand-muted dark:text-zinc-400 leading-relaxed mt-1">
-                Sua hora de maior volume de vendas é às <span className="text-brand-orange">14h</span>. Concentre suas postagens neste horário!
-              </p>
+              <div className="bg-zinc-50 dark:bg-zinc-850 p-3 rounded-lg border-2 border-brand-dark dark:border-zinc-700 font-sans text-xs font-bold text-brand-muted dark:text-zinc-300 leading-relaxed mt-2.5 text-center min-h-[50px] flex items-center justify-center">
+                {currentTip}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentIndex = SALES_TIPS.indexOf(currentTip);
+                  const nextIndex = (currentIndex + 1) % SALES_TIPS.length;
+                  setCurrentTip(SALES_TIPS[nextIndex]);
+                }}
+                className="font-sans text-[10px] font-black uppercase text-brand-orange hover:text-[#ff9f26] hover:underline cursor-pointer inline-flex items-center gap-1 mt-3"
+              >
+                🔄 Ver outra dica agora
+              </button>
             </div>
           </div>
         </div>

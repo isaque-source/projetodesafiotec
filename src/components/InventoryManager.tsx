@@ -39,6 +39,15 @@ export default function InventoryManager({
 
   const categoriesList = ["Todos", "Artesanato", "Vestuário", "Serviços", "Alimentação", "Outro"];
 
+  const generateUniqueCode = (): string => {
+    const existingCodes = new Set(inventory.map((item) => item.code));
+    let code = "";
+    do {
+      code = Math.floor(1000 + Math.random() * 9000).toString();
+    } while (existingCodes.has(code));
+    return code;
+  };
+
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim() || !newItemPrice || !newItemQty || !newItemMinQty) {
@@ -48,6 +57,7 @@ export default function InventoryManager({
 
     const createdItem: InventoryItem = {
       id: `inv-${Date.now()}`,
+      code: generateUniqueCode(),
       name: newItemName,
       price: Math.max(0, parseFloat(newItemPrice) || 0),
       quantity: Math.max(0, parseInt(newItemQty) || 0),
@@ -73,8 +83,8 @@ export default function InventoryManager({
       {/* Page Title & Add New Action Trigger */}
       <section className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 py-2">
         <div>
-          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand-dark dark:text-zinc-150">
-            Controle de Estoque
+          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+            Controle de Estoque 📦
           </h2>
           <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
             Monitore a disponibilidade dos seus produtos e evite perder vendas.
@@ -136,15 +146,58 @@ export default function InventoryManager({
               />
             </div>
 
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Foto do Produto (Link de Imagem - opcional)</label>
-              <input
-                type="url"
-                value={newItemImageUrl}
-                onChange={(e) => setNewItemImageUrl(e.target.value)}
-                placeholder="Ex: https://images.unsplash.com/... ou deixe em branco"
-                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
-              />
+            <div className="flex flex-col gap-1 md:col-span-2 text-left">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Foto do Produto (Fazer Upload da Galeria/Computador)</label>
+              <div className="flex items-center gap-4 mt-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-850">
+                {newItemImageUrl ? (
+                  <div className="relative group shrink-0">
+                    <img 
+                      src={newItemImageUrl} 
+                      alt="Preview" 
+                      className="w-16 h-16 object-cover rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewItemImageUrl("")}
+                      className="absolute -top-1.5 -right-1.5 bg-red-650 hover:bg-red-700 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-brand-dark cursor-pointer"
+                      title="Remover foto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-zinc-400 bg-white dark:bg-zinc-800 flex items-center justify-center text-xl text-zinc-400 shrink-0">
+                    🖼️
+                  </div>
+                )}
+                <div className="flex-grow flex flex-col gap-1.5">
+                  <label 
+                    htmlFor="product-image-upload"
+                    className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-xs font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5"
+                  >
+                    <span>📂 Escolher Foto do Computador / Galeria</span>
+                  </label>
+                  <input
+                    type="file"
+                    id="product-image-upload"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          if (typeof reader.result === "string") {
+                            setNewItemImageUrl(reader.result);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <p className="text-[9px] text-zinc-550">Os arquivos serão convertidos offline para o seu histórico instantaneamente.</p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -253,9 +306,14 @@ export default function InventoryManager({
                 <div className="text-left">
                   <div className="flex gap-3 justify-between items-start mb-1">
                     <div className="flex-grow min-w-0 text-left">
-                      <h3 className="font-display font-extrabold text-base text-brand-dark dark:text-zinc-150 truncate pr-1" title={item.name}>
+                      <h3 className="font-display font-black text-sm text-white bg-zinc-900 dark:bg-zinc-800 px-3 py-1.5 border-2 border-brand-dark rounded-lg inline-block max-w-full truncate pr-1 mb-1.5 shadow-[2.5px_2.5px_0px_0px_rgba(253,139,0,1)]" title={item.name}>
                         {item.name}
                       </h3>
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span className="font-mono text-[10px] font-black bg-brand-yellow text-brand-dark border-2 border-brand-dark px-1.5 py-0.5 rounded shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">
+                          CÓDIGO: #{item.code || "S/C"}
+                        </span>
+                      </div>
                       <span className="inline-block mt-0.5 font-sans text-[10px] font-bold text-brand-muted dark:text-zinc-400 shrink-0 selection:bg-brand-yellow px-2 py-0.5 rounded-full border border-brand-gray/50 dark:border-zinc-700 uppercase">
                         {item.category}
                       </span>

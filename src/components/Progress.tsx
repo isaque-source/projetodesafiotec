@@ -12,7 +12,14 @@ import {
   MousePointer, 
   MessageCircle, 
   Info,
-  CheckCircle2
+  CheckCircle2,
+  Flame,
+  Zap,
+  CheckSquare,
+  Square,
+  Crown,
+  Trophy,
+  Star
 } from "lucide-react";
 import { Sale, Goal, User } from "../types";
 import { auth } from "../firebase";
@@ -28,6 +35,10 @@ interface ProgressProps {
   sales: Sale[];
   goal: Goal;
   onOpenAdjustGoal: () => void;
+  points: number;
+  setPoints: (p: number) => void;
+  streak: number;
+  setStreak: (s: number) => void;
 }
 
 interface LearningTask {
@@ -45,87 +56,163 @@ const INSTAGRAM_TASKS: LearningTask[] = [
     id: 0,
     moduleIndex: 1,
     moduleName: "Módulo 1: Vitrine Atraente",
-    title: "1. Bio Magnética com Frase de Impacto",
-    description: "Defina uma proposta de valor clara em até 150 caracteres para prender o visitante em 3 segundos.",
-    instructions: "Sua biografia precisa responder de imediato: O que você vende? Para quem? E qual o diferencial prático do seu negócio? Crie uma frase de impacto direta (Ex: 'Transformamos cerâmica bruta em vasos que contam histórias'). Evite biografias genéricas ou vazias.",
-    example: "Exemplo: \"🏺 Vasos de cerâmica artesanal esmaltados à mão para decorar com alma. 📦 Enviamos para todo Brasil | Faça seu pedido abaixo 👇\""
+    title: "1. Foto de Perfil Clara e Pró-vendas",
+    description: "Escolha uma foto de perfil nítida e profissional para gerar confiança imediata.",
+    instructions: "Para começar de forma super fácil, cuide do seu avatar. Escolha uma foto com boa iluminação onde seu rosto (ou a logo da sua marca) apareça nítido, sem cortes difíceis ou fundos bagunçados.",
+    example: "Exemplo: \"Fiquei de frente para a janela, tirei uma foto sorrindo e usei um fundo neutro e bem iluminado!\""
   },
   {
     id: 1,
     moduleIndex: 1,
     moduleName: "Módulo 1: Vitrine Atraente",
-    title: "2. Configurar o seu Link Inteligente",
-    description: "Ofereça um caminho simples para o visitante comprar de você sem atritos.",
-    instructions: "Configure um link profissional que leve diretamente ao catálogo de produtos, WhatsApp de atendimento ou página de vendas direta. Se usar uma árvore de links (ex: Linktree), deixe apenas os 2 de maior conversão operacionais.",
-    example: "Exemplo de resposta: \"Configurei meu WhatsApp business com saudação automática no Linktree e o link do nosso formulário de pedidos de cerâmica. testado e funcionando.\""
+    title: "2. Nome de Perfil Limpo e Legível",
+    description: "Deixe seu nome fácil de ler, sem segredos ou caracteres complexos.",
+    instructions: "Seu nome no perfil (arroba) e seu nome de exibição devem ser fáceis de buscar. Escreva seu primeiro nome + o seu nicho (ex: 'João | Artesanato' ou 'Ana | Ateliê de Doces'). Evite usar muitos underline (_) ou números.",
+    example: "Exemplo: \"Atualizei meu nome para 'João | Cerâmica Artesanal' para facilitar as buscas dos clientes na lupa do app.\""
   },
   {
     id: 2,
     moduleIndex: 1,
     moduleName: "Módulo 1: Vitrine Atraente",
-    title: "3. Criar os Três Destaques Estratégicos",
-    description: "Arrume as gavetas da sua loja para responder as principais objeções de compra automaticamente.",
-    instructions: "O visitante precisa de segurança antes de transferir qualquer valor ou fechar compra. Crie estas três categorias de Destaques: 'Quem Somos' (mostrando bastidores do fabrico), 'Clientes Satisfeitos / Depoimentos' (prova social) e 'Como Comprar / Catálogo' (perguntas frequentes explicadas).",
-    example: "Exemplo de resposta: \"Fiz capas minimalistas em tons terrosos para os 3 destaques estratégicos explicativos. Já fixei os depoimentos de 4 clientes reais de cerâmica!\""
+    title: "3. Uma Frase Simples de Biografia",
+    description: "Escreva em uma linha rápida o principal benefício que seu produto oferece.",
+    instructions: "Crie uma frase curta explicando o que você vende e para quem. Pense simples: 'Fazendo peças em argila modeladas à mão para decorar seu lar com afeto'. Evite usar textos longos ou poéticos demais nesta fase.",
+    example: "Exemplo: \"Minha nova biografia: 'Vasos cerâmicos artesanais feitos à mão para decorar seu cantinho favorito com afeto. 👇'\""
   },
   {
     id: 3,
     moduleIndex: 2,
     moduleName: "Módulo 2: O Conteúdo Ímã",
-    title: "4. Roteirizar um Reels com Gancho de 3 segundos",
-    description: "Escreva um roteiro rápido que chame a atenção de quem rola o Reels sem tempo a perder.",
-    instructions: "Para o Instagram distribuir seu vídeo, o visualizador precisa ficar pelo menos 3 segundos. Crie um gancho de abertura dramático focado em uma curiosidade ou dor comum do seu cliente do nicho de varejo e finalize com uma chamada para ação clara.",
-    example: "Exemplo de roteiro: \"Cena 1 (0-3s): 'O maior erro que as pessoas cometem ao decorar estantes pequenas...' (mostrando imagem errada e certa). Cena 2 (3-12s): Bastidores pintando o vaso de cerâmica. Cena 3 (12-15s): 'Se gostou deixe seu link! Clique no perfil para conhecer.'\""
+    title: "4. Registrar o seu Link do WhatsApp",
+    description: "Dê um caminho direto para o visitante falar com você.",
+    instructions: "Não deixe o cliente procurando como comprar. Crie um link rápido usando o gerador de links (wa.me/seunúmero) e coloque-o na seção de Links ao clicar em 'Editar Perfil'.",
+    example: "Exemplo: \"Configurei o link direto para o meu WhatsApp de atendimento. Agora, o botão de compra funciona perfeitamente!\""
   },
   {
     id: 4,
     moduleIndex: 2,
     moduleName: "Módulo 2: O Conteúdo Ímã",
-    title: "5. Carrossel Técnico Solucionando uma Dor Comum",
-    description: "Crie um post em carrossel que incentive o salvamento e compartilhamento organicamente.",
-    instructions: "Posts salvos impulsionam sua conta! Desenhe uma sequência de 4 imagens em carrossel. Imagem 1: O tema instigante. Imagem 2: O problema do cliente. Imagem 3: A solução prática usando um de seus produtos de estoque de catálogo. Imagem 4: CTA para salvar ou comentar abaixo.",
-    example: "Exemplo de conteúdo: \"Carrossel 'Como saber se o tamanho do vaso combina com sua mesa'. Slide 1: 'Evite vasos menores'. Slide 2: Comparativo de proporções. Slide 3: Apresentando o Vaso de Cerâmica Grande. Slide 4: 'Salve para não esquecer!'\""
+    title: "5. Organizar seu Primeiro Destaque",
+    description: "Crie a pasta de destaque 'Como Comprar' para explicar o básico aos visitantes.",
+    instructions: "Crie um destaque nos seus stories explicando suas formas de pagamento aceitas (Pix, Cartão, etc.) e sua região ou taxa de entrega. Salve nos destaques do perfil com o título 'Como Comprar'.",
+    example: "Exemplo: \"Organizei um story explicativo com foto bonita exibindo o frete da cidade e formas de checkout!\""
   },
   {
     id: 5,
     moduleIndex: 3,
     moduleName: "Módulo 3: Conexão Diária",
-    title: "6. Stories Narrativos através de Gancho + Dor + Oferta",
-    description: "Gere desejo imediato em 4 frames cronológicos de stories nos bastidores diários.",
-    instructions: "Configure uma sequência de 4 stories. 1º Story: Gancho inquietante (ex: caixa de enquetes sobre dúvidas comuns). 2º Story: Explicação da dor que atormenta o público. 3º Story: A solução exclusiva com seu portfólio. 4º Story: Uma CTA direta convidando a mandar mensagem no direct com um cupom rápido.",
-    example: "Exemplo de sequência enviada: \"Story 1: Foto bonita de manhã 'Sua mesa de trabalho também farta de desorganização?'. Story 2: 'Eu sofria muito tentando achar pincéis...'. Story 3: Foto do nosso Kit de Pincéis Profissionais. Story 4: 'Mande DIRECT querendo o cupom! APENAS 5 UNIDADES DISPONÍVEIS.'\""
+    title: "6. Uma Foto nos Stories mostrando os Bastidores",
+    description: "Mostre um pequeno momento da produção ou preparando um pedido de estoque.",
+    instructions: "Não é preciso vídeo elaborado! Tire uma foto limpa do seu espaço de trabalho, do forno, ou da embalagem prontinha de um cliente, de preferência em luz natural. Poste nos Stories com legenda simples.",
+    example: "Exemplo: \"Tirei foto da peça que acabei de embalar com um recado de carinho escrito à mão e postei desejando excelente dia!\""
   },
   {
     id: 6,
     moduleIndex: 3,
     moduleName: "Módulo 3: Conexão Diária",
-    title: "7. Usar Três Adesivos de Interação Estratégicos",
-    description: "Melhore drasticamente seu alcance provocando interações fáceis de votar nos stories.",
-    instructions: "O algoritmo premia stories com alta taxa de cliques. Crie stories usando enquetes curtas de 2 opções, uma caixa de perguntas descontraída e uma barra de energia/termômetro avaliativo sobre suas novas mercadorias para reaquecer espectadores frios.",
-    example: "Exemplo: \"Publiquei 3 stories. Primeiro: Enquete de escolha entre Vaso Terracota vs Vaso Esmaltado. Segundo: Slide bar medindo intensidade de decoração. Terceiro: Caixinha 'Qual produto de artesanato falta na sua estante hoje?'\""
+    title: "7. Usar o Adesivo de Enquete para Interagir",
+    description: "Poste uma enquete simples para engajar o público com facilidade na escolha.",
+    instructions: "Tire uma foto de dois produtos diferentes (ex: cores diferentes) e adicione o adesivo de Enquete nos Stories perguntando: 'Qual se parece mais com você? Opção A ou Opção B?'. Cliques nas enquetes aumentam a distribuição orgânica.",
+    example: "Exemplo: \"Coloquei fotos do Vaso Terracota e do Vaso Branco com os dizeres: 'Qual deles decora melhor a sala no frio?'. Os clientes amaram reagir!\""
   },
   {
     id: 7,
     moduleIndex: 4,
     moduleName: "Módulo 4: Conversão em Vendas",
-    title: "8. Configurar Saudação e Automação no Direct",
-    description: "Evite deixar possíveis clientes no vácuo estabelecendo atalhos de resposta rápida.",
-    instructions: "A velocidade de resposta fecha 70% das vendas. No menu de Configurações do seu Instagram no celular, configure uma 'Mensagem de Saudação automatizada' clara e atalhos rápidos de teclado/respostas pré-definidas para preço de produtos, frete ou formas de envio estarem a um clique.",
-    example: "Exemplo de fluxo configurado: \"Assim que a pessoa inicia o chat: 'Olá! Sou o João do Ateliê. Deseja conferir o catálogo de vasos ou falar com vendedor? Escolha 1 ou 2.' Atalho rápido '/preco' cadastrado com a listagem detalhada dos estoques.\""
+    title: "8. Publicar uma Dica Útil no Feed",
+    description: "Dê uma orientação fácil de como conservar ou limpar seu produto.",
+    instructions: "Aproveite para criar autoridade dando um conselho que o seu cliente do dia-a-dia valoriza. Por exemplo: 'Como limpar vasos esmaltados sem arranhar' ou 'Qual planta combina mais com vasos pequenos'. Estimule os visitantes a salvarem o post.",
+    example: "Exemplo: \"Postei as '3 dicas simples para suas plantas viverem mais em recipientes cerâmicos' e tive meus primeiros salvamentos!\""
   },
   {
     id: 8,
     moduleIndex: 4,
     moduleName: "Módulo 4: Conversão em Vendas",
-    title: "9. Script Avançado de Fechamento em 5 Leads Frias",
-    description: "Aborde de forma educada e ativa clientes frios que já interagiram com você, convertendo-os em vendas recorrentes.",
-    instructions: "Abra sua caixa de mensagens antigas de pessoas que mandaram direct perguntando preço mas sumiram. Use este roteiro adaptado: 'Olá [Nome], tudo bem? Lembrei de ti porque nos chegou uma unidade do vaso em estoque hoje e quis te garantir exclusividade e frete especial de retorno. Quer batermos um papo rápido?'",
-    example: "Exemplo de resultado enviado: \"Enviei para 6 clientes que sumiram semana passada. 2 responderam educadamente agendando, e 1 já finalizou o pix de um Vaso Esmaltado de R$ 85! Funciona demais!\""
+    title: "9. Criar um Atalho de Resposta Rápida",
+    description: "Configure uma resposta prévia de atendimento no Direct para agilizar suas vendas.",
+    instructions: "Em Configurações no Instagram, selecione Respostas Rápidas/Atalhos de Teclado. Salve uma resposta gentil que informe os preços padrão e formas de contato quando digitado um atalho curto como '/preco' ou '/catalogo'.",
+    example: "Exemplo: \"Criei o atalho '/catalogo' que autopreenche uma saudação super fofa com o arquivo PDF dos vasos e cupom de frete para o WhatsApp!\""
   }
 ];
 
-export default function Progress({ sales, goal, onOpenAdjustGoal }: ProgressProps) {
+export default function Progress({ sales, goal, onOpenAdjustGoal, points, setPoints, streak, setStreak }: ProgressProps) {
   const [activeSubTab, setActiveSubTab] = useState<"metas" | "trilha">("trilha"); // Default to TRILHA following user requirements
+
+  // -------------------------------------------------------------
+  // DAILY MODULES & GAME POINTS STATE
+  // -------------------------------------------------------------
+
+  const [dailyMissions, setDailyMissions] = useState<Array<{ id: number; moduleName: string; title: string; points: number; completed: boolean }>>(() => {
+    try {
+      const saved = localStorage.getItem("visu_gamified_missions");
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return [
+      { id: 1, moduleName: "Módulo 1: Vitrine", title: "Refinar a Proposta de Valor da Bio do Instagram", points: 150, completed: false },
+      { id: 2, moduleName: "Módulo 2: Conteúdo", title: "Pesquisar 3 referências de Reels para seu nicho", points: 100, completed: false },
+      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete ativa de preferência de produto", points: 120, completed: false },
+      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false }
+    ];
+  });
+
+  const [pointsToast, setPointsToast] = useState<{ show: boolean; msg: string; pts: number } | null>(null);
+
+  // Helper trigger to add/deduct points and save
+  const handleToggleMission = (id: number) => {
+    const updated = dailyMissions.map(m => {
+      if (m.id === id) {
+        const nextCompleted = !m.completed;
+        if (nextCompleted) {
+          // Gained! Show a nice toast banner
+          setPointsToast({
+            show: true,
+            msg: `Parabéns! Concluiu: ${m.title}`,
+            pts: m.points
+          });
+          setTimeout(() => setPointsToast(null), 3000);
+          
+          const newPoints = points + m.points;
+          // Randomly active multiplier on streak
+          const bonusStreak = Math.random() > 0.7 ? streak + 1 : streak;
+          localStorage.setItem("visu_gamified_points", newPoints.toString());
+          localStorage.setItem("visu_gamified_streak", bonusStreak.toString());
+          setPoints(newPoints);
+          setStreak(bonusStreak);
+        } else {
+          // Reverted
+          const newPoints = Math.max(0, points - m.points);
+          localStorage.setItem("visu_gamified_points", newPoints.toString());
+          setPoints(newPoints);
+        }
+        return { ...m, completed: nextCompleted };
+      }
+      return m;
+    });
+    setDailyMissions(updated);
+    localStorage.setItem("visu_gamified_missions", JSON.stringify(updated));
+  };
+
+  const handleSimulateNewDay = () => {
+    // Uncheck and give daily bonus!
+    const updated = dailyMissions.map(m => ({ ...m, completed: false }));
+    const newStreak = streak + 1;
+    const bonus = 50;
+    const newPoints = points + bonus;
+    
+    setPointsToast({
+      show: true,
+      msg: "Novo dia marcado! Bônus de Login diário recebido!",
+      pts: bonus
+    });
+    setTimeout(() => setPointsToast(null), 3000);
+    
+    localStorage.setItem("visu_gamified_points", newPoints.toString());
+    localStorage.setItem("visu_gamified_streak", newStreak.toString());
+    localStorage.setItem("visu_gamified_missions", JSON.stringify(updated));
+    setPoints(newPoints);
+    setStreak(newStreak);
+    setDailyMissions(updated);
+  };
 
   // -------------------------------------------------------------
   // TRILHA STATE - Simulated local progress saved in localStorage
@@ -272,6 +359,22 @@ export default function Progress({ sales, goal, onOpenAdjustGoal }: ProgressProp
       }
       setCurrentTaskIndex(nextIndex);
 
+      // Reward points & streak update
+      const earned = 250;
+      const nextPoints = points + earned;
+      const nextStreak = streak + 1;
+      setPoints(nextPoints);
+      setStreak(nextStreak);
+      localStorage.setItem("visu_gamified_points", nextPoints.toString());
+      localStorage.setItem("visu_gamified_streak", nextStreak.toString());
+
+      setPointsToast({
+        show: true,
+        msg: `Trilha Completa: Módulo concluído com maestria! 🎉`,
+        pts: earned
+      });
+      setTimeout(() => setPointsToast(null), 3000);
+
       // Save to Firebase or fallback of LocalStorage
       if (auth.currentUser) {
         const uid = auth.currentUser.uid;
@@ -334,6 +437,22 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
         nextIndex = 9;
       }
       setCurrentTaskIndex(nextIndex);
+
+      // Reward points & streak update in offline simulation mode too
+      const earnedSim = 250;
+      const nextPointsSim = points + earnedSim;
+      const nextStreakSim = streak + 1;
+      setPoints(nextPointsSim);
+      setStreak(nextStreakSim);
+      localStorage.setItem("visu_gamified_points", nextPointsSim.toString());
+      localStorage.setItem("visu_gamified_streak", nextStreakSim.toString());
+
+      setPointsToast({
+        show: true,
+        msg: `Trilha Completa: Módulo concluído na Simulação! 🚀`,
+        pts: earnedSim
+      });
+      setTimeout(() => setPointsToast(null), 3500);
 
       // Save to Firebase or fallback of LocalStorage
       if (auth.currentUser) {
@@ -435,8 +554,8 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
       {/* Page Title & Navigation Subtabs */}
       <section className="flex flex-col md:flex-row md:items-center md:justify-between border-b-2 border-brand-dark dark:border-zinc-800 pb-4 gap-4">
         <div className="text-left">
-          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand-dark dark:text-zinc-150 flex items-center gap-2">
-            Meu Progresso <TrendingUp className="w-6 h-6 text-brand-primary" />
+          <h2 style={{ borderColor: "#f0f0f0" }} className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+            Meu Progresso <TrendingUp className="w-6 h-6 text-brand-yellow" />
           </h2>
           <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
             Gerencie suas metas de vendas e acelere seu Instagram com trilhas gamificadas de aprendizagem.
@@ -474,9 +593,178 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
       {/* -------------------------------------------------------------
           SUB-TAB: GAMIFIED INSTAGRAM ROADMAP
           ------------------------------------------------------------- */}
+      {/* -------------------------------------------------------------
+          SUB-TAB: GAMIFIED INSTAGRAM ROADMAP
+          ------------------------------------------------------------- */}
       {activeSubTab === "trilha" && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 animate-fade-in select-none">
           
+          {/* FLOATING REWARD ACCUMULATION TOAST */}
+          {pointsToast && (
+            <div className="fixed top-24 right-4 z-50 bg-[#ffd700] text-brand-dark border-4 border-brand-dark rounded-xl px-5 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] animate-bounce text-left flex items-center gap-3">
+              <div className="w-10 h-10 bg-white border-2 border-brand-dark rounded-full flex items-center justify-center font-black animate-spin text-lg">
+                🔥
+              </div>
+              <div>
+                <p className="font-display font-extrabold text-sm">{pointsToast.msg}</p>
+                <p className="font-sans font-bold text-xs">Você ganhou <span className="text-brand-orange font-extrabold">+{pointsToast.pts} PTS</span> d'O Visu! 🌟</p>
+              </div>
+            </div>
+          )}
+
+          {/* CLÃ VISU POINTS & PROGRESSION HERO PANEL */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* LEVEL & POINTS CARD */}
+            <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between group relative overflow-hidden">
+              <div className="absolute right-[-10px] top-[-10px] opacity-10 font-black text-6xl group-hover:scale-125 transition-transform select-none">
+                🏆
+              </div>
+              
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#ffd700] text-brand-dark text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-brand-dark">
+                    Nível {Math.floor(points / 500) + 1}
+                  </span>
+                  <span className="text-brand-orange font-bold text-xs flex items-center gap-1">
+                    <Trophy className="w-3.5 h-3.5" />
+                    {points < 500 ? "Bronze I 🥉" : points < 1000 ? "Bronze II 🥉" : points < 1500 ? "Prata I 🥈" : points < 2000 ? "Prata II 🥈" : "Ouro I 🥇"}
+                  </span>
+                </div>
+                
+                <h4 className="font-display font-black text-brand-dark dark:text-zinc-100 text-3xl mt-3 flex items-baseline gap-1.5">
+                  {points} <span className="text-sm font-bold text-brand-muted dark:text-zinc-400">PTS</span>
+                </h4>
+                
+                <span className="text-xs font-bold text-brand-muted dark:text-zinc-400 mt-1 block">
+                  Faltam {500 - (points % 500)} pontos para o próximo Nível!
+                </span>
+              </div>
+
+              {/* Progress bar to next level */}
+              <div className="mt-4">
+                <div className="w-full bg-brand-gray dark:bg-zinc-800 h-4 border-2 border-brand-dark dark:border-zinc-700 rounded-lg overflow-hidden relative">
+                  <div 
+                    style={{ width: `${((points % 500) / 500) * 100}%` }}
+                    className="bg-[#fd8b00] h-full rounded-l-sm transition-all duration-700" 
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-brand-dark dark:text-zinc-200">
+                    {Math.round(((points % 500) / 500) * 100)}% CONCLUÍDO
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* STREAK & COMBO PANEL */}
+            <div className="bg-[#fd8b00]/10 dark:bg-zinc-900 border-2 border-[#fd8b00] dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(253,139,0,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-widest text-[#fd8b00] flex items-center gap-1">
+                  <Flame className="w-4 h-4 animate-pulse text-[#fd8b00]" />
+                  Ofensiva de Estudos
+                </span>
+                <span className="bg-[#fd8b00] text-brand-dark text-xs font-black px-2 py-0.5 rounded-md border border-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                  {streak} DIAS SEGUIDOS
+                </span>
+              </div>
+              
+              <div className="my-3">
+                <p className="text-xs font-bold text-brand-dark dark:text-zinc-300 leading-tight">
+                  Sua constância gera <span className="text-[#fd8b00] font-black">X2 de engajamento</span> simulado na Trilha do Instagram. Mantenha os módulos em dia!
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 mt-2">
+                {[...Array(5)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`h-5 w-full border-2 border-brand-dark rounded-md flex items-center justify-center text-[10px] font-black ${
+                      i < streak % 5 || (streak > 0 && i === 4)
+                        ? "bg-[#fd8b00] text-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" 
+                        : "bg-brand-gray dark:bg-zinc-800 text-brand-muted dark:text-zinc-500"
+                    }`}
+                  >
+                    Dia {i + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SIMULATION ENGINE / ACTION CARD */}
+            <div className="bg-[#ffd700]/10 dark:bg-zinc-900 border-2 border-[#ffd700] dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(255,215,0,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-widest text-[#fd8b00] flex items-center gap-1">
+                  <Zap className="w-4 h-4 text-[#fd8b00]" />
+                  Simular Novo Dia
+                </span>
+                <p className="text-xs font-bold text-brand-muted dark:text-zinc-400 mt-2">
+                  Deseja testar a rotina de hoje novamente para ganhar mais pontos? Clique abaixo para marcar um novo dia e resetar as missões diárias!
+                </p>
+              </div>
+
+              <button
+                onClick={handleSimulateNewDay}
+                className="mt-4 bg-[#ffd700] hover:bg-[#ffe23d] text-brand-dark font-display font-extrabold text-xs py-2 px-4 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] border-2 border-brand-dark rounded-xl transition-all w-full cursor-pointer"
+              >
+                🔄 SIMULAR NOVO DIA (+50 PTS)
+              </button>
+            </div>
+          </div>
+
+          {/* MISSÕES DIÁRIAS / CHECKPOINTS CARD */}
+          <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-700 rounded-2xl p-6 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-[4px_4px_0px_0px_#ffd700] text-left space-y-4">
+            <div className="flex items-center justify-between border-b border-brand-muted/20 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-brand-orange" />
+                <h3 className="font-display font-black text-brand-dark dark:text-zinc-100 text-lg">
+                  Módulos e Missões Diárias de Vendas
+                </h3>
+              </div>
+              <span className="text-xs font-extrabold text-brand-muted dark:text-zinc-400">
+                {dailyMissions.filter(m => m.completed).length} de {dailyMissions.length} Missões completas
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dailyMissions.map((mission) => (
+                <div 
+                  key={mission.id}
+                  onClick={() => handleToggleMission(mission.id)}
+                  className={`border-2 rounded-xl p-4 cursor-pointer flex items-center justify-between gap-3 transition-all ${
+                    mission.completed 
+                      ? "bg-[#fd8b00]/10 border-[#fd8b00] dark:border-[#fd8b00] shadow-[2px_2px_0px_0px_rgba(253,139,0,0.5)] scale-[1.01]"
+                      : "bg-[#fafafa] dark:bg-zinc-800 hover:bg-white dark:hover:bg-zinc-850 border-brand-dark dark:border-zinc-700 hover:-translate-y-0.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <button className="mt-0.5 text-brand-orange-light transition-transform active:scale-95 flex-shrink-0">
+                      {mission.completed ? (
+                        <Check className="w-6 h-6 text-[#fd8b00] border-2 border-[#fd8b00] rounded-lg bg-white dark:bg-zinc-900" />
+                      ) : (
+                        <div className="w-6 h-6 border-2 border-brand-dark dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-900" />
+                      )}
+                    </button>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-brand-muted dark:text-[#fd8b00]">
+                        {mission.moduleName}
+                      </span>
+                      <h4 className="font-sans font-extrabold text-xs text-brand-dark dark:text-zinc-100 leading-tight mt-0.5">
+                        {mission.title}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <span className={`text-[11px] font-black px-2 py-1 rounded-md border flex-shrink-0 ${
+                    mission.completed
+                      ? "bg-[#fd8b00] text-brand-dark border-brand-dark font-black"
+                      : "bg-[#f1f1f1] dark:bg-zinc-800 text-brand-muted dark:text-zinc-300 border-brand-dark dark:border-zinc-700"
+                  }`}>
+                    +{mission.points} PTS
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Welcome & Custom Niche banner */}
           <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-800 rounded-2xl p-6 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left space-y-4">
             <div className="flex items-start md:items-center gap-3">
@@ -563,7 +851,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
                   <MousePointer className="w-3.5 h-3.5 text-blue-600" />
                   Cliques no Link
                 </span>
-                <span className="font-display font-black text-lg md:text-2xl text-brand-dark dark:text-zinc-100 mt-1">
+                <span className="font-display font-black text-lg md:text-2xl text-white bg-zinc-900 border-2 border-brand-dark rounded-lg mt-1 inline-block self-start px-2 py-0.5 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
                   {instaMetrics.linkClicks}
                 </span>
                 <span className="text-[10px] text-green-600 dark:text-green-400 font-extrabold mt-1">
@@ -579,7 +867,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
             
             {/* Left/Middle Column: Timeline of steps */}
             <div className="lg:col-span-2 space-y-4">
-              <h4 className="font-display font-black text-sm text-brand-dark dark:text-zinc-150 tracking-wide text-left mb-2">
+              <h4 style={{ borderColor: "#f2f7f7" }} className="font-display font-black text-sm text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-1.5 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] mb-4">
                 🗺️ Trilha de Aprendizagem Passo a Passo
               </h4>
 

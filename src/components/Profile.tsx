@@ -354,23 +354,52 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
               </div>
             </div>
 
-            {/* Profile Picture Web URL Input */}
-            <div className="flex flex-col gap-1">
-              <label className="font-sans font-bold text-xs text-brand-dark dark:text-zinc-300 uppercase tracking-wide" htmlFor="prof_photo">
-                URL da Foto de Perfil
+            {/* Profile Picture Upload Input */}
+            <div className="flex flex-col gap-1 text-left">
+              <label className="font-sans font-bold text-xs text-brand-dark dark:text-zinc-300 uppercase tracking-wide">
+                Foto de Perfil (Fazer Upload da Galeria / Computador)
               </label>
-              <div className="relative">
-                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted w-4 h-4 border border-[#e6b926] bg-[#e42222]" />
-                <input
-                  className="w-full h-10 pl-9 pr-4 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-800 dark:text-white font-sans text-sm rounded-lg focus:outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40"
-                  id="prof_photo"
-                  type="url"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="Ex: https://imagens.com/minha-foto.jpg"
-                />
+              <div className="flex items-center gap-4 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-850">
+                <div className="relative shrink-0 w-12 h-12 rounded-full border-2 border-brand-dark overflow-hidden bg-brand-gray flex items-center justify-center">
+                  {photoUrl ? (
+                    <img 
+                      src={photoUrl} 
+                      alt="Mini Preview" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <UserIcon className="w-5 h-5 text-brand-muted" />
+                  )}
+                </div>
+                <div className="flex-grow flex flex-col gap-1">
+                  <label 
+                    htmlFor="prof-photo-upload"
+                    className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[11px] font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5"
+                  >
+                    <span>📂 Escolher Foto de Perfil</span>
+                  </label>
+                  <input
+                    type="file"
+                    id="prof-photo-upload"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          if (typeof reader.result === "string") {
+                            setPhotoUrl(reader.result);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <span className="text-[9px] text-zinc-500 font-sans">Selecione uma imagem do seu dispositivo</span>
+                </div>
               </div>
-              <p className="text-[10px] text-brand-muted dark:text-zinc-400 font-sans font-semibold italic">Cole um link web direto válido de imagem para personalizar.</p>
             </div>
 
             {/* Action Buttons */}

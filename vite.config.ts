@@ -13,10 +13,14 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    strictPort: true, // Prevent port conflicts by failing-fast if 3000 is occupied
-    // Disable HMR WebSocket connection attempts completely in the sandboxed reverse-proxy to avoid 'Upgrade Required' issues
-    hmr: false,
-    // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
+    strictPort: true, 
+    
+    // Configuração corrigida para ambientes Cloud/Sandbox
+    hmr: {
+      protocol: 'wss',     // Força o uso de WebSocket Seguro
+      clientPort: 443      // Faz o HMR passar pelo túnel do Proxy do seu ambiente
+    },
+    
     watch: process.env.DISABLE_HMR === 'true' ? null : {
       usePolling: true,
       interval: 100,

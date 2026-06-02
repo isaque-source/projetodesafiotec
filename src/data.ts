@@ -11,6 +11,7 @@ export const SEED_USER: User = {
 export const SEED_INVENTORY: InventoryItem[] = [
   {
     id: "inv-1",
+    code: "1001",
     name: "Vaso de Cerâmica Esmaltado",
     quantity: 2,
     minQuantity: 5,
@@ -19,6 +20,7 @@ export const SEED_INVENTORY: InventoryItem[] = [
   },
   {
     id: "inv-2",
+    code: "1002",
     name: "Avental de Linho Regulável",
     quantity: 1,
     minQuantity: 4,
@@ -27,6 +29,7 @@ export const SEED_INVENTORY: InventoryItem[] = [
   },
   {
     id: "inv-3",
+    code: "1003",
     name: "Kit de Pincéis Profissionais",
     quantity: 0,
     minQuantity: 3,
@@ -35,6 +38,7 @@ export const SEED_INVENTORY: InventoryItem[] = [
   },
   {
     id: "inv-4",
+    code: "1004",
     name: "Bolo de Cenoura Inteiro",
     quantity: 12,
     minQuantity: 5,
@@ -43,6 +47,7 @@ export const SEED_INVENTORY: InventoryItem[] = [
   },
   {
     id: "inv-5",
+    code: "1005",
     name: "Caneca de Porcelana Pintada",
     quantity: 15,
     minQuantity: 10,
@@ -51,6 +56,7 @@ export const SEED_INVENTORY: InventoryItem[] = [
   },
   {
     id: "inv-6",
+    code: "1006",
     name: "Consultoria de Vitrinismo",
     quantity: 8,
     minQuantity: 2,
