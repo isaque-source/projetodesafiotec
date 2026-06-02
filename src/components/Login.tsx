@@ -299,17 +299,6 @@ export default function Login({
                 </button>
               </div>
             </form>
-
-            {/* Offline Test Mode Footer helper */}
-            <div className="text-center pt-2">
-              <button
-                type="button"
-                onClick={handleOfflineDirectLogin}
-                className="text-[10px] text-zinc-400 hover:text-brand-orange font-bold uppercase tracking-wider underline transition-colors cursor-pointer"
-              >
-                Entrar no modo local offline de teste rápido
-              </button>
-            </div>
           </div>
         )}
       </main>

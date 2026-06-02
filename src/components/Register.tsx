@@ -53,7 +53,7 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
     // Store passcode & settings
     try {
-      localStorage.setItem("visu_local_password", password || "123456");
+      localStorage.setItem("visu_local_password", password);
       localStorage.setItem("visu_always_require_password", "true");
       sessionStorage.setItem("visu_session_unlocked", "true");
     } catch (e) {

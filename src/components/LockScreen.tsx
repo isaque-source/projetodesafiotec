@@ -51,8 +51,12 @@ export default function LockScreen({ onUnlock, userEmail, storeName }: LockScree
     const savedAppPassword = localStorage.getItem("visu_app_password");
     const savedLocalPassword = localStorage.getItem("visu_local_password");
 
-    // We check both local state password or the user-defined fallback
-    const correctPassword = savedAppPassword || savedLocalPassword || "123456";
+    const correctPassword = savedAppPassword || savedLocalPassword;
+
+    if (!correctPassword) {
+      setErrorMsg("Nenhuma senha configurada no dispositivo. Acesse sua conta com suas credenciais.");
+      return;
+    }
 
     if (password === correctPassword) {
       triggerUnlockSuccess();
