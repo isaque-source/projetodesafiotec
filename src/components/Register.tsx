@@ -130,8 +130,8 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         setErrorMessage("Por favor, defina uma senha de acesso.");
         return;
       }
-      if (!/^\d{6}$/.test(password)) {
-        setErrorMessage("A senha de acesso deve conter exatamente 6 dígitos numéricos (somente números).");
+      if (!/^\d{6,}$/.test(password)) {
+        setErrorMessage("A senha de acesso deve conter pelo menos 6 dígitos numéricos (somente números).");
         return;
       }
       setStep(2);
@@ -333,18 +333,18 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
               <div className="flex flex-col gap-1 text-left">
                 <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_password">
-                  Defina sua Senha de Acesso (Exatamente 6 dígitos)
+                  Defina sua Senha de Acesso (Mínimo 6 dígitos)
                 </label>
                 <input
                   className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c]"
                   id="register_password"
                   type="password"
-                  placeholder="Ex: 123456 (6 dígitos)"
+                  placeholder="Ex: 123456 (Mínimo 6 dígitos)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, ""))}
                   required
                 />
-                <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha de 6 dígitos numéricos para entrar no app e proteger seus dados comerciais.</p>
+                <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha de pelo menos 6 dígitos numéricos para entrar no app e proteger seus dados comerciais.</p>
               </div>
 
               <div className="flex flex-col gap-1 text-left">

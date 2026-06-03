@@ -135,8 +135,8 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
       setErrorMessage("Por favor, informe a nova senha.");
       return;
     }
-    if (!/^\d{6}$/.test(newPassword)) {
-      setErrorMessage("A senha de acesso criada deve conter exatamente 6 dígitos numéricos (somente números).");
+    if (!/^\d{6,}$/.test(newPassword)) {
+      setErrorMessage("A senha de acesso criada deve conter pelo menos 6 dígitos numéricos (somente números).");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -471,7 +471,7 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                   {/* Password field */}
                   <div className="flex flex-col gap-1">
                     <label className="font-sans font-bold text-xs text-brand-dark dark:text-zinc-300 uppercase tracking-wide" htmlFor="new_p">
-                      Nova Senha de Segurança (6 dígitos)
+                      Nova Senha de Segurança (Mínimo 6 dígitos)
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted w-4 h-4" />
@@ -480,8 +480,8 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                         id="new_p"
                         type="password"
                         value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="Ex: 123456 (6 dígitos)"
+                        onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, ""))}
+                        placeholder="Ex: 123456 (Mínimo 6 dígitos)"
                         required
                       />
                     </div>
@@ -490,7 +490,7 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                   {/* Confirm password field */}
                   <div className="flex flex-col gap-1">
                     <label className="font-sans font-bold text-xs text-brand-dark dark:text-zinc-300 uppercase tracking-wide" htmlFor="confirm_p">
-                      Confirmar Nova Senha (6 dígitos)
+                      Confirmar Nova Senha (Mínimo 6 dígitos)
                     </label>
                     <div className="relative">
                       <Unlock className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted w-4 h-4" />
@@ -499,7 +499,7 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                         id="confirm_p"
                         type="password"
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, ""))}
                         placeholder="Digita de novo"
                         required
                       />
