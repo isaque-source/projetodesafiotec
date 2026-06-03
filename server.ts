@@ -258,8 +258,8 @@ app.post("/api/auth/reset-password", async (req, res) => {
       return res.status(400).json({ error: "E-mail e nova senha são obrigatórios." });
     }
 
-    if (!/^\d{6}$/.test(String(newPassword))) {
-      return res.status(400).json({ error: "A senha precisa possuir exatamente 6 dígitos numéricos (apenas números, de 0 a 9)." });
+    if (!/^\d{6,}$/.test(String(newPassword))) {
+      return res.status(400).json({ error: "A senha precisa possuir pelo menos 6 dígitos numéricos (apenas números, de 0 a 9)." });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -621,6 +621,15 @@ Não adicione tags, explicações extras ou cabeçalhos fictícios como To/Subje
   }
 });
 
+// GET route to handle password reset and redirect safely to the root / maintaining query parameters
+app.get(["/redefinir-senha", "/api/auth/redefinir-senha"], (req, res) => {
+  const email = req.query.email;
+  if (email) {
+    return res.redirect(`/?email=${encodeURIComponent(String(email))}&reset=true`);
+  }
+  return res.redirect("/");
+});
+
 // GET route to serve the responsive HTML recovery page
 app.get("/forgot-password", (req, res) => {
   res.sendFile(path.join(process.cwd(), "forgot-password.html"));
@@ -652,6 +661,13 @@ app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
       const forwardedHost = req.headers["x-forwarded-host"] || req.headers.host || "localhost:3000";
       origin = `${forwardedProto}://${forwardedHost}`;
     }
+
+    // Convert development environment origin (ais-dev-) to public preview URL (ais-pre-)
+    // to prevent 403 Forbidden errors when clicked externally/on mobile devices.
+    if (origin.includes("ais-dev-")) {
+      origin = origin.replace("ais-dev-", "ais-pre-");
+    }
+
     const dynamicLink = `${origin}/redefinir-senha?email=${encodeURIComponent(cleanEmail)}`;
 
     // Beautiful HTML styled email message matching VISU's brand palette & neo-brutalist cards

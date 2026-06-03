@@ -68,7 +68,15 @@ export default function Login({
     setSimulationLink("");
 
     const cleanEmail = resetEmail.trim().toLowerCase();
-    const fallbackLink = `${window.location.origin}/redefinir-senha?email=${encodeURIComponent(cleanEmail)}`;
+    
+    // Ensure the origin points to the public shared/preview URL (ais-pre) instead of
+    // the authenticated/private development URL (ais-dev) to avoid Google 403 authorization errors for external devices/mock users.
+    let originToUse = window.location.origin;
+    if (originToUse.includes("ais-dev-")) {
+      originToUse = originToUse.replace("ais-dev-", "ais-pre-");
+    }
+
+    const fallbackLink = `${originToUse}/redefinir-senha?email=${encodeURIComponent(cleanEmail)}`;
 
     try {
       // Send real SMTP recovery email through our backend service with current browser's origin
@@ -79,7 +87,7 @@ export default function Login({
         },
         body: JSON.stringify({ 
           email: cleanEmail,
-          origin: window.location.origin
+          origin: originToUse
         }),
       });
 

@@ -35,8 +35,8 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
       return;
     }
 
-    if (!/^\d{6}$/.test(newPassword)) {
-      setError("A nova senha deve possuir exatamente 6 dígitos numéricos (somente números).");
+    if (!/^\d{6,}$/.test(newPassword)) {
+      setError("A nova senha deve possuir pelo menos 6 dígitos numéricos (somente números).");
       return;
     }
 
@@ -144,7 +144,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
             {/* New Password input */}
             <div className="space-y-1">
               <label className="font-sans font-extrabold text-[10px] text-zinc-500 dark:text-zinc-300 uppercase tracking-widest block" htmlFor="new_password">
-                Nova Senha de Acesso (Exatamente 6 dígitos)
+                Nova Senha de Acesso (Mínimo 6 dígitos)
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
@@ -152,9 +152,9 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
                   id="new_password"
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="Digite exatamente 6 números"
+                  placeholder="Digite pelo menos 6 números"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, ""))}
                   className="w-full h-11 pl-10 pr-10 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-950 text-brand-dark dark:text-zinc-100 font-sans text-xs rounded-xl focus:outline-none"
                 />
                 <button
@@ -170,7 +170,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
             {/* Confirm New Password input */}
             <div className="space-y-1">
               <label className="font-sans font-extrabold text-[10px] text-zinc-500 dark:text-zinc-300 uppercase tracking-widest block" htmlFor="confirm_password">
-                Confirmar Nova Senha (6 dígitos)
+                Confirmar Nova Senha (Mínimo 6 dígitos)
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
@@ -178,9 +178,9 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
                   id="confirm_password"
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="Repita os mesmos 6 números"
+                  placeholder="Repita os mesmos números"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, ""))}
                   className="w-full h-11 pl-10 pr-3 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-950 text-brand-dark dark:text-zinc-100 font-sans text-xs rounded-xl focus:outline-none"
                 />
               </div>

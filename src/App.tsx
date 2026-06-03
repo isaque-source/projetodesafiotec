@@ -157,6 +157,19 @@ export default function App() {
 
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       setLoadingFirebase(true);
+
+      let isResetFlow = false;
+      try {
+        const currentUrl = new URL(window.location.href);
+        isResetFlow = (
+          currentUrl.pathname === "/redefinir-senha" || 
+          currentUrl.pathname.includes("redefinir-senha") || 
+          currentUrl.searchParams.has("email")
+        ) && !!currentUrl.searchParams.get("email");
+      } catch (e) {
+        console.warn("Error parsing URL inside auth change:", e);
+      }
+
       if (firebaseUser) {
         try {
           sessionStorage.setItem("visu_session_unlocked", "true");
@@ -216,7 +229,11 @@ export default function App() {
               setGoal(dbGoal);
             }
             
-            setActiveTab("home");
+            if (isResetFlow) {
+              setActiveTab("reset-password");
+            } else {
+              setActiveTab("home");
+            }
           } else {
             // Newly logged-in user but no profile completed in db.
             // If the user arrived from the login flow or initial loader, auto-create a standard default profile so they go directly to Home and bypass registration entirely (avoiding email-already-in-use block)
@@ -245,7 +262,11 @@ export default function App() {
               setSales([]);
               setInventory([]);
               
-              setActiveTab("home");
+              if (isResetFlow) {
+                setActiveTab("reset-password");
+              } else {
+                setActiveTab("home");
+              }
             } else {
               // They are explicitly in the registration flow
               setUser({
@@ -259,7 +280,11 @@ export default function App() {
               setSales([]);
               setInventory([]);
               setGoal({ targetAmount: 15000, period: "Mensal" });
-              setActiveTab("register");
+              if (isResetFlow) {
+                setActiveTab("reset-password");
+              } else {
+                setActiveTab("register");
+              }
             }
           }
         } catch (error) {
