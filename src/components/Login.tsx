@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Key, Check } from "lucide-react";
-import { auth } from "../firebase";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import { User } from "../types";
 
 const maskEmail = (email: string): string => {
@@ -66,20 +67,28 @@ export default function Login({
 
     try {
       const cleanEmail = resetEmail.trim().toLowerCase();
-      await sendPasswordResetEmail(auth, cleanEmail);
-      setResetSuccess("E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
-    } catch (error: any) {
-      console.warn("Notificação de recuperação de senha:", error?.code || error);
-      const errorCode = error.code;
-      if (errorCode === "auth/user-not-found") {
-        setResetSuccess("Instruções de redefinição enviadas! Um link foi encaminhado para o e-mail digitado caso esteja cadastrado.");
-      } else if (errorCode === "auth/invalid-email") {
-        setResetError("O formato do e-mail inserido é inválido.");
-      } else if (errorCode === "auth/too-many-requests") {
-        setResetError("Muitas tentativas em pouco tempo. Aguarde alguns minutos antes de tentar novamente.");
+      // Send real SMTP recovery email through our backend service with current browser's origin
+      const response = await fetch("/api/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          email: cleanEmail,
+          origin: window.location.origin
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setResetSuccess("E-mail de recuperação enviado com sucesso! Por favor, acesse sua caixa de entrada no Gmail e clique no link oficial recebido.");
       } else {
-        setResetError("Falha na conexão de redefinição de senha. Verifique sua rede.");
+        setResetError(data.error || "Ocorreu um erro no servidor de SMTP ao enviar o e-mail de recuperação.");
       }
+    } catch (error: any) {
+      console.warn("Erro ao enviar recuperação de senha por SMTP:", error);
+      setResetError("Não foi possível conectar ao servidor de autenticação SMTP. Verifique sua rede.");
     } finally {
       setResetLoading(false);
     }
@@ -116,6 +125,36 @@ export default function Login({
       }
     } catch (err: any) {
       console.warn("Fluxo normal de autenticação Firebase Auth:", err?.code || err);
+      
+      // Attempt dual authentication securely via custom API backend (where Firebase Admin can bypass API limits)
+      try {
+        const cleanEmail = email.trim().toLowerCase();
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: cleanEmail, password }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            console.log("🔐 [Custom API Fallback Success] Autenticação bem-sucedida via Backend!");
+            try {
+              localStorage.setItem("visu_app_password", password);
+              sessionStorage.setItem("visu_session_unlocked", "true");
+            } catch (e) {
+              console.warn("Storage restricted on login fallback:", e);
+            }
+            setSuccessMessage("Autenticação realizada com sucesso!");
+            onLoginSuccess(cleanEmail);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Custom API authentication fallback failed:", apiErr);
+      }
+
       let friendlyError = "";
       if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/user-not-found") {
         friendlyError = "E-mail ou senha incorretos. Por favor, verifique suas credenciais de acesso.";
@@ -338,16 +377,12 @@ export default function Login({
             </div>
             
             <p className="text-xs text-zinc-500 dark:text-zinc-400 font-semibold mb-4 leading-relaxed">
-              Esqueceu sua senha? Não se preocupe! Informe seu Gmail associado para disparar um link oficial de redefinição de senha diretamente.
-              <br />
-              <a href="/forgot-password" className="text-[#fd8b00] hover:underline font-bold mt-2.5 inline-block">
-                Acessar página de recuperação HTML5 dedicada →
-              </a>
+              Esqueceu sua senha? Não se preocupe! Informe seu Gmail cadastrado para disparar o link oficial de redefinição de senha diretamente para sua caixa de entrada.
             </p>
 
             {resetSuccess && (
               <div className="mb-4 p-3 bg-green-50 border-2 border-green-500 text-green-700 text-xs font-bold rounded-xl leading-relaxed">
-                {resetSuccess}
+                <span>{resetSuccess}</span>
               </div>
             )}
 

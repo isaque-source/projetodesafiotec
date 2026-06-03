@@ -7,6 +7,7 @@ export interface User {
   phoneNumber?: string;
   photoUrl?: string;
   darkModeEnabled?: boolean;
+  password?: string;
 }
 
 export interface Sale {

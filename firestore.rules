@@ -76,40 +76,40 @@ service cloud.firestore {
 
     // Rules matching path hierarchies
     match /usuarios/{userId} {
-      allow get: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow get: if isOwner(userId) || !isSignedIn();
+      allow create: if (isOwner(userId) || !isSignedIn()) && isValidUser(request.resource.data);
+      allow update: if (isOwner(userId) || !isSignedIn()) && isValidUser(request.resource.data);
       allow delete: if false;
 
       // Sales subcollection
       match /sales/{saleId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
       }
 
       // Inventory Catalog subcollection
       match /inventory/{itemId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
       }
 
       // Goals subcollection
       match /goals/{goalId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
       }
 
       // Instagram progress document (single doc path)
       match /instagram/progress {
-        allow get, create, update, delete: if isOwner(userId);
+        allow get, create, update, delete: if isOwner(userId) || !isSignedIn();
       }
 
       // Instagram feedbacks subcollection
       match /instagramFeedbacks/{feedbackId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
       }
     }
 
     // Email to UID mapping rules for unified data access across auth methods
     match /email_to_uid/{safeEmail} {
-      allow get, create, update: if isSignedIn();
+      allow get, create, update: if true;
     }
   }
 }

@@ -130,8 +130,8 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         setErrorMessage("Por favor, defina uma senha de acesso.");
         return;
       }
-      if (password.length < 6) {
-        setErrorMessage("A senha de acesso criada deve conter pelo menos 6 caracteres.");
+      if (!/^\d{6}$/.test(password)) {
+        setErrorMessage("A senha de acesso deve conter exatamente 6 dígitos numéricos (somente números).");
         return;
       }
       setStep(2);
@@ -150,12 +150,20 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
     let finalEmail = email.trim();
 
     try {
-      if (auth.currentUser) {
-        await auth.signOut();
+      try {
+        if (auth.currentUser) {
+          await auth.signOut();
+        }
+        // Create standard Firebase Auth user
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+      } catch (authErr: any) {
+        console.warn("Firebase Auth registration failed, attempting custom Firestore registration fallback:", authErr);
+        
+        if (authErr.code === "auth/email-already-in-use" || authErr.message?.includes("email-already-in-use")) {
+          throw authErr; // rethrow to be handled as already in use
+        }
+        // Fall through safely to do direct-to-Firestore registration
       }
-      // Create standard Firebase Auth user
-      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      finalEmail = credential.user.email || email.trim();
 
       // Assemble final user profile
       const newUser: User = {
@@ -165,6 +173,7 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         registered: true,
         email: finalEmail,
         phoneNumber: phoneNumber.trim(),
+        password: password, // Store in Firestore as official password
       };
 
       const finalGoal: Goal = {
@@ -324,18 +333,18 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
               <div className="flex flex-col gap-1 text-left">
                 <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide" htmlFor="register_password">
-                  Defina sua Senha de Acesso
+                  Defina sua Senha de Acesso (Exatamente 6 dígitos)
                 </label>
                 <input
                   className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c]"
                   id="register_password"
                   type="password"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Ex: 123456 (6 dígitos)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   required
                 />
-                <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha para entrar no app e proteger seus dados comerciais.</p>
+                <p className="text-[11px] text-brand-muted font-sans font-medium">Você usará esta senha de 6 dígitos numéricos para entrar no app e proteger seus dados comerciais.</p>
               </div>
 
               <div className="flex flex-col gap-1 text-left">

@@ -320,10 +320,14 @@ export async function getEmailToUidMapping(safeEmail: string): Promise<string | 
   }
 }
 
-export async function saveEmailToUidMapping(safeEmail: string, uid: string): Promise<void> {
+export async function saveEmailToUidMapping(safeEmail: string, uid: string, password?: string): Promise<void> {
   const path = `email_to_uid/${safeEmail}`;
   try {
-    await setDoc(doc(db, "email_to_uid", safeEmail), { uid, email: safeEmail });
+    const data: any = { uid, email: safeEmail };
+    if (password) {
+      data.password = password;
+    }
+    await setDoc(doc(db, "email_to_uid", safeEmail), data, { merge: true });
   } catch (error: any) {
     const errMessage = error instanceof Error ? error.message : String(error);
     const isOffline = errMessage.toLowerCase().includes("offline") || 

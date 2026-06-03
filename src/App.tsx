@@ -17,7 +17,9 @@ import {
   fetchGoal,
   saveGoal,
   getEmailToUidMapping,
-  saveEmailToUidMapping
+  saveEmailToUidMapping,
+  saveInstagramProgress,
+  clearAllInstagramFeedbacks
 } from "./lib/db";
 
 // Sub-components
@@ -284,17 +286,29 @@ export default function App() {
           console.warn("Storage access restricted on local fallback check:", e);
         }
 
+        let isResetFlow = false;
+        try {
+          const currentUrl = new URL(window.location.href);
+          isResetFlow = (
+            currentUrl.pathname === "/redefinir-senha" || 
+            currentUrl.pathname.includes("redefinir-senha") || 
+            currentUrl.searchParams.has("email")
+          ) && !!currentUrl.searchParams.get("email");
+        } catch (e) {
+          console.warn("Error parsing URL on unauth path:", e);
+        }
+
         if (savedUser) {
           try {
             setUser(JSON.parse(savedUser));
           } catch (_) {
             setUser(null);
           }
-          // Always land on the Login screen first rather than bypassing to the progress tab
-          setActiveTab("login");
+          // Always land on the Login screen first rather than bypassing to the progress tab unless resolving reset password link
+          setActiveTab(isResetFlow ? "reset-password" : "login");
         } else {
           setUser(null);
-          setActiveTab("login");
+          setActiveTab(isResetFlow ? "reset-password" : "login");
         }
 
         if (savedSales) {
@@ -379,6 +393,43 @@ export default function App() {
       return; 
     }
     
+    // Fallback/Firestore Login Success: fetch correct Cloud data if db connects
+    setLoadingFirebase(true);
+    try {
+      const safeEmail = email.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
+      const mappedUid = await getEmailToUidMapping(safeEmail);
+      
+      if (mappedUid) {
+        setDataOwnerUid(mappedUid);
+        const profile = await getUserProfile(mappedUid);
+        if (profile) {
+          setUser(profile);
+          
+          let dbSales: Sale[] = [];
+          let dbInventory: InventoryItem[] = [];
+          let dbGoal: Goal | null = null;
+
+          try { dbSales = await fetchSales(mappedUid); } catch (_) {}
+          try { dbInventory = await fetchInventory(mappedUid); } catch (_) {}
+          try { dbGoal = await fetchGoal(mappedUid); } catch (_) {}
+
+          setSales(dbSales || []);
+          setInventory(dbInventory || []);
+          if (dbGoal) {
+            setGoal(dbGoal);
+          }
+          
+          setActiveTab("home");
+          setLoadingFirebase(false);
+          return;
+        }
+      }
+    } catch (firestoreErr) {
+      console.warn("Quietly falling back to local storage mapping: ", firestoreErr);
+    } finally {
+      setLoadingFirebase(false);
+    }
+    
     // Fallback: local demo mock login success
     const defaultUser = user || SEED_USER;
     const finalUser = { ...defaultUser, email, registered: true };
@@ -404,16 +455,45 @@ export default function App() {
     setInventory(updatedInventory);
     setSales(updatedSales);
 
-    // Live Firebase persistence if user is logged in
-    const activeUid = dataOwnerUid || auth.currentUser?.uid;
-    if (auth.currentUser && activeUid) {
+    // Clear and reset gamification: 0 coins, 0 streak, 0 progress
+    setVisuCoins(0);
+    setStreak(0);
+
+    const resetMissions = [
+      { id: 1, moduleName: "Módulo 1: Vitrine", title: "Refinar a Proposta de Valor da Bio do Instagram", points: 150, completed: false },
+      { id: 2, moduleName: "Módulo 2: Conteúdo", title: "Pesquisar 3 referências de Reels para seu nicho", points: 100, completed: false },
+      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete ativa de preferência de produto", points: 120, completed: false },
+      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false }
+    ];
+
+    try {
+      localStorage.setItem("visu_gamified_points", "0");
+      localStorage.setItem("visu_gamified_streak", "0");
+      localStorage.setItem("visu_gamified_missions", JSON.stringify(resetMissions));
+      localStorage.setItem("visu_insta_task_index", "0");
+      localStorage.setItem("visu_insta_feedbacks", "[]");
+      localStorage.setItem("visu_store_niche", newUser.category || "Artesanato & Varejo");
+      localStorage.setItem("visu_insta_metrics", JSON.stringify({
+        engagement: 0,
+        linkClicks: 0,
+        followers: 0
+      }));
+    } catch (e) {
+      console.warn("localStorage restricted during new registration:", e);
+    }
+
+    // Live Firebase persistence if user is logged in or database is connected
+    const activeUid = dataOwnerUid || auth.currentUser?.uid || 
+                     (newUser.email ? `usr_${Math.floor(1000000000 + Math.random() * 900000000).toString()}` : "");
+
+    if ((auth.currentUser || (newUser.email && isDbConnected)) && activeUid) {
       setLoadingFirebase(true);
       try {
         // Build email mapping for account recovery persistence
-        const userEmail = auth.currentUser.email || newUser.email || "";
+        const userEmail = newUser.email || auth.currentUser?.email || "";
         if (userEmail) {
           const safeEmail = userEmail.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
-          await saveEmailToUidMapping(safeEmail, activeUid);
+          await saveEmailToUidMapping(safeEmail, activeUid, newUser.password);
           setDataOwnerUid(activeUid);
         }
 
@@ -424,6 +504,19 @@ export default function App() {
         if (initialItem) {
           await addInventoryDocument(activeUid, initialItem);
         }
+
+        // Initialize pristine Instagram progress & clean feedbacks on Firestore
+        await saveInstagramProgress(activeUid, {
+          storeNiche: newUser.category || "Artesanato & Varejo",
+          currentTaskIndex: 0,
+          engagement: 0,
+          linkClicks: 0,
+          followers: 0
+        });
+        
+        try {
+          await clearAllInstagramFeedbacks(activeUid, []);
+        } catch (_) {}
       } catch (err) {
         console.error("Falha ao salvar cadastro no Firestore:", err);
       } finally {

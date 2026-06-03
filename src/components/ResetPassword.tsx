@@ -35,8 +35,8 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("A nova senha deve possuir pelo menos 6 caracteres.");
+    if (!/^\d{6}$/.test(newPassword)) {
+      setError("A nova senha deve possuir exatamente 6 dígitos numéricos (somente números).");
       return;
     }
 
@@ -48,31 +48,29 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
     setLoading(true);
 
     try {
-      // 1. Save new passcodes to standard localStorage key so they survive offline & local setups
+      // 1. Call our custom administrative reset password endpoint to overwrite their password in Firebase Auth natively
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, newPassword }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro de comunicação com o servidor de redefinição ao salvar nova credencial.");
+      }
+
+      await response.json();
+
+      // 2. Save new passcodes to standard localStorage key so they survive offline & local setups, replacing any old reference
       localStorage.setItem("visu_local_password", newPassword);
       localStorage.setItem("visu_app_password", newPassword);
       sessionStorage.setItem("visu_session_unlocked", "true");
 
-      // 2. Fetch the deterministic password used for security alignment from the backend
-      const response = await fetch("/api/auth/google-simulated", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Erro de comunicação com o servidor de redefinição.");
-      }
-
-      const data = await response.json();
-      
-      if (data.success && data.firebasePassword) {
-        // Authenticate smoothly using their deterministic secure password
-        try {
-          await signInWithEmailAndPassword(auth, email, data.firebasePassword);
-        } catch (firebaseErr) {
-          console.warn("Bypass de autenticação Firebase Auth não concluído. Sincronizando no modo local seguro:", firebaseErr);
-        }
+      // 3. Authenticate smoothly using their new official password
+      try {
+        await signInWithEmailAndPassword(auth, email, newPassword);
+      } catch (firebaseErr) {
+        console.warn("Bypass de autenticação Firebase Auth não concluído. Sincronizando no modo local seguro:", firebaseErr);
       }
 
       setSuccess(true);
@@ -146,7 +144,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
             {/* New Password input */}
             <div className="space-y-1">
               <label className="font-sans font-extrabold text-[10px] text-zinc-500 dark:text-zinc-300 uppercase tracking-widest block" htmlFor="new_password">
-                Nova Senha de Acesso
+                Nova Senha de Acesso (Exatamente 6 dígitos)
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
@@ -154,9 +152,9 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
                   id="new_password"
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="Mínimo de 6 dígitos"
+                  placeholder="Digite exatamente 6 números"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => setNewPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   className="w-full h-11 pl-10 pr-10 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-950 text-brand-dark dark:text-zinc-100 font-sans text-xs rounded-xl focus:outline-none"
                 />
                 <button
@@ -172,7 +170,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
             {/* Confirm New Password input */}
             <div className="space-y-1">
               <label className="font-sans font-extrabold text-[10px] text-zinc-500 dark:text-zinc-300 uppercase tracking-widest block" htmlFor="confirm_password">
-                Confirmar Nova Senha
+                Confirmar Nova Senha (6 dígitos)
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
@@ -180,9 +178,9 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
                   id="confirm_password"
                   type={showPassword ? "text" : "password"}
                   required
-                  placeholder="Repita a nova senha criada"
+                  placeholder="Repita os mesmos 6 números"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => setConfirmPassword(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   className="w-full h-11 pl-10 pr-3 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-950 text-brand-dark dark:text-zinc-100 font-sans text-xs rounded-xl focus:outline-none"
                 />
               </div>
