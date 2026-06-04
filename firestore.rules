@@ -76,40 +76,42 @@ service cloud.firestore {
 
     // Rules matching path hierarchies
     match /usuarios/{userId} {
-      allow get: if isOwner(userId) || !isSignedIn();
-      allow create: if (isOwner(userId) || !isSignedIn()) && isValidUser(request.resource.data);
-      allow update: if (isOwner(userId) || !isSignedIn()) && isValidUser(request.resource.data);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
       allow delete: if false;
 
       // Sales subcollection
       match /sales/{saleId} {
-        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Inventory Catalog subcollection
       match /inventory/{itemId} {
-        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Goals subcollection
       match /goals/{goalId} {
-        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
+        allow get, list, create, update, delete: if isOwner(userId);
       }
 
       // Instagram progress document (single doc path)
       match /instagram/progress {
-        allow get, create, update, delete: if isOwner(userId) || !isSignedIn();
+        allow get, create, update, delete: if isOwner(userId);
       }
 
       // Instagram feedbacks subcollection
       match /instagramFeedbacks/{feedbackId} {
-        allow get, list, create, update, delete: if isOwner(userId) || !isSignedIn();
+        allow get, list, create, update, delete: if isOwner(userId);
       }
     }
 
     // Email to UID mapping rules for unified data access across auth methods
     match /email_to_uid/{safeEmail} {
-      allow get, create, update: if true;
+      allow get: if true;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
     }
   }
 }
