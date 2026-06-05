@@ -832,6 +832,17 @@ export default function App() {
             currentUser={user}
             onProceedToHome={() => setActiveTab("home")}
             onLogout={handleLogout}
+            onGoToResetPassword={(targetEmail) => {
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.set("email", targetEmail.trim().toLowerCase());
+                url.searchParams.set("reset", "true");
+                window.history.replaceState({}, document.title, url.toString());
+              } catch (urlErr) {
+                console.warn("Falha ao configurar parâmetros da URL:", urlErr);
+              }
+              setActiveTab("reset-password");
+            }}
           />
         )}
 

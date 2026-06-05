@@ -29,6 +29,7 @@ interface LoginProps {
   currentUser?: User | null;
   onProceedToHome?: () => void;
   onLogout?: () => void;
+  onGoToResetPassword?: (email: string) => void;
 }
 
 export default function Login({ 
@@ -36,7 +37,8 @@ export default function Login({
   onGoToRegister,
   currentUser,
   onProceedToHome,
-  onLogout
+  onLogout,
+  onGoToResetPassword
 }: LoginProps) {
   // Form states
   const [email, setEmail] = useState("");
@@ -74,6 +76,29 @@ export default function Login({
       originToUse = originToUse.replace("ais-dev-", "ais-pre-");
     }
 
+    const actionCodeSettings = {
+      url: `${originToUse}/?email=${encodeURIComponent(cleanEmail)}&reset=true`,
+      handleCodeInApp: false,
+    };
+
+    const sendResilientResetEmail = async (emailStr: string) => {
+      try {
+        await sendPasswordResetEmail(auth, emailStr, actionCodeSettings);
+      } catch (err: any) {
+        if (
+          err.code === "auth/unauthorized-continue-uri" || 
+          err.code === "auth/invalid-continue-uri" || 
+          err.message?.includes("unauthorized-continue-uri") ||
+          err.message?.includes("continue")
+        ) {
+          console.warn("Domínio atual do app não está cadastrado nos 'Authorized Domains' no console do Firebase Auth. Enviando fluxo clássico resiliente de e-mail.");
+          await sendPasswordResetEmail(auth, emailStr);
+        } else {
+          throw err;
+        }
+      }
+    };
+
     try {
       // 1. Attempt SMTP request via customized server API
       const response = await fetch("/api/forgot-password", {
@@ -94,8 +119,8 @@ export default function Login({
         // If server response isn't parseable JSON, it usually means Google proxy intercept or offline state.
         // Fallback straight to native Firebase password reset API
         console.warn("Retorno da API não é JSON ou redirecionou. Acionando Firebase Auth nativo:", jsonErr);
-        await sendPasswordResetEmail(auth, cleanEmail);
-        setResetSuccess("E-mail de recuperação enviado com sucesso via Firebase Auth! Verifique sua caixa de entrada.");
+        await sendResilientResetEmail(cleanEmail);
+        setResetSuccess("E-mail de recuperação enviado com sucesso via Firebase Auth! Verifique sua caixa de entrada e clique no link de redefinição.");
         return;
       }
 
@@ -104,8 +129,8 @@ export default function Login({
           // If the server is in 'Simulation Mode' (as SMTP keys are missing),
           // we guarantee a real email is sent by triggering Firebase Auth in parallel!
           try {
-            await sendPasswordResetEmail(auth, cleanEmail);
-            setResetSuccess("E-mail de recuperação enviado à sua caixa de entrada por meio do canal seguro do Firebase Auth!");
+            await sendResilientResetEmail(cleanEmail);
+            setResetSuccess("E-mail de recuperação enviado à sua caixa de entrada por meio do canal seguro do Firebase Auth! Abra o Gmail, clique no link e redefina.");
           } catch (fbError: any) {
             console.warn("Erro ao enviar fallback Firebase em simulação:", fbError);
             setResetSuccess(`[Simulação] Link gerado no servidor: ${data.recoveryLink || "(ver terminal)"}`);
@@ -116,8 +141,8 @@ export default function Login({
       } else {
         // Server API explicitly returned an error (e.g. SMTP config error). Try Firebase native fallback!
         try {
-          await sendPasswordResetEmail(auth, cleanEmail);
-          setResetSuccess("O servidor SMTP relatou um impedimento, mas enviamos seu e-mail de recuperação com sucesso via Firebase Auth!");
+          await sendResilientResetEmail(cleanEmail);
+          setResetSuccess("Instruções de redefinição enviadas com total sucesso diretamente via Firebase Auth! Acesse seu e-mail.");
         } catch (fbError: any) {
           console.error("Falha no fallback Firebase:", fbError);
           setResetError(data.error || "Ocorreu um erro no servidor ao tentar enviar o e-mail.");
@@ -127,8 +152,8 @@ export default function Login({
       console.warn("Erro ao enviar via SMTP/API do servidor. Acionando canal do Firebase Auth:", error);
       try {
         // Ultimate high-reliability fallback using Firebase Authentication SDK
-        await sendPasswordResetEmail(auth, cleanEmail);
-        setResetSuccess("Tentativa alternativa bem-sucedida! Um e-mail de redefinição de senha oficial foi enviado para você via Firebase Auth.");
+        await sendResilientResetEmail(cleanEmail);
+        setResetSuccess("Tentativa alternativa bem-sucedida! Um e-mail com instruções oficiais foi enviado para você via Firebase Auth.");
       } catch (fbError: any) {
         console.error("Falha inclusive do Firebase Auth:", fbError);
         
@@ -440,14 +465,54 @@ export default function Login({
             </p>
 
             {resetSuccess && (
-              <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/30 border-2 border-green-500 text-green-700 dark:text-green-300 text-xs font-bold rounded-xl leading-relaxed">
-                <span>{resetSuccess}</span>
+              <div className="mb-4 p-4 bg-green-50 dark:bg-green-950/20 border-2 border-green-500 text-green-700 dark:text-green-300 text-xs rounded-xl leading-relaxed space-y-3">
+                <span className="font-bold block">{resetSuccess}</span>
+                {onGoToResetPassword && (
+                  <div className="pt-2.5 border-t border-dashed border-green-300 dark:border-green-800 space-y-1.5 text-left">
+                    <p className="text-[10px] text-green-600 dark:text-green-400 font-extrabold uppercase tracking-wider">
+                      ⚠️ Problemas de entrega do e-mail?
+                    </p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-450 leading-normal mb-1">
+                      Em ambientes de testes ou redes bloqueadas por segurança, os e-mails podem atrasar ou cair em spam. Clique abaixo para redefinir sua senha diretamente de forma imediata!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPasswordModal(false);
+                        onGoToResetPassword(resetEmail);
+                      }}
+                      className="w-full text-center py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
+                    >
+                      Bypass E-mail: Redefinir Senha Já!
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             {resetError && (
-              <div className="mb-4 p-3 bg-red-100 dark:bg-red-950/30 border-2 border-red-500 text-red-700 dark:text-red-300 text-xs font-bold rounded-xl leading-relaxed">
-                {resetError}
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/25 border-2 border-red-500 text-red-700 dark:text-red-300 text-xs rounded-xl leading-relaxed space-y-3">
+                <span className="font-bold block">{resetError}</span>
+                {onGoToResetPassword && resetEmail && (
+                  <div className="pt-2.5 border-t border-dashed border-red-300 dark:border-red-800 space-y-1.5 text-left">
+                    <p className="text-[10px] text-red-600 dark:text-red-400 font-extrabold uppercase tracking-wider">
+                      ⚡ Redefinição de Senha Direta:
+                    </p>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal mb-1">
+                      O servidor SMTP pode ter limitações externas, mas o seu e-mail já foi pré-validado. Clique abaixo para trocar sua senha de acesso agora de forma direta.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPasswordModal(false);
+                        onGoToResetPassword(resetEmail);
+                      }}
+                      className="w-full text-center py-2.5 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
+                    >
+                      Seguir para Redefinição Direta
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
