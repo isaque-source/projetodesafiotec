@@ -840,12 +840,9 @@ app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
     console.log(`==================================================\n`);
 
     if (!gmailUser || !gmailAppPassword) {
-      // Mock / Simulação de e-mail bem-sucedido para validação imediata em ambiente Sandbox
-      return res.json({
-        success: true,
-        message: `[Modo Simulação] Uma chave SMTP do Gmail não foi configurada nos segredos ou variáveis de ambiente. No entanto, o link de recuperação foi gerado no console com sucesso! Link para teste: ${dynamicLink}`,
-        simulatedEmail: true,
-        recoveryLink: dynamicLink
+      return res.status(400).json({
+        success: false,
+        error: "Para enviar um e-mail de recuperação real, as credenciais SMTP do Gmail (GMAIL_USER e GMAIL_APP_PASSWORD) precisam estar cadastradas nas Variáveis de Ambiente do seu projeto no AI Studio."
       });
     }
 
@@ -878,12 +875,10 @@ app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
         simulatedEmail: false,
       });
     } catch (smtpError: any) {
-      console.warn("[VISU WORKSPACE WARNING] Falha na rede SMTP do Gmail. Ativando fallback seguro de teste:", smtpError);
-      return res.json({
-        success: true,
-        message: `Não foi possível conectar ao servidor de e-mail (SMTP) principal. Geramos um link de recuperação alternativo seguro para você acessar agora.`,
-        simulatedEmail: true,
-        recoveryLink: dynamicLink
+      console.error("[VISU SMTP ERROR] Falha ao enviar e-mail por SMTP:", smtpError);
+      return res.status(500).json({
+        success: false,
+        error: `Não foi possível enviar o e-mail pelo seu Gmail de verdade. Detalhes do erro SMTP: ${smtpError.message || smtpError}`
       });
     }
 
