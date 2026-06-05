@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Key, Check } from "lucide-react";
 import { auth, db } from "../firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { User } from "../types";
 
@@ -75,7 +75,7 @@ export default function Login({
     }
 
     try {
-      // Send real SMTP recovery email through our backend service with current browser's origin
+      // 1. Attempt SMTP request via customized server API
       const response = await fetch("/api/forgot-password", {
         method: "POST",
         headers: {
@@ -87,16 +87,67 @@ export default function Login({
         }),
       });
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        // If server response isn't parseable JSON, it usually means Google proxy intercept or offline state.
+        // Fallback straight to native Firebase password reset API
+        console.warn("Retorno da API não é JSON ou redirecionou. Acionando Firebase Auth nativo:", jsonErr);
+        await sendPasswordResetEmail(auth, cleanEmail);
+        setResetSuccess("E-mail de recuperação enviado com sucesso via Firebase Auth! Verifique sua caixa de entrada.");
+        return;
+      }
 
       if (response.ok && data.success) {
-        setResetSuccess(data.message || "E-mail de recuperação enviado com sucesso! Por favor, acesse sua caixa de entrada no Gmail e clique no link oficial recebido.");
+        if (data.simulatedEmail === true) {
+          // If the server is in 'Simulation Mode' (as SMTP keys are missing),
+          // we guarantee a real email is sent by triggering Firebase Auth in parallel!
+          try {
+            await sendPasswordResetEmail(auth, cleanEmail);
+            setResetSuccess("E-mail de recuperação enviado à sua caixa de entrada por meio do canal seguro do Firebase Auth!");
+          } catch (fbError: any) {
+            console.warn("Erro ao enviar fallback Firebase em simulação:", fbError);
+            setResetSuccess(`[Simulação] Link gerado no servidor: ${data.recoveryLink || "(ver terminal)"}`);
+          }
+        } else {
+          setResetSuccess(data.message || "E-mail de recuperação enviado com sucesso por SMTP!");
+        }
       } else {
-        setResetError(data.error || "Ocorreu um erro no servidor ao enviar o e-mail de recuperação.");
+        // Server API explicitly returned an error (e.g. SMTP config error). Try Firebase native fallback!
+        try {
+          await sendPasswordResetEmail(auth, cleanEmail);
+          setResetSuccess("O servidor SMTP relatou um impedimento, mas enviamos seu e-mail de recuperação com sucesso via Firebase Auth!");
+        } catch (fbError: any) {
+          console.error("Falha no fallback Firebase:", fbError);
+          setResetError(data.error || "Ocorreu um erro no servidor ao tentar enviar o e-mail.");
+        }
       }
     } catch (error: any) {
-      console.warn("Erro ao enviar recuperação de senha por SMTP:", error);
-      setResetError("Não foi possível conectar ao servidor de e-mail (SMTP) devido a restrições de rede para processar o disparo.");
+      console.warn("Erro ao enviar via SMTP/API do servidor. Acionando canal do Firebase Auth:", error);
+      try {
+        // Ultimate high-reliability fallback using Firebase Authentication SDK
+        await sendPasswordResetEmail(auth, cleanEmail);
+        setResetSuccess("Tentativa alternativa bem-sucedida! Um e-mail de redefinição de senha oficial foi enviado para você via Firebase Auth.");
+      } catch (fbError: any) {
+        console.error("Falha inclusive do Firebase Auth:", fbError);
+        
+        // Humanized Firestore and Firebase error handler
+        let friendlyMessage = "Não foi possível enviar o e-mail de redefinição de senha.";
+        if (fbError && typeof fbError === "object") {
+          const code = fbError.code;
+          if (code === "auth/user-not-found") {
+            friendlyMessage = "Nenhum usuário cadastrado com este endereço de e-mail.";
+          } else if (code === "auth/invalid-email") {
+            friendlyMessage = "O formato do e-mail inserido é inválido.";
+          } else if (code === "auth/too-many-requests") {
+            friendlyMessage = "Muitas solicitações enviadas em curto prazo. Aguarde alguns instantes e tente novamente.";
+          } else {
+            friendlyMessage = `${friendlyMessage} Detalhes: ${fbError.message || code}`;
+          }
+        }
+        setResetError(friendlyMessage);
+      }
     } finally {
       setResetLoading(false);
     }
