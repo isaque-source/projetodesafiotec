@@ -66,6 +66,8 @@ const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile">("login");
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const [isLocked, setIsLocked] = useState(false);
   const isInitialAuthCheckRef = useRef(true);
   
@@ -195,6 +197,14 @@ export default function App() {
           
           setDataOwnerUid(mappedUid);
 
+          // If the page is currently on the registration tab, we should let the Register component complete the registration
+          // and save properties before we try to load the profile, preventing race conditions.
+          if (activeTabRef.current === "register") {
+            isInitialAuthCheckRef.current = false;
+            setLoadingFirebase(false);
+            return;
+          }
+
           // Attempt to load from firestore
           const profile = await getUserProfile(mappedUid);
           if (profile) {
@@ -237,7 +247,7 @@ export default function App() {
           } else {
             // Newly logged-in user but no profile completed in db.
             // If the user arrived from the login flow or initial loader, auto-create a standard default profile so they go directly to Home and bypass registration entirely (avoiding email-already-in-use block)
-            if (activeTab === "login" || isInitialAuthCheckRef.current) {
+            if (activeTabRef.current === "login" || isInitialAuthCheckRef.current) {
               const defaultProfile: User = {
                 name: firebaseUser.displayName?.split(" ")[0] || firebaseUser.email?.split("@")[0] || "Usuário",
                 storeName: "Minha Loja",

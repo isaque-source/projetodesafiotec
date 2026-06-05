@@ -4,6 +4,7 @@ import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { User } from "../types";
+import GmailSimulator from "./GmailSimulator";
 
 const maskEmail = (email: string): string => {
   if (!email) return "******";
@@ -52,6 +53,7 @@ export default function Login({
 
   // Forgot password states
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [showGmailSimulator, setShowGmailSimulator] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState("");
@@ -468,23 +470,29 @@ export default function Login({
               <div className="mb-4 p-4 bg-green-50 dark:bg-green-950/20 border-2 border-green-500 text-green-700 dark:text-green-300 text-xs rounded-xl leading-relaxed space-y-3">
                 <span className="font-bold block">{resetSuccess}</span>
                 {onGoToResetPassword && (
-                  <div className="pt-2.5 border-t border-dashed border-green-300 dark:border-green-800 space-y-1.5 text-left">
-                    <p className="text-[10px] text-green-600 dark:text-green-400 font-extrabold uppercase tracking-wider">
-                      ⚠️ Problemas de entrega do e-mail?
+                  <div className="pt-2.5 border-t border-dashed border-green-300 dark:border-green-800 space-y-2 text-left">
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold uppercase tracking-wider block">
+                      📬 Acesso rápido ao E-mail de Teste:
                     </p>
-                    <p className="text-[10px] text-zinc-500 dark:text-zinc-450 leading-normal mb-1">
-                      Em ambientes de testes ou redes bloqueadas por segurança, os e-mails podem atrasar ou cair em spam. Clique abaixo para redefinir sua senha diretamente de forma imediata!
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal">
+                      Como e-mails reais podem cair nas abas Promoção, Spam ou sofrer atrasos de rede, consulte o e-mail enviado acessando nosso Simulador do Gmail integrado:
                     </p>
                     <button
                       type="button"
                       onClick={() => {
                         setShowForgotPasswordModal(false);
-                        onGoToResetPassword(resetEmail);
+                        setShowGmailSimulator(true);
                       }}
-                      className="w-full text-center py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
+                      className="w-full text-center py-2.5 bg-red-600 hover:bg-red-700 text-white font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
                     >
-                      Bypass E-mail: Redefinir Senha Já!
+                      📬 Abrir Gmail de Teste ({resetEmail})
                     </button>
+                    
+                    <div className="pt-2 border-t border-dashed border-green-200 dark:border-green-800/60">
+                      <p className="text-[9px] text-zinc-400 dark:text-[#fd8b00] leading-normal text-right">
+                        Não quer testar o simulador? Faça o <button type="button" onClick={() => { setShowForgotPasswordModal(false); onGoToResetPassword(resetEmail); }} className="underline font-bold text-[#fd8b00] cursor-pointer">Bypass Direto</button> se preferir.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -494,23 +502,35 @@ export default function Login({
               <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/25 border-2 border-red-500 text-red-700 dark:text-red-300 text-xs rounded-xl leading-relaxed space-y-3">
                 <span className="font-bold block">{resetError}</span>
                 {onGoToResetPassword && resetEmail && (
-                  <div className="pt-2.5 border-t border-dashed border-red-300 dark:border-red-800 space-y-1.5 text-left">
+                  <div className="pt-2.5 border-t border-dashed border-red-300 dark:border-red-800 space-y-2 text-left">
                     <p className="text-[10px] text-red-600 dark:text-red-400 font-extrabold uppercase tracking-wider">
-                      ⚡ Redefinição de Senha Direta:
+                      ⚡ Canal Alternativo do Simulador:
                     </p>
-                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal mb-1">
-                      O servidor SMTP pode ter limitações externas, mas o seu e-mail já foi pré-validado. Clique abaixo para trocar sua senha de acesso agora de forma direta.
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal">
+                      Embora o serviço no projeto esteja limitado, seu e-mail foi autenticado. Abra a Caixa de Entrada de teste para redefinir ou faça a Redefinição Direta:
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowForgotPasswordModal(false);
-                        onGoToResetPassword(resetEmail);
-                      }}
-                      className="w-full text-center py-2.5 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
-                    >
-                      Seguir para Redefinição Direta
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPasswordModal(false);
+                          setShowGmailSimulator(true);
+                        }}
+                        className="w-full text-center py-2.5 bg-red-600 hover:bg-red-700 text-white font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
+                      >
+                        📬 Abrir Gmail de Teste
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPasswordModal(false);
+                          onGoToResetPassword(resetEmail);
+                        }}
+                        className="w-full text-center py-2.5 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-black text-[10px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer block transition-all"
+                      >
+                        Seguir para Redefinição Direta
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -556,6 +576,17 @@ export default function Login({
           </div>
         </div>
       )}
+      
+      <GmailSimulator
+        isOpen={showGmailSimulator}
+        onClose={() => setShowGmailSimulator(false)}
+        recipientEmail={resetEmail}
+        onRedirectToReset={(email) => {
+          if (onGoToResetPassword) {
+            onGoToResetPassword(email);
+          }
+        }}
+      />
     </div>
   );
 }
