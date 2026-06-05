@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Sale, Goal, User } from "../types";
 import { auth } from "../firebase";
+import { getApiUrl } from "../lib/api";
 import { 
   fetchInstagramProgress, 
   saveInstagramProgress, 
@@ -314,7 +315,7 @@ export default function Progress({ sales, goal, onOpenAdjustGoal, points, setPoi
     let nextIndex = currentTaskIndex;
 
     try {
-      const response = await fetch("/api/instagram-coach", {
+      const response = await fetch(getApiUrl("/api/instagram-coach"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

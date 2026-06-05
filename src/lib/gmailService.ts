@@ -1,5 +1,6 @@
 import { GoogleAuthProvider, signInWithPopup, User } from "firebase/auth";
 import { auth } from "../firebase";
+import { getApiUrl } from "./api";
 
 // In-memory access token cache
 let cachedAccessToken: string | null = null;
@@ -270,7 +271,7 @@ export async function sendGmailEmail(to: string, subject: string, htmlBody: stri
 // Call AI Model to draft standard email responses/messages
 export async function generateAIEmailDraft(promptContext: string): Promise<string> {
   try {
-    const res = await fetch("/api/gmail-ai-draft", {
+    const res = await fetch(getApiUrl("/api/gmail-ai-draft"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ promptContext }),

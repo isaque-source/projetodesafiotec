@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Lock, ShieldCheck, ArrowRight, Eye, EyeOff, Key } from "lucide-react";
 import { auth } from "../firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import { getApiUrl } from "../lib/api";
 
 interface ResetPasswordProps {
   onLoginSuccess: (email: string) => void;
@@ -49,7 +50,7 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
 
     try {
       // 1. Call our custom administrative reset password endpoint to overwrite their password in Firebase Auth natively
-      const response = await fetch("/api/auth/reset-password", {
+      const response = await fetch(getApiUrl("/api/auth/reset-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, newPassword }),

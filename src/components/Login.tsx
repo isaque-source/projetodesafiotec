@@ -4,6 +4,7 @@ import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { User } from "../types";
+import { getApiUrl } from "../lib/api";
 
 const maskEmail = (email: string): string => {
   if (!email) return "******";
@@ -101,7 +102,7 @@ export default function Login({
 
     try {
       // 1. Attempt SMTP request via customized server API
-      const response = await fetch("/api/forgot-password", {
+      const response = await fetch(getApiUrl("/api/forgot-password"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -201,7 +202,7 @@ export default function Login({
       // Attempt dual authentication securely via custom API backend (where Firebase Admin can bypass API limits)
       try {
         const cleanEmail = email.trim().toLowerCase();
-        const response = await fetch("/api/auth/login", {
+        const response = await fetch(getApiUrl("/api/auth/login"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: cleanEmail, password }),
