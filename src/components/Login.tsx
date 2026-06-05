@@ -556,6 +556,26 @@ export default function Login({
                 </div>
               </div>
 
+              {/* Sandbox Simulator shortcut */}
+              <div className="p-3 bg-red-500/10 dark:bg-red-950/20 border-2 border-red-500/30 rounded-xl space-y-2 text-left">
+                <span className="text-[9px] font-extrabold text-red-600 dark:text-red-400 uppercase tracking-wider block">
+                  📬 Modo Sandbox (Simulador do Gmail)
+                </span>
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal">
+                  Não configurou chaves SMTP de e-mail? Sem problema! Você pode abrir e testar nossa caixa de entrada simulada agora mesmo com um clique:
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPasswordModal(false);
+                    setShowGmailSimulator(true);
+                  }}
+                  className="w-full text-center py-2 bg-red-600 hover:bg-red-700 text-white font-display font-black text-[9px] uppercase rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[0.5px] hover:translate-y-[0.5px] cursor-pointer transition-all block"
+                >
+                  Abrir Gmail de Teste ({resetEmail || "Simulador"})
+                </button>
+              </div>
+
               <div className="pt-3 border-t border-dashed border-zinc-200 dark:border-zinc-700 mt-5 flex gap-2">
                 <button
                   type="button"
