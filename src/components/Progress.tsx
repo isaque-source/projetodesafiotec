@@ -13,13 +13,14 @@ import {
   MessageCircle, 
   Info,
   CheckCircle2,
-  Flame,
   Zap,
   CheckSquare,
   Square,
   Crown,
   Trophy,
-  Star
+  Star,
+  ShoppingBag,
+  DollarSign
 } from "lucide-react";
 import { Sale, Goal, User } from "../types";
 import { auth } from "../firebase";
@@ -656,35 +657,41 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
               </div>
             </div>
 
-            {/* STREAK & COMBO PANEL */}
-            <div className="bg-[#fd8b00]/10 dark:bg-zinc-900 border-2 border-[#fd8b00] dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(253,139,0,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between">
+            {/* SACOLINHA DE DINHEIRO - DE OFENSIVA DE ESTUDOS */}
+            <div className="bg-yellow-500/10 dark:bg-zinc-900 border-2 border-yellow-500 dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(234,179,8,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between relative overflow-hidden group">
+              {/* Decorative Background Money Bag Icon */}
+              <div className="absolute right-[-8px] bottom-[-10px] opacity-15 select-none text-7xl group-hover:scale-125 transition-transform duration-500">
+                💰
+              </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-widest text-[#fd8b00] flex items-center gap-1">
-                  <Flame className="w-4 h-4 animate-pulse text-[#fd8b00]" />
-                  Ofensiva de Estudos
+                <span className="text-xs font-extrabold uppercase tracking-widest text-yellow-600 dark:text-yellow-400 flex items-center gap-1.5 z-10">
+                  <span className="text-lg animate-bounce select-none">💰</span>
+                  Ofensiva: Sacolinha de Vendas
                 </span>
-                <span className="bg-[#fd8b00] text-brand-dark text-xs font-black px-2 py-0.5 rounded-md border border-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-                  {streak} DIAS SEGUIDOS
+                <span className="bg-yellow-500 text-brand-dark text-[10px] font-black px-2.5 py-1 rounded-md border border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] z-10">
+                  {streak} {streak === 1 ? "DIA" : "DIAS CONSECUTIVOS"}
                 </span>
               </div>
               
-              <div className="my-3">
+              <div className="my-3 z-10">
                 <p className="text-xs font-bold text-brand-dark dark:text-zinc-300 leading-tight">
-                  Sua constância gera <span className="text-[#fd8b00] font-black">X2 de engajamento</span> simulado na Trilha do Instagram. Mantenha os módulos em dia!
+                  Sua sacolinha de dinheiro está enchendo! Cada <span className="text-yellow-600 dark:text-yellow-400 font-extrabold">aula do curso ou tarefa</span> que você faz aumenta sua ofensiva diária e seu conhecimento de faturamento.
                 </p>
               </div>
 
-              <div className="flex items-center gap-1.5 mt-2">
+              <div className="flex items-center gap-1.5 mt-2 z-10">
                 {[...Array(5)].map((_, i) => (
                   <div 
                     key={i} 
-                    className={`h-5 w-full border-2 border-brand-dark rounded-md flex items-center justify-center text-[10px] font-black ${
+                    className={`h-6 w-full border-2 border-brand-dark rounded-md flex items-center justify-center gap-0.5 text-[10px] font-black select-none ${
                       i < streak % 5 || (streak > 0 && i === 4)
-                        ? "bg-[#fd8b00] text-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" 
-                        : "bg-brand-gray dark:bg-zinc-800 text-brand-muted dark:text-zinc-500"
+                        ? "bg-yellow-400 text-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" 
+                        : "bg-brand-gray dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500"
                     }`}
                   >
-                    Dia {i + 1}
+                    <span>💰</span>
+                    <span>D{i + 1}</span>
                   </div>
                 ))}
               </div>

@@ -49,7 +49,19 @@ service cloud.firestore {
         && item.minQuantity is number && item.minQuantity >= 0
         && item.price is number && item.price >= 0
         && item.category is string && item.category.size() <= 100
-        && (!item.keys().hasAny(['imageUrl']) || item.imageUrl == null || (item.imageUrl is string && item.imageUrl.size() <= 2000));
+        && (!item.keys().hasAny(['imageUrl']) || item.imageUrl == null || (item.imageUrl is string && item.imageUrl.size() <= 2000))
+        && (!item.keys().hasAny(['costPrice']) || item.costPrice == null || item.costPrice is number)
+        && (!item.keys().hasAny(['profitMargin']) || item.profitMargin == null || item.profitMargin is number);
+    }
+
+    function isValidClient(client) {
+      return client.keys().hasAll(['name', 'cellphone'])
+        && client.name is string && client.name.size() <= 200
+        && client.cellphone is string && client.cellphone.size() <= 50
+        && (!client.keys().hasAny(['lastPurchaseDate']) || client.lastPurchaseDate == null || (client.lastPurchaseDate is string && client.lastPurchaseDate.size() <= 30))
+        && (!client.keys().hasAny(['lastPurchaseTime']) || client.lastPurchaseTime == null || (client.lastPurchaseTime is string && client.lastPurchaseTime.size() <= 10))
+        && (!client.keys().hasAny(['lastPurchaseTimestamp']) || client.lastPurchaseTimestamp == null || client.lastPurchaseTimestamp is number)
+        && (!client.keys().hasAny(['lastPurchaseAmount']) || client.lastPurchaseAmount == null || client.lastPurchaseAmount is number);
     }
 
     function isValidGoal(goal) {
@@ -103,6 +115,11 @@ service cloud.firestore {
 
       // Instagram feedbacks subcollection
       match /instagramFeedbacks/{feedbackId} {
+        allow get, list, create, update, delete: if isOwner(userId);
+      }
+
+      // Clients subcollection
+      match /clients/{clientId} {
         allow get, list, create, update, delete: if isOwner(userId);
       }
     }

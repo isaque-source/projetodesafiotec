@@ -17,6 +17,8 @@ export interface Sale {
   amount: number;
   itemDescription: string;
   quantity: number;
+  clientId?: string;
+  clientName?: string;
 }
 
 export interface InventoryItem {
@@ -28,6 +30,18 @@ export interface InventoryItem {
   price: number;
   category: string;
   imageUrl?: string;
+  costPrice?: number;
+  profitMargin?: number;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  cellphone: string;
+  lastPurchaseDate?: string;
+  lastPurchaseTime?: string;
+  lastPurchaseTimestamp?: number;
+  lastPurchaseAmount?: number;
 }
 
 export interface Goal {

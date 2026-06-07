@@ -70,12 +70,8 @@ export default function Login({
 
     const cleanEmail = resetEmail.trim().toLowerCase();
     
-    // Ensure the origin points to the public shared/preview URL (ais-pre) instead of
-    // the authenticated/private development URL (ais-dev) to avoid Google 403 authorization errors for external devices/mock users.
+    // Keep the active origin exactly as is so the email link points to the same working instance
     let originToUse = window.location.origin;
-    if (originToUse.includes("ais-dev-")) {
-      originToUse = originToUse.replace("ais-dev-", "ais-pre-");
-    }
 
     const actionCodeSettings = {
       url: `${originToUse}/?email=${encodeURIComponent(cleanEmail)}&reset=true`,

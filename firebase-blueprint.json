@@ -39,9 +39,25 @@
         "minQuantity": { "type": "number", "description": "Low-stock alert threshold limit" },
         "price": { "type": "number", "description": "Default unit price" },
         "category": { "type": "string", "description": "Product department categorization" },
-        "imageUrl": { "type": "string", "description": "Optional customized product image web URL" }
+        "imageUrl": { "type": "string", "description": "Optional customized product image web URL" },
+        "costPrice": { "type": "number", "description": "The item cost price" },
+        "profitMargin": { "type": "number", "description": "The item target profit margin percentage" }
       },
       "required": ["name", "quantity", "minQuantity", "price", "category"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A registered customer of the store",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Client's full name" },
+        "cellphone": { "type": "string", "description": "Client's cellular phone or whatsapp number" },
+        "lastPurchaseDate": { "type": "string", "description": "Date of the last purchase" },
+        "lastPurchaseTime": { "type": "string", "description": "Time of the last purchase" },
+        "lastPurchaseTimestamp": { "type": "number", "description": "Timestamp metric in milliseconds for chrono tracking" },
+        "lastPurchaseAmount": { "type": "number", "description": "The amount spent in the last purchase transaction" }
+      },
+      "required": ["name", "cellphone"]
     },
     "Goal": {
       "title": "Goal",
@@ -102,6 +118,10 @@
     "/usuarios/{userId}/instagramFeedbacks/{feedbackId}": {
       "schema": "InstagramFeedback",
       "description": "Log history of feedbacks created for this user"
+    },
+    "/usuarios/{userId}/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Subcollection storing registered clients"
     }
   }
 }

@@ -13,7 +13,7 @@ import {
   getDocFromServer
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
-import { User, Sale, InventoryItem, Goal } from "../types";
+import { User, Sale, InventoryItem, Goal, Client } from "../types";
 
 export interface InstagramProgressState {
   storeNiche: string;
@@ -124,6 +124,44 @@ export async function deleteSaleDocument(uid: string, saleId: string): Promise<v
   const path = `usuarios/${uid}/sales/${saleId}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "sales", saleId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Clients Operations
+ */
+export async function fetchClients(uid: string): Promise<Client[]> {
+  const path = `usuarios/${uid}/clients`;
+  try {
+    const colRef = collection(db, "usuarios", uid, "clients");
+    const querySnapshot = await getDocs(colRef);
+    const clientsList: Client[] = [];
+    querySnapshot.forEach((docSnap) => {
+      clientsList.push({ id: docSnap.id, ...docSnap.data() } as Client);
+    });
+    return clientsList;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export async function saveClientDocument(uid: string, client: Client): Promise<void> {
+  const path = `usuarios/${uid}/clients/${client.id}`;
+  try {
+    const { id, ...data } = client;
+    const cleanData = JSON.parse(JSON.stringify(data));
+    await setDoc(doc(db, "usuarios", uid, "clients", id), cleanData);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function deleteClientDocument(uid: string, clientId: string): Promise<void> {
+  const path = `usuarios/${uid}/clients/${clientId}`;
+  try {
+    await deleteDoc(doc(db, "usuarios", uid, "clients", clientId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

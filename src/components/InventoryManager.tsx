@@ -6,6 +6,7 @@ interface InventoryManagerProps {
   inventory: InventoryItem[];
   onUpdateQuantity: (id: string, newQty: number) => void;
   onAddItem: (item: InventoryItem) => void;
+  onEditItem?: (item: InventoryItem) => void;
   initialFilterLowStock: boolean;
   onClearLowStockFilter: () => void;
 }
@@ -14,6 +15,7 @@ export default function InventoryManager({
   inventory,
   onUpdateQuantity,
   onAddItem,
+  onEditItem,
   initialFilterLowStock,
   onClearLowStockFilter,
 }: InventoryManagerProps) {
@@ -28,6 +30,119 @@ export default function InventoryManager({
   const [newItemMinQty, setNewItemMinQty] = useState("");
   const [newItemCategory, setNewItemCategory] = useState("Artesanato");
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
+  const [newItemCostPrice, setNewItemCostPrice] = useState("");
+  const [newItemProfitMargin, setNewItemProfitMargin] = useState("");
+
+  // Editing state for products
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editItemName, setEditItemName] = useState("");
+  const [editItemCategory, setEditItemCategory] = useState("Artesanato");
+  const [editItemPrice, setEditItemPrice] = useState("");
+  const [editItemCostPrice, setEditItemCostPrice] = useState("");
+  const [editItemProfitMargin, setEditItemProfitMargin] = useState("");
+  const [editItemQty, setEditItemQty] = useState("");
+  const [editItemMinQty, setEditItemMinQty] = useState("");
+  const [editItemImageUrl, setEditItemImageUrl] = useState("");
+
+  // Bi-directional automated calculation between cost price, profit margin and selling price (New Product)
+  const handleNewCostChange = (valStr: string) => {
+    setNewItemCostPrice(valStr);
+    const cost = parseFloat(valStr);
+    const margin = parseFloat(newItemProfitMargin);
+    if (!isNaN(cost) && !isNaN(margin)) {
+      const calculated = cost * (1 + margin / 100);
+      setNewItemPrice(calculated.toFixed(2));
+    }
+  };
+
+  const handleNewMarginChange = (valStr: string) => {
+    setNewItemProfitMargin(valStr);
+    const cost = parseFloat(newItemCostPrice);
+    const margin = parseFloat(valStr);
+    if (!isNaN(cost) && !isNaN(margin)) {
+      const calculated = cost * (1 + margin / 100);
+      setNewItemPrice(calculated.toFixed(2));
+    }
+  };
+
+  const handleNewPriceChange = (valStr: string) => {
+    setNewItemPrice(valStr);
+    const cost = parseFloat(newItemCostPrice);
+    const price = parseFloat(valStr);
+    if (!isNaN(cost) && cost > 0 && !isNaN(price)) {
+      const calculatedMargin = ((price - cost) / cost) * 100;
+      setNewItemProfitMargin(calculatedMargin.toFixed(1));
+    }
+  };
+
+  // Bi-directional automated calculation (Editing Product)
+  const handleEditCostChange = (valStr: string) => {
+    setEditItemCostPrice(valStr);
+    const cost = parseFloat(valStr);
+    const margin = parseFloat(editItemProfitMargin);
+    if (!isNaN(cost) && !isNaN(margin)) {
+      const calculated = cost * (1 + margin / 100);
+      setEditItemPrice(calculated.toFixed(2));
+    }
+  };
+
+  const handleEditMarginChange = (valStr: string) => {
+    setEditItemProfitMargin(valStr);
+    const cost = parseFloat(editItemCostPrice);
+    const margin = parseFloat(valStr);
+    if (!isNaN(cost) && !isNaN(margin)) {
+      const calculated = cost * (1 + margin / 100);
+      setEditItemPrice(calculated.toFixed(2));
+    }
+  };
+
+  const handleEditPriceChange = (valStr: string) => {
+    setEditItemPrice(valStr);
+    const cost = parseFloat(editItemCostPrice);
+    const price = parseFloat(valStr);
+    if (!isNaN(cost) && cost > 0 && !isNaN(price)) {
+      const calculatedMargin = ((price - cost) / cost) * 100;
+      setEditItemProfitMargin(calculatedMargin.toFixed(1));
+    }
+  };
+
+  const startEditing = (item: InventoryItem) => {
+    setEditingItem(item);
+    setEditItemName(item.name);
+    setEditItemCategory(item.category);
+    setEditItemPrice(item.price.toString());
+    setEditItemCostPrice(item.costPrice?.toString() || "");
+    setEditItemProfitMargin(item.profitMargin?.toString() || "");
+    setEditItemQty(item.quantity.toString());
+    setEditItemMinQty(item.minQuantity.toString());
+    setEditItemImageUrl(item.imageUrl || "");
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    if (!editItemName.trim() || !editItemPrice || !editItemQty || !editItemMinQty) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const updatedItem: InventoryItem = {
+      ...editingItem,
+      name: editItemName.trim(),
+      category: editItemCategory,
+      price: Math.max(0, parseFloat(editItemPrice) || 0),
+      costPrice: editItemCostPrice ? Math.max(0, parseFloat(editItemCostPrice)) : undefined,
+      profitMargin: editItemProfitMargin ? parseFloat(editItemProfitMargin) : undefined,
+      quantity: Math.max(0, parseInt(editItemQty) || 0),
+      minQuantity: Math.max(0, parseInt(editItemMinQty) || 0),
+      imageUrl: editItemImageUrl.trim() || undefined,
+    };
+
+    if (onEditItem) {
+      onEditItem(updatedItem);
+    }
+    setEditingItem(null);
+  };
 
   // Filter lists based on search, category and low stock criteria
   const filteredItems = inventory.filter((item) => {
@@ -60,6 +175,8 @@ export default function InventoryManager({
       code: generateUniqueCode(),
       name: newItemName,
       price: Math.max(0, parseFloat(newItemPrice) || 0),
+      costPrice: newItemCostPrice ? Math.max(0, parseFloat(newItemCostPrice)) : undefined,
+      profitMargin: newItemProfitMargin ? parseFloat(newItemProfitMargin) : undefined,
       quantity: Math.max(0, parseInt(newItemQty) || 0),
       minQuantity: Math.max(0, parseInt(newItemMinQty) || 0),
       category: newItemCategory,
@@ -74,6 +191,8 @@ export default function InventoryManager({
     setNewItemQty("");
     setNewItemMinQty("");
     setNewItemImageUrl("");
+    setNewItemCostPrice("");
+    setNewItemProfitMargin("");
     setIsAdding(false);
   };
 
@@ -119,12 +238,12 @@ export default function InventoryManager({
               />
             </div>
             
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 md:col-span-2">
               <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Categoria</label>
               <select
                 value={newItemCategory}
                 onChange={(e) => setNewItemCategory(e.target.value)}
-                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 rounded-lg font-sans text-sm bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 focus:outline-none focus:border-brand-orange"
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 rounded-lg font-sans text-sm bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 focus:outline-none focus:border-brand-orange w-full"
               >
                 {categoriesList.filter(c => c !== "Todos").map(c => (
                   <option key={c} value={c}>{c}</option>
@@ -133,15 +252,41 @@ export default function InventoryManager({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Preço Unitário (R$)</label>
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Preço de Custo (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={newItemCostPrice}
+                onChange={(e) => handleNewCostChange(e.target.value)}
+                placeholder="Ex: 30.00"
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Margem de Lucro (%)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="-100"
+                value={newItemProfitMargin}
+                onChange={(e) => handleNewMarginChange(e.target.value)}
+                placeholder="Ex: 50"
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-sans text-xs font-bold text-[#ea580c] dark:text-brand-yellow uppercase tracking-wider">Preço de Venda (R$)</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={newItemPrice}
-                onChange={(e) => setNewItemPrice(e.target.value)}
+                onChange={(e) => handleNewPriceChange(e.target.value)}
                 placeholder="59.90"
-                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-[#ea580c] dark:text-orange-400 font-bold font-sans text-sm focus:outline-none focus:border-brand-orange"
                 required
               />
             </div>
@@ -314,9 +459,19 @@ export default function InventoryManager({
                           CÓDIGO: #{item.code || "S/C"}
                         </span>
                       </div>
-                      <span className="inline-block mt-0.5 font-sans text-[10px] font-bold text-brand-muted dark:text-zinc-400 shrink-0 selection:bg-brand-yellow px-2 py-0.5 rounded-full border border-brand-gray/50 dark:border-zinc-700 uppercase">
-                        {item.category}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className="inline-block font-sans text-[10px] font-bold text-brand-muted dark:text-zinc-400 shrink-0 selection:bg-brand-yellow px-2 py-0.5 rounded-full border border-brand-gray/50 dark:border-zinc-700 uppercase">
+                          {item.category}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => startEditing(item)}
+                          className="px-2 py-0.5 text-[9px] font-extrabold uppercase font-sans tracking-wide bg-brand-yellow/20 text-brand-dark dark:text-zinc-300 border border-brand-dark/50 hover:bg-brand-orange hover:text-brand-dark hover:border-brand-dark rounded cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                          title="Editar Informações"
+                        >
+                          ✏️ Editar
+                        </button>
+                      </div>
                     </div>
 
                     {/* Product Photo thumbnail with beautiful fallback */}
@@ -348,10 +503,18 @@ export default function InventoryManager({
                 </div>
 
                 {/* Price Label */}
-                <div className="text-left mt-2">
+                <div className="text-left mt-2 flex flex-col">
                   <span className="font-display font-extrabold text-lg text-brand-dark dark:text-zinc-200">
                     R$ {item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </span>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 font-mono text-[10px] font-bold text-brand-muted dark:text-zinc-400">
+                    {item.costPrice !== undefined && item.costPrice > 0 && (
+                      <span>Custo: R$ {item.costPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                    )}
+                    {item.profitMargin !== undefined && (
+                      <span className="text-[#ea580c] dark:text-orange-400">Margem: {item.profitMargin.toFixed(1)}%</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Lower Row: Stock adjustment controls */}
@@ -393,6 +556,182 @@ export default function InventoryManager({
           </div>
         )}
       </section>
+
+      {/* Editing Modal / Card Form overlay */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-[#f9f9f9] dark:bg-zinc-900 border-3 border-brand-dark dark:border-zinc-850 rounded-2xl p-6 w-full max-w-xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] animate-scale-in text-left">
+            <div className="flex justify-between items-center pb-4 border-b-2 border-brand-dark dark:border-zinc-850 mb-4">
+              <h3 className="font-display font-black text-lg text-brand-primary dark:text-brand-yellow uppercase tracking-wider">Editar Produto 📦</h3>
+              <button 
+                onClick={() => setEditingItem(null)} 
+                className="text-brand-muted dark:text-zinc-400 font-extrabold hover:underline cursor-pointer text-xs uppercase"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Nome do Produto</label>
+                <input
+                  type="text"
+                  value={editItemName}
+                  onChange={(e) => setEditItemName(e.target.value)}
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-850 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Categoria</label>
+                <select
+                  value={editItemCategory}
+                  onChange={(e) => setEditItemCategory(e.target.value)}
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 rounded-lg font-sans text-sm bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 focus:outline-none"
+                >
+                  {categoriesList.filter(c => c !== "Todos").map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Preço de Custo (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editItemCostPrice}
+                  onChange={(e) => handleEditCostChange(e.target.value)}
+                  placeholder="Ex: 30.00"
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Margem de Lucro (%)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="-100"
+                  value={editItemProfitMargin}
+                  onChange={(e) => handleEditMarginChange(e.target.value)}
+                  placeholder="Ex: 50"
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-sans text-xs font-bold text-[#ea580c] dark:text-brand-yellow uppercase tracking-widest">Preço de Venda (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editItemPrice}
+                  onChange={(e) => handleEditPriceChange(e.target.value)}
+                  placeholder="Ex: 45.00"
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#ea580c] dark:text-orange-400 rounded-lg font-sans text-sm focus:outline-none font-bold"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Atual</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editItemQty}
+                  onChange={(e) => setEditItemQty(e.target.value)}
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Mínimo</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editItemMinQty}
+                  onChange={(e) => setEditItemMinQty(e.target.value)}
+                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 sm:col-span-2 text-left">
+                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Foto do Produto (Substituir/Upload)</label>
+                <div className="flex items-center gap-4 mt-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-850">
+                  {editItemImageUrl ? (
+                    <div className="relative group shrink-0">
+                      <img 
+                        src={editItemImageUrl} 
+                        alt="Preview" 
+                        className="w-14 h-14 object-cover rounded-lg border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] bg-white animate-fade-in"
+                        referrerPolicy="no-referrer"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditItemImageUrl("")}
+                        className="absolute -top-1.5 -right-1.5 bg-red-650 text-white w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-brand-dark cursor-pointer shadow-md"
+                        title="Remover foto"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg border-2 border-dashed border-zinc-400 bg-white dark:bg-zinc-800 flex items-center justify-center text-lg text-zinc-400 shrink-0 select-none">
+                      🖼️
+                    </div>
+                  )}
+                  <div className="flex-grow flex flex-col gap-1">
+                    <label 
+                      htmlFor="product-image-edit-upload"
+                      className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all"
+                    >
+                      <span>📂 Nova Foto</span>
+                    </label>
+                    <input
+                      type="file"
+                      id="product-image-edit-upload"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            if (typeof reader.result === "string") {
+                              setEditItemImageUrl(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="flex-1 h-11 bg-white dark:bg-zinc-800 border-2 border-brand-gray dark:border-zinc-700 text-brand-muted hover:text-brand-dark dark:hover:text-zinc-100 font-display font-bold text-xs rounded-lg transition-all cursor-pointer uppercase tracking-wide"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 h-11 bg-brand-orange text-brand-dark font-display font-extrabold text-xs tracking-wider border-2 border-brand-dark rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer uppercase"
+                >
+                  SALVAR ALTERAÇÕES
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

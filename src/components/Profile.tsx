@@ -14,7 +14,10 @@ import {
   Check, 
   X, 
   Unlock, 
-  AlertCircle 
+  AlertCircle,
+  Download,
+  Smartphone,
+  Monitor
 } from "lucide-react";
 
 const maskEmail = (email: string): string => {
@@ -79,6 +82,50 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
       document.documentElement.classList.remove("dark");
     }
   }, [darkModeEnabled]);
+
+  // PWA Installer states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    // Check if the app is already running in standalone mode (installed as PWA)
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone;
+    if (isStandalone) {
+      setIsInstalled(true);
+    }
+
+    // Capture dynamic beforeinstallprompt events
+    const handleBeforePrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforePrompt);
+
+    // Read the globally captured prompt from our index.html script if it fired early
+    if ((window as any).deferredInstallPrompt) {
+      setDeferredPrompt((window as any).deferredInstallPrompt);
+      setIsInstallable(true);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforePrompt);
+    };
+  }, []);
+
+  const triggerPwaInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`[PWA] Usuário escolheu a instalação: ${outcome}`);
+    if (outcome === "accepted") {
+      setIsInstalled(true);
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+    }
+  };
 
   // Save General Profile Fields to Firestore
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -532,6 +579,62 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
                 </div>
               </form>
             )}
+          </div>
+
+          {/* Baixar Aplicativo (PWA) Card */}
+          <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark rounded-xl p-6 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] text-left">
+            <h4 className="font-display font-black text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-widest border-b border-brand-gray/35 pb-2">Central de Downloads</h4>
+            
+            <div className="pt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center justify-center bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow font-black text-[10px] px-2 py-0.5 rounded-full border border-brand-dark">PWA Habilitado</span>
+                </div>
+                <p className="font-sans font-bold text-sm text-brand-dark dark:text-zinc-200">
+                  {isInstalled ? "Aplicativo Instalado com Sucesso" : "Instalar o Visu no Computador ou Celular"}
+                </p>
+                <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-semibold leading-normal mt-0.5">
+                  {isInstalled 
+                    ? "Você já está usando a versão nativa instalada em seu sistema com carregamento instantâneo offline e acesso rápido."
+                    : "Baixe o aplicativo para ter acesso direto na tela inicial do seu aparelho sem precisar digitar site através do Google Chrome."}
+                </p>
+              </div>
+
+              <div className="shrink-0 w-full md:w-auto">
+                {isInstalled ? (
+                  <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-display font-extrabold text-xs uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500 rounded-lg px-4 py-2">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Instalado</span>
+                  </div>
+                ) : isInstallable ? (
+                  <button
+                    onClick={triggerPwaInstall}
+                    className="w-full md:w-auto px-5 h-11 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark border-2 border-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    <span>Baixar Aplicativo</span>
+                  </button>
+                ) : (
+                  <div className="text-left md:text-right flex md:flex-col items-center md:items-end justify-between md:justify-start gap-1 p-2 bg-zinc-50 dark:bg-zinc-850 md:bg-transparent rounded-lg border border-brand-gray/30 md:border-none">
+                    <div className="flex gap-2 text-zinc-400 dark:text-zinc-500">
+                      <Monitor className="w-5 h-5" title="Computador" />
+                      <Smartphone className="w-5 h-5" title="Celular" />
+                    </div>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-sans font-semibold text-left md:text-right leading-tight">
+                      Disponível para instalar<br/>pelo menu do Chrome 🔗
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 bg-zinc-50 dark:bg-zinc-800 border border-brand-gray/25 rounded-lg p-3 text-[11px] text-zinc-500 dark:text-zinc-400 font-sans leading-relaxed">
+              <span className="font-bold text-brand-dark dark:text-zinc-300">Como instalar manualmente se o botão acima não aparecer:</span>
+              <ul className="list-disc list-inside mt-1.5 space-y-1">
+                <li>No <b>Google Chrome no Computador</b>: Clique no ícone de tela <span className="text-brand-orange font-bold">⊕</span> no topo direito da barra de navegação.</li>
+                <li>No <b>Google Chrome no Celular</b>: Toque nos três pontinhos no canto superior direito e clique em <b>"Instalar aplicativo"</b> ou <b>"Adicionar à tela de início"</b>.</li>
+              </ul>
+            </div>
           </div>
         </div>
 

@@ -15,6 +15,34 @@ dotenv.config();
 // Fallback to load configuration from .env.example if not set in .env (for workspaces/sandbox)
 dotenv.config({ path: path.join(process.cwd(), ".env.example") });
 
+// Ensure PWA static icons exist inside Public directory for Chrome install support
+try {
+  const publicDir = path.join(process.cwd(), "public");
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+    console.log("Created public directory for PWA assets.");
+  }
+
+  const logoSourcePath = path.join(process.cwd(), "src", "assets", "images", "visu_logo_1780483267774.png");
+  const icon192Dest = path.join(publicDir, "icon-192.png");
+  const icon512Dest = path.join(publicDir, "icon-512.png");
+
+  if (fs.existsSync(logoSourcePath)) {
+    if (!fs.existsSync(icon192Dest)) {
+      fs.copyFileSync(logoSourcePath, icon192Dest);
+      console.log("Successfully copied logo source to /public/icon-192.png");
+    }
+    if (!fs.existsSync(icon512Dest)) {
+      fs.copyFileSync(logoSourcePath, icon512Dest);
+      console.log("Successfully copied logo source to /public/icon-512.png");
+    }
+  } else {
+    console.warn("Logo source not found at:", logoSourcePath);
+  }
+} catch (pwaErr) {
+  console.warn("Error setting up public PWA assets:", pwaErr);
+}
+
 // Initialize Firebase Admin SDK securely using default credentials or matching VITE_FIREBASE_PROJECT_ID
 try {
   admin.initializeApp({
@@ -778,12 +806,10 @@ app.post(["/forgot-password", "/api/forgot-password"], async (req, res) => {
       origin = `${forwardedProto}://${forwardedHost}`;
     }
 
-    // Convert development environment origin (ais-dev-) to public preview URL (ais-pre-)
-    // to prevent 403 Forbidden errors when clicked externally/on mobile devices.
-    if (origin.includes("ais-dev-")) {
-      origin = origin.replace("ais-dev-", "ais-pre-");
-    }
-
+    // Make sure we keep the active origin exactly as is (e.g. ais-dev-...) so that clicking 
+    // the recovery email link takes the user to the exact running container where they can 
+    // successfully complete the reset password flow, preventing 404 "Page not found" errors on
+    // an unprovisioned ais-pre- subdomain.
     const dynamicLink = `${origin}/?email=${encodeURIComponent(cleanEmail)}&reset=true`;
 
     // Beautiful HTML styled email message matching VISU's brand palette & neo-brutalist cards

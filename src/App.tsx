@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Home as HomeIcon, Coins, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail } from "lucide-react";
-import { User, Sale, InventoryItem, Goal } from "./types";
+import { Home as HomeIcon, DollarSign, ShoppingBag, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail, Users } from "lucide-react";
+import { User, Sale, InventoryItem, Goal, Client } from "./types";
 import { SEED_USER, SEED_INVENTORY, SEED_SALES, SEED_GOAL } from "./data";
 import { auth } from "./firebase";
 import { signOut } from "firebase/auth";
@@ -14,12 +14,16 @@ import {
   fetchInventory,
   addInventoryDocument,
   updateInventoryDocumentQty,
+  updateInventoryDocumentFull,
   fetchGoal,
   saveGoal,
   getEmailToUidMapping,
   saveEmailToUidMapping,
   saveInstagramProgress,
-  clearAllInstagramFeedbacks
+  clearAllInstagramFeedbacks,
+  fetchClients,
+  saveClientDocument,
+  deleteClientDocument
 } from "./lib/db";
 
 // Sub-components
@@ -34,6 +38,7 @@ import AdjustGoalModal from "./components/AdjustGoalModal";
 import LockScreen from "./components/LockScreen";
 import Profile from "./components/Profile";
 import ResetPassword from "./components/ResetPassword";
+import ClientsManager from "./components/ClientsManager";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -65,7 +70,7 @@ const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile" | "clients">("login");
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const [isLocked, setIsLocked] = useState(false);
@@ -87,6 +92,15 @@ export default function App() {
   const inventory = inventoryState;
 
   const [goal, setGoal] = useState<Goal>({ targetAmount: 15180, period: "Mensal" });
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const handleSaveClientsLocally = (updatedClients: Client[]) => {
+    try {
+      localStorage.setItem("visu_clients", JSON.stringify(updatedClients));
+    } catch (e) {
+      console.warn("Storage access restricted on local fallback check:", e);
+    }
+  };
 
   // Coins and streak shared states for gamified activities
   const [visuCoins, setVisuCoins] = useState<number>(() => {
@@ -232,9 +246,17 @@ export default function App() {
             } catch (err) {
               console.error("[Firestore Sync] Erro ao buscar metas:", err);
             }
+
+            let dbClients: Client[] = [];
+            try {
+              dbClients = await fetchClients(mappedUid);
+            } catch (err) {
+              console.error("[Firestore Sync] Erro ao buscar clientes:", err);
+            }
             
             setSales(dbSales || []);
             setInventory(dbInventory || []);
+            setClients(dbClients || []);
             if (dbGoal) {
               setGoal(dbGoal);
             }
@@ -375,6 +397,23 @@ export default function App() {
         } else {
           setGoal(SEED_GOAL);
         }
+
+        let savedClients = null;
+        try {
+          savedClients = localStorage.getItem("visu_clients");
+        } catch (e) {
+          console.warn("Storage access restricted on local fallback check:", e);
+        }
+        if (savedClients) {
+          try {
+            setClients(JSON.parse(savedClients));
+          } catch (_) {
+            setClients([]);
+          }
+        } else {
+          setClients([]);
+        }
+
         setLoadingFirebase(false);
       }
     });
@@ -622,6 +661,32 @@ export default function App() {
       // Local demo persistence fallback
       handleSaveState(user, updatedSales, updatedInventory, goal);
     }
+
+    // Refresh client's purchase stopwatch
+    if (newSale.clientId) {
+      const client = clients.find((c) => c.id === newSale.clientId);
+      if (client) {
+        const updatedClient = {
+          ...client,
+          lastPurchaseAmount: newSale.amount,
+          lastPurchaseTimestamp: Date.now(),
+          lastPurchaseDate: newSale.date,
+          lastPurchaseTime: newSale.time,
+        };
+        const updatedClients = clients.map((c) => (c.id === client.id ? updatedClient : c));
+        setClients(updatedClients);
+
+        if (auth.currentUser && activeUid) {
+          try {
+            await saveClientDocument(activeUid, updatedClient);
+          } catch (err) {
+            console.error("Erro ao sincronizar cronômetro do cliente no firestore:", err);
+          }
+        } else {
+          handleSaveClientsLocally(updatedClients);
+        }
+      }
+    }
     
     setActiveTab("sales");
   };
@@ -725,6 +790,95 @@ export default function App() {
     }
   };
 
+  // Product Edit update full object
+  const handleUpdateInventoryProduct = async (updatedItem: InventoryItem) => {
+    const updatedInventory = inventory.map(item => item.id === updatedItem.id ? updatedItem : item);
+    setInventory(updatedInventory);
+
+    // Live Firebase sync
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await updateInventoryDocumentFull(activeUid, updatedItem);
+      } catch (err) {
+        console.error("Erro ao atualizar produto no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, sales, updatedInventory, goal);
+    }
+  };
+
+  // Client operations
+  const handleAddClient = async (newClient: Client) => {
+    const updatedClients = [newClient, ...clients];
+    setClients(updatedClients);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await saveClientDocument(activeUid, newClient);
+      } catch (err) {
+        console.error("Erro ao adicionar cliente no Firestore:", err);
+      }
+    } else {
+      handleSaveClientsLocally(updatedClients);
+    }
+  };
+
+  const handleUpdateClient = async (updatedClient: Client) => {
+    const updatedClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
+    setClients(updatedClients);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await saveClientDocument(activeUid, updatedClient);
+      } catch (err) {
+        console.error("Erro ao atualizar cliente no Firestore:", err);
+      }
+    } else {
+      handleSaveClientsLocally(updatedClients);
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    const updatedClients = clients.filter(c => c.id !== id);
+    setClients(updatedClients);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await deleteClientDocument(activeUid, id);
+      } catch (err) {
+        console.error("Erro ao excluir cliente no Firestore:", err);
+      }
+    } else {
+      handleSaveClientsLocally(updatedClients);
+    }
+  };
+
+  const handleAddQuickSale = async (clientId: string, amount: number) => {
+    const now = new Date();
+    const timeStr = now.toTimeString().substring(0, 5); // HH:MM
+    const dateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const client = clients.find(c => c.id === clientId);
+    if (!client) return;
+
+    const newSale: Sale = {
+      id: `sale-quick-${Date.now()}`,
+      date: dateStr,
+      time: timeStr,
+      amount: amount,
+      itemDescription: `Venda Direta - ${client.name}`,
+      quantity: 1,
+      clientId: clientId,
+      clientName: client.name
+    };
+
+    await handleAddSale(newSale);
+  };
+
   const handleGoToLowStockInventory = () => {
     setInventoryLowStockOnly(true);
     setActiveTab("inventory");
@@ -798,14 +952,14 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Interactive Coin Tracker in Header */}
+            {/* Interactive Money Bag (Sacolinha) Streak Tracker in Header */}
             <div 
               onClick={() => setActiveTab("progress")}
               className="flex items-center gap-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-2 border-yellow-500/50 px-2.5 h-9 rounded-lg font-display text-xs font-black uppercase cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_0px_rgba(234,179,8,0.2)]"
-              title="Suas Visu Coins ganhas em Atividades! Clique para ver tudo."
+              title="Sua Ofensiva de Vendas (Sacolinha de Dinheiro)! Toque para acessar as aulas."
             >
-              <Coins className="w-4 h-4 text-yellow-500 animate-pulse" />
-              <span>{visuCoins} Coins</span>
+              <span className="text-base animate-bounce select-none">💰</span>
+              <span>{streak} {streak === 1 ? "Dia" : "Dias"}</span>
             </div>
 
             <button
@@ -890,6 +1044,7 @@ export default function App() {
           <SalesHistory
             sales={sales}
             onRemoveSale={handleRemoveSale}
+            goal={goal}
           />
         )}
 
@@ -898,8 +1053,19 @@ export default function App() {
             inventory={inventory}
             onUpdateQuantity={handleUpdateItemQty}
             onAddItem={handleAddInventoryProduct}
+            onEditItem={handleUpdateInventoryProduct}
             initialFilterLowStock={inventoryLowStockOnly}
             onClearLowStockFilter={() => setInventoryLowStockOnly(false)}
+          />
+        )}
+
+        {user && activeTab === "clients" && (
+          <ClientsManager
+            clients={clients}
+            onAddClient={handleAddClient}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+            onAddQuickSale={handleAddQuickSale}
           />
         )}
 
@@ -967,7 +1133,7 @@ export default function App() {
                 : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
             }`}
           >
-            <Coins className="w-5 h-5 mb-0.5" />
+            <DollarSign className="w-5 h-5 mb-0.5" />
             <span className="font-sans font-bold text-xs">Vendas</span>
           </button>
 
@@ -986,6 +1152,19 @@ export default function App() {
             <Package className="w-5 h-5 mb-0.5" />
             <span className="font-sans font-bold text-xs">Estoque</span>
           </button>
+
+          {/* Customers management tab (Clientes) - FIFTH OPTION */}
+          <button
+            onClick={() => setActiveTab("clients")}
+            className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
+              activeTab === "clients"
+                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-1 font-bold font-display"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+            }`}
+          >
+            <Users className="w-5 h-5 mb-0.5" />
+            <span className="font-sans font-bold text-xs">Clientes</span>
+          </button>
         </nav>
       )}
 
@@ -993,6 +1172,7 @@ export default function App() {
       {user && (
         <NewSaleModal
           inventory={inventory}
+          clients={clients}
           isOpen={isNewSaleOpen}
           onClose={() => setIsNewSaleOpen(false)}
           onAddSale={handleAddSale}

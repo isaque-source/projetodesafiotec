@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Check, ShoppingBag, Plus, Minus, DollarSign } from "lucide-react";
-import { InventoryItem, Sale } from "../types";
+import { X, Check, ShoppingBag, Plus, Minus, DollarSign, GripHorizontal } from "lucide-react";
+import { motion, useDragControls } from "motion/react";
+import { InventoryItem, Sale, Client } from "../types";
 
 interface NewSaleModalProps {
   inventory: InventoryItem[];
+  clients: Client[];
   isOpen: boolean;
   onClose: () => void;
   onAddSale: (sale: Sale) => void;
 }
 
-export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: NewSaleModalProps) {
+export default function NewSaleModal({ inventory, clients = [], isOpen, onClose, onAddSale }: NewSaleModalProps) {
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedItemId, setSelectedItemId] = useState(inventory[0]?.id || "");
   const [quantity, setQuantity] = useState(1);
   const [customPrice, setCustomPrice] = useState("");
@@ -21,6 +24,7 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedItem = inventory.find(item => item.id === selectedItemId);
+  const dragControls = useDragControls();
 
   // Sync SearchTerm with selected item when opened
   useEffect(() => {
@@ -74,7 +78,9 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
     // Get current time
     const now = new Date();
     const timeStr = now.toTimeString().substring(0, 5); // HH:MM
-    const dateStr = "2026-05-27"; // Unified mock date
+    const dateStr = now.toISOString().split("T")[0]; // Use current real date for chronological flow
+
+    const selectedClient = clients.find(c => c.id === selectedClientId);
 
     const newSale: Sale = {
       id: `sale-user-${Date.now()}`,
@@ -82,7 +88,9 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
       time: timeStr,
       amount: finalAmount,
       itemDescription: selectedItem.name,
-      quantity: quantity
+      quantity: quantity,
+      clientId: selectedClientId || undefined,
+      clientName: selectedClient ? selectedClient.name : undefined
     };
 
     onAddSale(newSale);
@@ -91,6 +99,7 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
     // Reset state values
     setQuantity(1);
     setCustomPrice("");
+    setSelectedClientId("");
     setErrorMsg("");
   };
 
@@ -182,20 +191,32 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-brand-dark/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-left">
-      <div className="w-full max-w-md bg-white border-2 border-brand-dark rounded-xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 overflow-hidden animate-slide-up">
+    <div className="fixed inset-0 bg-brand-dark/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-left overflow-auto">
+      <motion.div
+        drag
+        dragControls={dragControls}
+        dragListener={false}
+        dragMomentum={false}
+        className="w-full max-w-md bg-white border-2 border-brand-dark rounded-xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] p-6 overflow-hidden relative"
+      >
         
-        {/* Header Title with close action */}
-        <div className="flex justify-between items-center mb-6 border-b border-brand-gray/40 pb-3">
-          <div className="flex items-center gap-2 text-brand-primary">
-            <ShoppingBag className="w-6 h-6 text-brand-dark fill-brand-yellow" />
-            <h3 className="font-display font-extrabold text-[#fd8b00] text-lg uppercase tracking-wide">
+        {/* Grab and Move Header Handle */}
+        <div 
+          onPointerDown={(e) => dragControls.start(e)}
+          className="flex justify-between items-center mb-6 border-b border-brand-gray/40 pb-3 cursor-grab active:cursor-grabbing select-none"
+          title="Segure e arraste aqui para mover a janela"
+        >
+          <div className="flex items-center gap-2 text-brand-primary min-w-0 flex-1">
+            <GripHorizontal className="w-5 h-5 text-zinc-400 shrink-0 cursor-grab active:cursor-grabbing" />
+            <ShoppingBag className="w-5 h-5 text-brand-dark fill-brand-yellow shrink-0" />
+            <h3 className="font-display font-extrabold text-[#fd8b00] text-lg uppercase tracking-wide truncate">
               Registrar Nova Venda
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full border border-brand-gray hover:bg-brand-gray flex items-center justify-center text-brand-muted cursor-pointer transition-colors"
+            className="w-8 h-8 rounded-full border border-brand-gray hover:bg-brand-gray flex items-center justify-center text-brand-muted cursor-pointer transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -299,7 +320,7 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
           </div>
 
           {selectedItem && (
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-full">
               {/* White item name in deep background */}
               <div className="text-white bg-zinc-900 border-2 border-brand-dark rounded-lg p-2.5 font-display font-extrabold text-sm text-center shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] uppercase tracking-wide">
                 Produto Escolhido: {selectedItem.name}
@@ -319,6 +340,25 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
               </div>
             </div>
           )}
+
+          {/* Optional client linkage */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-sans font-bold text-xs text-brand-dark uppercase tracking-wider">
+              Associar Cliente (Opcional)
+            </label>
+            <select
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg bg-white text-brand-dark font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00]"
+            >
+              <option value="">Nenhum cliente (Venda Geral)</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.cellphone})
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Optional custom price overwrite */}
           <div className="flex flex-col gap-1.5">
@@ -408,18 +448,18 @@ export default function NewSaleModal({ inventory, isOpen, onClose, onAddSale }: 
               onClick={onClose}
               className="flex-1 h-11 border-2 border-brand-dark text-brand-dark font-display font-bold text-sm rounded-lg hover:bg-brand-gray cursor-pointer transition-colors"
             >
-              Cancelar
+              Cancelar Venda
             </button>
             <button
               type="submit"
               className="flex-1 h-11 bg-brand-orange text-brand-dark font-display font-bold text-sm border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Check className="w-4 h-4" />
-              <span>Confirmar Venda</span>
+              <span>Finalizar Venda</span>
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }
