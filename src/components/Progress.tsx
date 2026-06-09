@@ -22,7 +22,7 @@ import {
   ShoppingBag,
   DollarSign
 } from "lucide-react";
-import { Sale, Goal, User } from "../types";
+import { Sale, Goal, User, Client } from "../types";
 import { auth } from "../firebase";
 import { getApiUrl } from "../lib/api";
 import { 
@@ -35,6 +35,7 @@ import {
 
 interface ProgressProps {
   sales: Sale[];
+  clients: Client[];
   goal: Goal;
   onOpenAdjustGoal: () => void;
   points: number;
@@ -137,7 +138,7 @@ const INSTAGRAM_TASKS: LearningTask[] = [
   }
 ];
 
-export default function Progress({ sales, goal, onOpenAdjustGoal, points, setPoints, streak, setStreak }: ProgressProps) {
+export default function Progress({ sales, clients, goal, onOpenAdjustGoal, points, setPoints, streak, setStreak }: ProgressProps) {
   const [activeSubTab, setActiveSubTab] = useState<"metas" | "trilha">("trilha"); // Default to TRILHA following user requirements
 
   // -------------------------------------------------------------
@@ -534,19 +535,95 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
   };
 
   // -------------------------------------------------------------
-  // METAS E VENDAS ORIGINAL CALCULATIONS
+  // METAS E VENDAS DYNAMIC & TRUE CALCULATIONS
   // -------------------------------------------------------------
-  const monthlySalesSum = sales.reduce((acc, s) => acc + s.amount, 0);
-  const progressPercent = Math.min(100, Math.round((monthlySalesSum / goal.targetAmount) * 100));
+  const now = new Date();
+  const currentYearStr = String(now.getFullYear());
+  const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
+  const currentYearMonth = `${currentYearStr}-${currentMonthStr}`;
+
+  // Current Month Real Sales Sum
+  const currentMonthSales = sales.filter((s) => s.date.startsWith(currentYearMonth));
+  const monthlySalesSum = currentMonthSales.reduce((acc, s) => acc + s.amount, 0);
+  const progressPercent = goal.targetAmount > 0 ? Math.min(100, Math.round((monthlySalesSum / goal.targetAmount) * 100)) : 0;
 
   const strokeRadius = 40;
   const strokeCircumference = 2 * Math.PI * strokeRadius;
   const strokeOffset = strokeCircumference - (progressPercent / 100) * strokeCircumference;
 
-  const janSales = 6000;
-  const fevSales = 8500;
-  const marSales = 11000;
-  const maxBarAmount = Math.max(janSales, fevSales, marSales, monthlySalesSum, goal.targetAmount);
+  // Last Month Real Sales Sum & Trend percentage
+  const lastMonthDate = new Date();
+  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthYearStr = String(lastMonthDate.getFullYear());
+  const lastMonthStr = String(lastMonthDate.getMonth() + 1).padStart(2, "0");
+  const lastMonthYearMonth = `${lastMonthYearStr}-${lastMonthStr}`;
+
+  const lastMonthSales = sales.filter((s) => s.date.startsWith(lastMonthYearMonth));
+  const lastMonthSalesSum = lastMonthSales.reduce((acc, s) => acc + s.amount, 0);
+
+  let trendText = "Estável";
+  let trendIsPositive = true;
+  if (lastMonthSalesSum > 0) {
+    const pctDiff = ((monthlySalesSum - lastMonthSalesSum) / lastMonthSalesSum) * 100;
+    if (pctDiff > 0) {
+      trendText = `+${Math.round(pctDiff)}%`;
+      trendIsPositive = true;
+    } else if (pctDiff < 0) {
+      trendText = `${Math.round(pctDiff)}%`;
+      trendIsPositive = false;
+    } else {
+      trendText = "0%";
+      trendIsPositive = true;
+    }
+  } else if (monthlySalesSum > 0) {
+    trendText = "+100%";
+    trendIsPositive = true;
+  } else {
+    trendText = "0%";
+    trendIsPositive = true;
+  }
+
+  // Clients metric calculation
+  const totalClientsCount = clients.length;
+  const clientsWithPurchasesThisMonth = clients.filter(c => {
+    if (!c.lastPurchaseDate) return false;
+    return c.lastPurchaseDate.startsWith(currentYearMonth);
+  }).length;
+
+  // Average Ticket calculation (Current month or fallback to all-time average)
+  const monthlySalesCount = currentMonthSales.length;
+  const averageTicketThisMonth = monthlySalesCount > 0 ? (monthlySalesSum / monthlySalesCount) : 0;
+
+  const allTimeSalesCount = sales.length;
+  const allTimeSalesSum = sales.reduce((acc, s) => acc + s.amount, 0);
+  const averageTicketAllTime = allTimeSalesCount > 0 ? (allTimeSalesSum / allTimeSalesCount) : 0;
+
+  const displayTicket = averageTicketThisMonth > 0 ? averageTicketThisMonth : averageTicketAllTime;
+  const displayTicketCount = averageTicketThisMonth > 0 ? monthlySalesCount : allTimeSalesCount;
+  const isAllTimeTicket = averageTicketThisMonth === 0;
+
+  // Past 4 months data aggregator for Growth Chart
+  const monthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  
+  const getMonthData = (monthsBack: number) => {
+    const d = new Date();
+    d.setMonth(now.getMonth() - monthsBack);
+    const year = d.getFullYear();
+    const monthNum = d.getMonth() + 1;
+    const yearMonth = `${year}-${String(monthNum).padStart(2, "0")}`;
+    const label = monthNames[d.getMonth()];
+    
+    const monthSales = sales.filter(s => s.date.startsWith(yearMonth));
+    const total = monthSales.reduce((acc, s) => acc + s.amount, 0);
+    return { label, total, yearMonth };
+  };
+
+  const m3 = getMonthData(3);
+  const m2 = getMonthData(2);
+  const m1 = getMonthData(1);
+  const m0 = { label: "ATUAL", total: monthlySalesSum, yearMonth: currentYearMonth };
+
+  const maxBarAmount = Math.max(m3.total, m2.total, m1.total, m0.total, goal.targetAmount, 100);
   const remainingValue = goal.targetAmount - monthlySalesSum;
 
 
@@ -615,7 +692,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
           )}
 
           {/* CLÃ VISU POINTS & PROGRESSION HERO PANEL */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* LEVEL & POINTS CARD */}
             <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between group relative overflow-hidden">
@@ -695,26 +772,6 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* SIMULATION ENGINE / ACTION CARD */}
-            <div className="bg-[#ffd700]/10 dark:bg-zinc-900 border-2 border-[#ffd700] dark:border-zinc-700 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(255,215,0,1)] dark:shadow-[4px_4px_0px_0px_#fd8b00] text-left flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-extrabold uppercase tracking-widest text-[#fd8b00] flex items-center gap-1">
-                  <Zap className="w-4 h-4 text-[#fd8b00]" />
-                  Simular Novo Dia
-                </span>
-                <p className="text-xs font-bold text-brand-muted dark:text-zinc-400 mt-2">
-                  Deseja testar a rotina de hoje novamente para ganhar mais pontos? Clique abaixo para marcar um novo dia e resetar as missões diárias!
-                </p>
-              </div>
-
-              <button
-                onClick={handleSimulateNewDay}
-                className="mt-4 bg-[#ffd700] hover:bg-[#ffe23d] text-brand-dark font-display font-extrabold text-xs py-2 px-4 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] border-2 border-brand-dark rounded-xl transition-all w-full cursor-pointer"
-              >
-                🔄 SIMULAR NOVO DIA (+50 PTS)
-              </button>
             </div>
           </div>
 
@@ -1095,12 +1152,12 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
               <span className="font-display font-extrabold text-xl md:text-2xl text-[#fd8b00] mt-1 select-all">
                 R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
               </span>
-              <div className="flex items-center gap-1 text-brand-primary mt-2">
-                <TrendingUp className="w-4 h-4" />
-                <span className="text-xs font-bold font-display">+12%</span>
+              <div className={`flex items-center gap-1 ${trendIsPositive ? 'text-emerald-650 dark:text-emerald-400 font-extrabold' : 'text-rose-500 dark:text-rose-400 font-bold'} mt-2`}>
+                <TrendingUp className={`w-4 h-4 shrink-0 ${!trendIsPositive ? 'rotate-180 text-rose-500' : 'text-emerald-600'}`} />
+                <span className="text-[10px] sm:text-xs font-display">{trendText} vs. mês ant.</span>
               </div>
             </div>
-
+ 
             {/* % Meta Atingida */}
             <div className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left hover:scale-[1.02] transition-transform">
               <span className="font-sans font-bold text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-wide">
@@ -1109,36 +1166,41 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
               <span className="font-display font-extrabold text-[#ffd700] text-xl md:text-2xl mt-1">
                 {progressPercent}%
               </span>
-              <div className="w-full bg-brand-gray dark:bg-zinc-800 h-3 rounded-full overflow-hidden border border-brand-dark dark:border-zinc-700 mt-2">
+              <div className="w-full bg-brand-gray dark:bg-zinc-805 h-3 rounded-full overflow-hidden border border-brand-dark dark:border-zinc-700 mt-2">
                 <div
                   style={{ width: `${progressPercent}%` }}
                   className="bg-[#ffd700] h-full transition-all duration-500"
                 ></div>
               </div>
             </div>
-
-            {/* Seeded metrics to populate bento grid per layout instructions */}
-            <div className="hidden md:flex bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex-col justify-between shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left">
+ 
+            {/* Clientes Ativos */}
+            <div className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left hover:scale-[1.02] transition-transform">
               <span className="font-sans font-bold text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-wide">
-                Novos Clientes
+                Clientes Ativos
               </span>
               <span className="font-display font-extrabold text-brand-dark dark:text-zinc-100 text-xl md:text-2xl mt-1">
-                48
+                {totalClientsCount}
               </span>
-              <span className="text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
-                vs. 42 no mês passado
+              <span className="text-[10px] sm:text-xs text-brand-muted dark:text-zinc-400 font-semibold mt-2 leading-tight">
+                {clientsWithPurchasesThisMonth > 0 
+                  ? `${clientsWithPurchasesThisMonth} compraram este mês` 
+                  : "Nenhuma compra este mês"}
               </span>
             </div>
-
-            <div className="hidden md:flex bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex-col justify-between shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left">
+ 
+            {/* Ticket Médio */}
+            <div className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left hover:scale-[1.02] transition-transform">
               <span className="font-sans font-bold text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-wide">
                 Ticket Médio
               </span>
-              <span className="font-display font-extrabold text-brand-dark dark:text-zinc-100 text-xl md:text-2xl mt-1">
-                R$ 259
+              <span className="font-display font-extrabold text-brand-dark dark:text-zinc-100 text-xl md:text-2xl mt-1 select-all">
+                R$ {displayTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
-                Crescimento sólido
+              <span className="text-[10px] sm:text-xs text-brand-muted dark:text-zinc-400 font-semibold mt-2 leading-tight">
+                {isAllTimeTicket 
+                  ? `${displayTicketCount} vendas no histórico` 
+                  : `${displayTicketCount} vendas registradas este mês`}
               </span>
             </div>
           </section>
@@ -1219,45 +1281,45 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
                 </div>
               </div>
 
-              {/* Graphical rendering of high-contrast columns comparing jan, fev, mar, atual */}
+              {/* Graphical rendering of high-contrast columns comparing past 3 months and current month */}
               <div className="flex items-end justify-between h-[180px] w-full gap-4 pt-4 select-none">
                 
-                {/* JAN */}
+                {/* m3 (3 Months Ago) */}
                 <div className="flex flex-col items-center flex-1 gap-1">
-                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750">
+                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750" title={`R$ ${m3.total.toLocaleString("pt-BR")}`}>
                     <div
-                      style={{ height: `${(janSales / maxBarAmount) * 100}%` }}
+                      style={{ height: `${(m3.total / maxBarAmount) * 100}%` }}
                       className="w-full bg-[#fd8b00]/80 border-t-2 border-brand-dark dark:border-zinc-700"
                     ></div>
                   </div>
-                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">JAN</span>
+                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">{m3.label}</span>
                 </div>
 
-                {/* FEV */}
+                {/* m2 (2 Months Ago) */}
                 <div className="flex flex-col items-center flex-1 gap-1">
-                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750">
+                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750" title={`R$ ${m2.total.toLocaleString("pt-BR")}`}>
                     <div
-                      style={{ height: `${(fevSales / maxBarAmount) * 100}%` }}
+                      style={{ height: `${(m2.total / maxBarAmount) * 100}%` }}
                       className="w-full bg-[#fd8b00]/85 border-t-2 border-brand-dark dark:border-zinc-700"
                     ></div>
                   </div>
-                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">FEV</span>
+                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">{m2.label}</span>
                 </div>
 
-                {/* MAR */}
+                {/* m1 (1 Month Ago) */}
                 <div className="flex flex-col items-center flex-1 gap-1">
-                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750">
+                  <div className="w-full bg-brand-gray dark:bg-zinc-800 h-28 relative flex items-end rounded-t-sm border-x border-t border-brand-muted/30 dark:border-zinc-750" title={`R$ ${m1.total.toLocaleString("pt-BR")}`}>
                     <div
-                      style={{ height: `${(marSales / maxBarAmount) * 100}%` }}
+                      style={{ height: `${(m1.total / maxBarAmount) * 100}%` }}
                       className="w-full bg-[#fd8b00]/90 border-t-2 border-brand-dark dark:border-zinc-700"
                     ></div>
                   </div>
-                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">MAR</span>
+                  <span className="font-display font-extrabold text-[10px] text-brand-muted dark:text-zinc-400">{m1.label}</span>
                 </div>
 
                 {/* ATUAL (Dynamic Highlight column) */}
                 <div className="flex flex-col items-center flex-1 gap-1">
-                  <div className="w-full bg-[#ffd700]/15 dark:bg-[#ffd700]/5 h-28 relative flex items-end border-2 border-brand-dark dark:border-zinc-700 rounded-xl shadow-[3px_0px_0px_0px_rgba(253,139,0,1)] dark:shadow-none">
+                  <div className="w-full bg-[#ffd700]/15 dark:bg-[#ffd700]/5 h-28 relative flex items-end border-2 border-brand-dark dark:border-zinc-700 rounded-xl shadow-[3px_0px_0px_0px_rgba(253,139,0,1)] dark:shadow-none" title={`R$ ${m0.total.toLocaleString("pt-BR")}`}>
                     <div
                       style={{ height: `${(monthlySalesSum / maxBarAmount) * 100}%` }}
                       className="w-full bg-[#fd8b00] border-t-2 border-brand-dark dark:border-zinc-750 transition-all duration-500"

@@ -19,6 +19,10 @@ export interface Sale {
   quantity: number;
   clientId?: string;
   clientName?: string;
+  discountAmount?: number;
+  discountPercent?: number;
+  originalAmount?: number;
+  description?: string;
 }
 
 export interface InventoryItem {

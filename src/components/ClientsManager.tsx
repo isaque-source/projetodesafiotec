@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Plus, Search, Trash2, MessageSquare, Clock, DollarSign, Save, X, BadgeCent, Edit2 } from "lucide-react";
+import { User, Plus, Search, Trash2, MessageSquare, Clock, DollarSign, Save, X, BadgeCent, Edit2, AlertTriangle } from "lucide-react";
 import { Client } from "../types";
 
 interface ClientsManagerProps {
@@ -225,7 +225,7 @@ export default function ClientsManager({
               <input
                 type="text"
                 value={cellphone}
-                onChange={(e) => setCellphone(e.target.value)}
+                onChange={(e) => setCellphone(e.target.value.replace(/[a-zA-ZÀ-ÿ]/g, ""))}
                 placeholder="Ex: 11999999999"
                 className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
                 required
@@ -295,7 +295,7 @@ export default function ClientsManager({
               <input
                 type="text"
                 value={editingClient.cellphone}
-                onChange={(e) => setEditingClient({ ...editingClient, cellphone: e.target.value })}
+                onChange={(e) => setEditingClient({ ...editingClient, cellphone: e.target.value.replace(/[a-zA-ZÀ-ÿ]/g, "") })}
                 className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00]"
                 required
               />
@@ -333,6 +333,30 @@ export default function ClientsManager({
           />
         </div>
       </section>
+
+      {/* Proactive Inactivity Warning Banner */}
+      {(() => {
+        const inactiveCount = clients.filter(c => {
+          if (!c.lastPurchaseTimestamp) return false;
+          const diff = (Date.now() - c.lastPurchaseTimestamp) / (1000 * 3600 * 24);
+          return diff > 30;
+        }).length;
+
+        if (inactiveCount > 0) {
+          return (
+            <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-xl flex items-start gap-3 animate-pulse">
+              <AlertTriangle className="w-5.5 h-5.5 shrink-0 text-red-650 mt-0.5" />
+              <div className="text-left">
+                <h4 className="font-sans font-extrabold text-xs text-brand-dark dark:text-zinc-100 uppercase tracking-wider block mb-0.5">⚠️ ALERTA DE INATIVIDADE</h4>
+                <p className="font-sans text-[11px] text-zinc-650 dark:text-zinc-300 font-semibold leading-relaxed">
+                  Atenção! Você possui <strong>{inactiveCount} {inactiveCount === 1 ? "cliente" : "clientes"}</strong> sem registrar nenhuma compra nos últimos <strong>30 dias</strong>. Clique no link do WhatsApp do cliente para entrar em contato e enviar novos descontos!
+                </p>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Clients Cards Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -436,6 +460,13 @@ export default function ClientsManager({
                       </span>
                       <ClientChrono timestamp={client.lastPurchaseTimestamp} />
                     </div>
+
+                    {hasPurchased && ((Date.now() - (client.lastPurchaseTimestamp || 0)) / (1000 * 3600 * 24) > 30) && (
+                      <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-550 text-[#ba1a1a] dark:text-red-400 p-2 rounded-lg text-[10px] font-bold leading-normal flex items-start gap-1.5 mt-2.5 select-none animate-pulse">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-650" />
+                        <span>ALERTA DE INATIVIDADE: Cliente sem compras há +30 dias!</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -121,7 +121,8 @@ export default function InventoryManager({
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
-    if (!editItemName.trim() || !editItemPrice || !editItemQty || !editItemMinQty) {
+    const isService = editItemCategory === "Serviços";
+    if (!editItemName.trim() || !editItemPrice || (!isService && (!editItemQty || !editItemMinQty))) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
@@ -133,8 +134,8 @@ export default function InventoryManager({
       price: Math.max(0, parseFloat(editItemPrice) || 0),
       costPrice: editItemCostPrice ? Math.max(0, parseFloat(editItemCostPrice)) : undefined,
       profitMargin: editItemProfitMargin ? parseFloat(editItemProfitMargin) : undefined,
-      quantity: Math.max(0, parseInt(editItemQty) || 0),
-      minQuantity: Math.max(0, parseInt(editItemMinQty) || 0),
+      quantity: isService ? 999999 : Math.max(0, parseInt(editItemQty) || 0),
+      minQuantity: isService ? 0 : Math.max(0, parseInt(editItemMinQty) || 0),
       imageUrl: editItemImageUrl.trim() || undefined,
     };
 
@@ -165,7 +166,8 @@ export default function InventoryManager({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim() || !newItemPrice || !newItemQty || !newItemMinQty) {
+    const isService = newItemCategory === "Serviços";
+    if (!newItemName.trim() || !newItemPrice || (!isService && (!newItemQty || !newItemMinQty))) {
       alert("Por favor, preencha todos os campos do produto.");
       return;
     }
@@ -177,8 +179,8 @@ export default function InventoryManager({
       price: Math.max(0, parseFloat(newItemPrice) || 0),
       costPrice: newItemCostPrice ? Math.max(0, parseFloat(newItemCostPrice)) : undefined,
       profitMargin: newItemProfitMargin ? parseFloat(newItemProfitMargin) : undefined,
-      quantity: Math.max(0, parseInt(newItemQty) || 0),
-      minQuantity: Math.max(0, parseInt(newItemMinQty) || 0),
+      quantity: isService ? 999999 : Math.max(0, parseInt(newItemQty) || 0),
+      minQuantity: isService ? 0 : Math.max(0, parseInt(newItemMinQty) || 0),
       category: newItemCategory,
       imageUrl: newItemImageUrl.trim() || undefined,
     };
@@ -345,40 +347,53 @@ export default function InventoryManager({
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Qtd. Inicial</label>
-              <input
-                type="number"
-                min="0"
-                value={newItemQty}
-                onChange={(e) => setNewItemQty(e.target.value)}
-                placeholder="20"
-                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
-                required
-              />
-            </div>
+            {newItemCategory !== "Serviços" ? (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Qtd. Inicial</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newItemQty}
+                    onChange={(e) => setNewItemQty(e.target.value)}
+                    placeholder="20"
+                    className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider" title="Estoque mínimo recomendado">Qtd. Mínima de Segurança</label>
-              <input
-                type="number"
-                min="0"
-                value={newItemMinQty}
-                onChange={(e) => setNewItemMinQty(e.target.value)}
-                placeholder="5"
-                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
-                required
-              />
-            </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider" title="Estoque mínimo recomendado">Qtd. Mínima de Segurança</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newItemMinQty}
+                    onChange={(e) => setNewItemMinQty(e.target.value)}
+                    placeholder="5"
+                    className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
 
-            <div className="md:col-span-2 flex items-end">
-              <button
-                type="submit"
-                className="w-full h-10 bg-brand-yellow text-brand-dark font-display font-bold text-sm border-2 border-brand-dark dark:border-zinc-700 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
-              >
-                CADASTRAR PRODUTO
-              </button>
-            </div>
+                <div className="md:col-span-2 flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full h-10 bg-brand-yellow text-brand-dark font-display font-bold text-sm border-2 border-brand-dark dark:border-zinc-700 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
+                  >
+                    CADASTRAR PRODUTO
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="md:col-span-4 flex items-end mt-4">
+                <button
+                  type="submit"
+                  className="w-full h-10 bg-brand-yellow text-brand-dark font-display font-bold text-sm border-2 border-brand-dark dark:border-zinc-700 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
+                >
+                  CADASTRAR SERVIÇO ✨
+                </button>
+              </div>
+            )}
           </form>
         </div>
       )}
@@ -489,7 +504,12 @@ export default function InventoryManager({
                   </div>
 
                   {/* Status alert detail bubble */}
-                  {isLowStock ? (
+                  {item.category === "Serviços" ? (
+                    <div className="inline-flex items-center gap-1 bg-[#fff8e1] dark:bg-amber-950/45 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-900 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mt-1 select-none">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Serviço Ativo</span>
+                    </div>
+                  ) : isLowStock ? (
                     <div className="inline-flex items-center gap-1 bg-red-100 dark:bg-red-950/45 text-[#ba1a1a] dark:text-red-300 border border-red-300 dark:border-red-900 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider mt-1 select-none">
                       <AlertTriangle className="w-3.5 h-3.5" />
                       <span>REPOR ESTOQUE (Crítico)</span>
@@ -501,7 +521,7 @@ export default function InventoryManager({
                     </div>
                   )}
                 </div>
-
+ 
                 {/* Price Label */}
                 <div className="text-left mt-2 flex flex-col">
                   <span className="font-display font-extrabold text-lg text-brand-dark dark:text-zinc-200">
@@ -516,35 +536,46 @@ export default function InventoryManager({
                     )}
                   </div>
                 </div>
-
-                {/* Lower Row: Stock adjustment controls */}
-                <div className="flex justify-between items-center border-t border-brand-gray/40 dark:border-zinc-800 pt-3 mt-2">
-                  <span className="font-sans text-xs font-bold text-brand-muted dark:text-zinc-400">
-                    Min: {item.minQuantity} | <strong className={`font-extrabold ${isLowStock ? 'text-[#ba1a1a] dark:text-red-400' : 'text-brand-dark dark:text-zinc-200'}`}>Estoque: {item.quantity}</strong>
-                  </span>
-
-                  <div className="flex items-center gap-1.5 border border-brand-dark dark:border-zinc-700 rounded-lg p-0.5 bg-[#f9f9f9] dark:bg-zinc-800">
-                    <button
-                      type="button"
-                      onClick={() => onUpdateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                      className="w-7 h-7 bg-white dark:bg-zinc-900 border border-brand-gray dark:border-zinc-700 rounded flex items-center justify-center hover:bg-brand-yellow dark:hover:bg-brand-orange active:scale-95 transition-all text-brand-dark dark:text-zinc-100 cursor-pointer shadow-sm"
-                      title="Subtrair 1 item"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-8 text-center font-display font-extrabold text-sm text-brand-dark dark:text-zinc-100">
-                      {item.quantity}
+ 
+                {/* Lower Row: Stock adjustment controls or Unlimited Service Indicator */}
+                {item.category === "Serviços" ? (
+                  <div className="flex justify-between items-center border-t border-brand-gray/40 dark:border-zinc-800 pt-3 mt-2">
+                    <span className="font-sans text-xs font-bold text-amber-600 dark:text-amber-400">
+                      Disponibilidade ilimitada (Serviço)
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                      className="w-7 h-7 bg-white dark:bg-zinc-900 border border-brand-gray dark:border-zinc-700 rounded flex items-center justify-center hover:bg-brand-yellow dark:hover:bg-brand-orange active:scale-95 transition-all text-brand-dark dark:text-zinc-100 cursor-pointer shadow-sm"
-                      title="Adicionar 1 item"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="font-mono text-[10px] font-extrabold bg-[#fff8e1] dark:bg-amber-950/45 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-900 px-2 py-0.5 rounded shadow-sm">
+                      ATIVO ✨
+                    </span>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex justify-between items-center border-t border-brand-gray/40 dark:border-zinc-800 pt-3 mt-2">
+                    <span className="font-sans text-xs font-bold text-brand-muted dark:text-zinc-400">
+                      Min: {item.minQuantity} | <strong className={`font-extrabold ${isLowStock ? 'text-[#ba1a1a] dark:text-red-400' : 'text-brand-dark dark:text-zinc-200'}`}>Estoque: {item.quantity}</strong>
+                    </span>
+
+                    <div className="flex items-center gap-1.5 border border-brand-dark dark:border-zinc-700 rounded-lg p-0.5 bg-[#f9f9f9] dark:bg-zinc-800">
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                        className="w-7 h-7 bg-white dark:bg-zinc-900 border border-brand-gray dark:border-zinc-700 rounded flex items-center justify-center hover:bg-brand-yellow dark:hover:bg-brand-orange active:scale-95 transition-all text-brand-dark dark:text-zinc-100 cursor-pointer shadow-sm"
+                        title="Subtrair 1 item"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-8 text-center font-display font-extrabold text-sm text-brand-dark dark:text-zinc-100">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                        className="w-7 h-7 bg-white dark:bg-zinc-900 border border-brand-gray dark:border-zinc-700 rounded flex items-center justify-center hover:bg-brand-yellow dark:hover:bg-brand-orange active:scale-95 transition-all text-brand-dark dark:text-zinc-100 cursor-pointer shadow-sm"
+                        title="Adicionar 1 item"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
@@ -559,9 +590,9 @@ export default function InventoryManager({
 
       {/* Editing Modal / Card Form overlay */}
       {editingItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-[#f9f9f9] dark:bg-zinc-900 border-3 border-brand-dark dark:border-zinc-850 rounded-2xl p-6 w-full max-w-xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] animate-scale-in text-left">
-            <div className="flex justify-between items-center pb-4 border-b-2 border-brand-dark dark:border-zinc-850 mb-4">
+        <div className="fixed inset-0 bg-zinc-950/70 backdrop-blur-md flex items-center justify-center p-4 z-50 text-left overflow-hidden">
+          <div className="bg-[#f9f9f9] dark:bg-zinc-900 border-3 border-brand-dark dark:border-zinc-850 rounded-2xl p-6 w-full max-w-xl shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] animate-scale-in flex flex-col max-h-[92vh] md:max-h-[88vh]">
+            <div className="flex justify-between items-center pb-4 border-b-2 border-brand-dark dark:border-zinc-850 mb-4 shrink-0">
               <h3 className="font-display font-black text-lg text-brand-primary dark:text-brand-yellow uppercase tracking-wider">Editar Produto 📦</h3>
               <button 
                 onClick={() => setEditingItem(null)} 
@@ -570,150 +601,157 @@ export default function InventoryManager({
                 ✕ Cancelar
               </button>
             </div>
-            <form onSubmit={handleSaveEdit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Nome do Produto</label>
-                <input
-                  type="text"
-                  value={editItemName}
-                  onChange={(e) => setEditItemName(e.target.value)}
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-850 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
-                  required
-                />
-              </div>
+            <form onSubmit={handleSaveEdit} className="flex-1 flex flex-col min-h-0">
+              {/* Scrollable form fields wrapper */}
+              <div className="flex-1 overflow-y-auto pr-1.5 pb-2 min-h-0 scrollbar-thin grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5">
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Nome do Produto</label>
+                  <input
+                    type="text"
+                    value={editItemName}
+                    onChange={(e) => setEditItemName(e.target.value)}
+                    className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-850 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+                    required
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Categoria</label>
-                <select
-                  value={editItemCategory}
-                  onChange={(e) => setEditItemCategory(e.target.value)}
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 rounded-lg font-sans text-sm bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 focus:outline-none"
-                >
-                  {categoriesList.filter(c => c !== "Todos").map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Categoria</label>
+                  <select
+                    value={editItemCategory}
+                    onChange={(e) => setEditItemCategory(e.target.value)}
+                    className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 rounded-lg font-sans text-sm bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 focus:outline-none"
+                  >
+                    {categoriesList.filter(c => c !== "Todos").map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Preço de Custo (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editItemCostPrice}
-                  onChange={(e) => handleEditCostChange(e.target.value)}
-                  placeholder="Ex: 30.00"
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
-                />
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Preço de Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editItemCostPrice}
+                    onChange={(e) => handleEditCostChange(e.target.value)}
+                    placeholder="Ex: 30.00"
+                    className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Margem de Lucro (%)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="-100"
-                  value={editItemProfitMargin}
-                  onChange={(e) => handleEditMarginChange(e.target.value)}
-                  placeholder="Ex: 50"
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
-                />
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Margem de Lucro (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="-100"
+                    value={editItemProfitMargin}
+                    onChange={(e) => handleEditMarginChange(e.target.value)}
+                    placeholder="Ex: 50"
+                    className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-sans text-xs font-bold text-[#ea580c] dark:text-brand-yellow uppercase tracking-widest">Preço de Venda (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editItemPrice}
-                  onChange={(e) => handleEditPriceChange(e.target.value)}
-                  placeholder="Ex: 45.00"
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#ea580c] dark:text-orange-400 rounded-lg font-sans text-sm focus:outline-none font-bold"
-                  required
-                />
-              </div>
+                <div className="flex flex-col gap-1">
+                  <label className="font-sans text-xs font-bold text-[#ea580c] dark:text-brand-yellow uppercase tracking-widest">Preço de Venda (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editItemPrice}
+                    onChange={(e) => handleEditPriceChange(e.target.value)}
+                    placeholder="Ex: 45.00"
+                    className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#ea580c] dark:text-orange-400 rounded-lg font-sans text-sm focus:outline-none font-bold"
+                    required
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Atual</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={editItemQty}
-                  onChange={(e) => setEditItemQty(e.target.value)}
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 sm:col-span-2">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Mínimo</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={editItemMinQty}
-                  onChange={(e) => setEditItemMinQty(e.target.value)}
-                  className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1 sm:col-span-2 text-left">
-                <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Foto do Produto (Substituir/Upload)</label>
-                <div className="flex items-center gap-4 mt-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-850">
-                  {editItemImageUrl ? (
-                    <div className="relative group shrink-0">
-                      <img 
-                        src={editItemImageUrl} 
-                        alt="Preview" 
-                        className="w-14 h-14 object-cover rounded-lg border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] bg-white animate-fade-in"
-                        referrerPolicy="no-referrer"
+                {editItemCategory !== "Serviços" && (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Atual</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editItemQty}
+                        onChange={(e) => setEditItemQty(e.target.value)}
+                        className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                        required
                       />
-                      <button
-                        type="button"
-                        onClick={() => setEditItemImageUrl("")}
-                        className="absolute -top-1.5 -right-1.5 bg-red-650 text-white w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-brand-dark cursor-pointer shadow-md"
-                        title="Remover foto"
+                    </div>
+
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Estoque Mínimo</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editItemMinQty}
+                        onChange={(e) => setEditItemMinQty(e.target.value)}
+                        className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex flex-col gap-1 sm:col-span-2 text-left">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Foto do Produto (Substituir/Upload)</label>
+                  <div className="flex items-center gap-4 mt-1 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-3 bg-zinc-50 dark:bg-zinc-850">
+                    {editItemImageUrl ? (
+                      <div className="relative group shrink-0">
+                        <img 
+                          src={editItemImageUrl} 
+                          alt="Preview" 
+                          className="w-14 h-14 object-cover rounded-lg border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] bg-white animate-fade-in"
+                          referrerPolicy="no-referrer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditItemImageUrl("")}
+                          className="absolute -top-1.5 -right-1.5 bg-red-650 text-white w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black border-2 border-brand-dark cursor-pointer shadow-md"
+                          title="Remover foto"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg border-2 border-dashed border-zinc-400 bg-white dark:bg-zinc-800 flex items-center justify-center text-lg text-zinc-400 shrink-0 select-none">
+                        🖼️
+                      </div>
+                    )}
+                    <div className="flex-grow flex flex-col gap-1">
+                      <label 
+                        htmlFor="product-image-edit-upload"
+                        className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all"
                       >
-                        ✕
-                      </button>
+                        <span>📂 Nova Foto</span>
+                      </label>
+                      <input
+                        type="file"
+                        id="product-image-edit-upload"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              if (typeof reader.result === "string") {
+                                setEditItemImageUrl(reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
                     </div>
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg border-2 border-dashed border-zinc-400 bg-white dark:bg-zinc-800 flex items-center justify-center text-lg text-zinc-400 shrink-0 select-none">
-                      🖼️
-                    </div>
-                  )}
-                  <div className="flex-grow flex flex-col gap-1">
-                    <label 
-                      htmlFor="product-image-edit-upload"
-                      className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all"
-                    >
-                      <span>📂 Nova Foto</span>
-                    </label>
-                    <input
-                      type="file"
-                      id="product-image-edit-upload"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            if (typeof reader.result === "string") {
-                              setEditItemImageUrl(reader.result);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="hidden"
-                    />
                   </div>
                 </div>
               </div>
 
-              <div className="sm:col-span-2 flex gap-3 mt-4">
+              <div className="flex gap-3 mt-4 pt-4 border-t-2 border-brand-dark/20 dark:border-zinc-800 shrink-0 bg-[#f9f9f9] dark:bg-zinc-900">
                 <button
                   type="button"
                   onClick={() => setEditingItem(null)}

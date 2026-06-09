@@ -25,7 +25,11 @@
         "time": { "type": "string", "description": "HH:MM timestamp representation" },
         "amount": { "type": "number", "description": "Total purchase monetary price" },
         "itemDescription": { "type": "string", "description": "Product name description from stock catalog" },
-        "quantity": { "type": "number", "description": "Amount of products bought" }
+        "quantity": { "type": "number", "description": "Amount of products bought" },
+        "discountAmount": { "type": "number", "description": "The amount subtracted as discount" },
+        "discountPercent": { "type": "number", "description": "The percentage of discount applied" },
+        "originalAmount": { "type": "number", "description": "The total purchase monetary price before discount" },
+        "description": { "type": "string", "description": "An optional private comment or annotation regarding this specific transaction" }
       },
       "required": ["date", "time", "amount", "itemDescription", "quantity"]
     },
@@ -92,6 +96,17 @@
         "feedback": { "type": "string", "description": "The AI structured feedback markdown string" }
       },
       "required": ["taskId", "title", "feedback"]
+    },
+    "EmailToUid": {
+      "title": "EmailToUid",
+      "description": "Cross-reference mapping from a sanitized email address to the corresponding auth UID",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique user identifier matching the registered auth account" },
+        "email": { "type": "string", "description": "The sanitized email address" },
+        "password": { "type": "string", "description": "Optional administrative fallback password" }
+      },
+      "required": ["uid", "email"]
     }
   },
   "firestore": {
@@ -122,6 +137,10 @@
     "/usuarios/{userId}/clients/{clientId}": {
       "schema": "Client",
       "description": "Subcollection storing registered clients"
+    },
+    "/email_to_uid/{safeEmail}": {
+      "schema": "EmailToUid",
+      "description": "Global mappings indexing sanitized emails to target user profiles"
     }
   }
 }

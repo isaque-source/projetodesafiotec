@@ -195,49 +195,72 @@ export default function SalesHistory({ sales, onRemoveSale, goal }: SalesHistory
               filteredSales.map((sale) => (
                 <div
                   key={sale.id}
-                  className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-850 p-4 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-brand-gray/20 dark:hover:bg-zinc-800/40 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]"
+                  className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-850 p-4 rounded-xl hover:bg-brand-gray/20 dark:hover:bg-zinc-800/40 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)]"
                 >
-                  {/* Left Column: Icon and name/meta details */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-brand-gray dark:bg-zinc-800 border border-brand-dark dark:border-zinc-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Calendar className="w-5 h-5 text-brand-muted dark:text-zinc-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-display font-black text-sm text-white bg-zinc-900 border-2 border-brand-dark rounded-lg inline-block px-2.5 py-1 shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] uppercase tracking-wide">
-                        {sale.itemDescription}
-                      </h4>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
-                        <span>{sale.date} às {sale.time}</span>
-                        {sale.clientName && (
-                          <>
-                            <span>•</span>
-                            <span className="text-brand-orange">Cliente: {sale.clientName}</span>
-                          </>
-                        )}
-                        <span>•</span>
-                        <span className="bg-brand-gray dark:bg-zinc-800 px-2 py-0.5 rounded uppercase">{sale.quantity} unid.</span>
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    {/* Left Column: Icon and name/meta details */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-brand-gray dark:bg-zinc-800 border border-brand-dark dark:border-zinc-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-5 h-5 text-brand-muted dark:text-zinc-400" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-display font-black text-sm text-white bg-zinc-900 border-2 border-brand-dark rounded-lg inline-block px-2.5 py-1 shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] uppercase tracking-wide">
+                            {sale.itemDescription}
+                          </h4>
+                          {sale.discountAmount && sale.discountPercent && (
+                            <span className="font-sans text-[10px] font-black bg-brand-yellow text-brand-dark border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] inline-flex items-center shrink-0">
+                              🏷️ -{sale.discountPercent}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
+                          <span>{sale.date} às {sale.time}</span>
+                          {sale.clientName && (
+                            <>
+                              <span>•</span>
+                              <span className="text-brand-orange">Cliente: {sale.clientName}</span>
+                            </>
+                          )}
+                          <span>•</span>
+                          <span className="bg-brand-gray dark:bg-zinc-800 px-2 py-0.5 rounded uppercase">{sale.quantity} unid.</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right Column: Amount Value and helper action */}
-                  <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0 border-brand-gray/30 dark:border-zinc-800">
-                    <div className="text-left sm:text-right">
-                      <span className="font-sans text-[10px] font-black text-white bg-orange-600 border-2 border-brand-dark rounded px-1.5 py-0.5 uppercase inline-block mb-1 shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">Valor Total</span>
-                      <span className="font-display font-black text-sm md:text-base text-white bg-zinc-900 border-2 border-brand-dark rounded-lg px-2.5 py-1 block shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-                        R$ {sale.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </span>
+                    {/* Right Column: Amount Value and helper action */}
+                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0 border-brand-gray/30 dark:border-zinc-800">
+                      <div className="text-left sm:text-right">
+                        <span className="font-sans text-[10px] font-black text-white bg-orange-600 border-2 border-brand-dark rounded px-1.5 py-0.5 uppercase inline-block mb-1 shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">Valor Total</span>
+                        <div className="flex flex-col sm:items-end">
+                          {sale.discountAmount && sale.originalAmount && (
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-bold line-through">
+                              R$ {sale.originalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                            </span>
+                          )}
+                          <span className="font-display font-black text-sm md:text-base text-white bg-zinc-900 border-2 border-brand-dark rounded-lg px-2.5 py-1 block shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+                            R$ {sale.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onRemoveSale(sale.id)}
+                        className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/25 hover:bg-red-100 dark:hover:bg-red-900/40 text-[#ba1a1a] dark:text-red-300 border border-red-200 dark:border-red-900 flex items-center justify-center transition-colors cursor-pointer"
+                        title="Estornar / Deletar esta venda do histórico"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onRemoveSale(sale.id)}
-                      className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/25 hover:bg-red-100 dark:hover:bg-red-900/40 text-[#ba1a1a] dark:text-red-300 border border-red-200 dark:border-red-900 flex items-center justify-center transition-colors cursor-pointer"
-                      title="Estornar / Deletar esta venda do histórico"
-                    >
-                      <Trash className="w-4 h-4" />
-                    </button>
                   </div>
+
+                  {/* Description note section if exists */}
+                  {sale.description && (
+                    <div className="mt-3 p-2.5 bg-yellow-50 dark:bg-amber-950/20 border border-dashed border-amber-300 dark:border-amber-900/45 rounded-lg text-xs text-zinc-800 dark:text-zinc-300 font-medium">
+                      📌 <b>Anotação específica:</b> {sale.description}
+                    </div>
+                  )}
                 </div>
               ))
             ) : (

@@ -634,6 +634,7 @@ export default function App() {
     // Deduct stock item quantity
     const updatedInventory = inventory.map((item) => {
       if (item.name === newSale.itemDescription) {
+        if (item.category === "Serviços") return item;
         return {
           ...item,
           quantity: item.quantity - newSale.quantity
@@ -651,7 +652,7 @@ export default function App() {
         
         // Find corresponding product item and update in db
         const matchingItem = inventory.find(i => i.name === newSale.itemDescription);
-        if (matchingItem) {
+        if (matchingItem && matchingItem.category !== "Serviços") {
           await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity - newSale.quantity);
         }
       } catch (err) {
@@ -701,6 +702,7 @@ export default function App() {
     if (removedSale) {
       updatedInventory = inventory.map((item) => {
         if (item.name === removedSale.itemDescription) {
+          if (item.category === "Serviços") return item;
           return {
             ...item,
             quantity: item.quantity + removedSale.quantity
@@ -719,7 +721,7 @@ export default function App() {
         
         if (removedSale) {
           const matchingItem = inventory.find(i => i.name === removedSale.itemDescription);
-          if (matchingItem) {
+          if (matchingItem && matchingItem.category !== "Serviços") {
             await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + removedSale.quantity);
           }
         }
@@ -987,7 +989,7 @@ export default function App() {
       )}
 
       {/* Main Container Core Viewports router router */}
-      <main className={`flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' && activeTab !== 'reset-password' ? 'pb-28' : ''}`}>
+      <main className={`flex-1 flex flex-col ${activeTab === 'login' || activeTab === 'register' || activeTab === 'reset-password' ? 'justify-center' : 'justify-start'} w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' && activeTab !== 'reset-password' ? 'pb-28' : ''}`}>
         
         {activeTab === "login" && (
           <Login
@@ -1072,6 +1074,7 @@ export default function App() {
         {user && activeTab === "progress" && (
           <Progress
             sales={sales}
+            clients={clients}
             goal={goal}
             onOpenAdjustGoal={() => setIsAdjustGoalOpen(true)}
             points={visuCoins}
