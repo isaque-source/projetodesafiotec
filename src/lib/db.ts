@@ -296,13 +296,14 @@ export async function addInstagramFeedback(uid: string, feedback: InstagramFeedb
 }
 
 export async function clearAllInstagramFeedbacks(uid: string, list: InstagramFeedbackState[]): Promise<void> {
+  const path = `usuarios/${uid}/instagramFeedbacks`;
   try {
     for (const item of list) {
       const id = `task-${item.taskId}`;
       await deleteDoc(doc(db, "usuarios", uid, "instagramFeedbacks", id));
     }
   } catch (error) {
-    console.error("error resetting feedbacks: ", error);
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { 
   DollarSign, 
   Search, 
@@ -39,6 +40,142 @@ interface SalesHistoryProps {
   onConfirmBudget?: (id: string, allowNegativeStock?: boolean) => Promise<{ success: boolean; message?: string }>;
   inventory: InventoryItem[];
   goal?: Goal;
+}
+
+interface ReceiptContentProps {
+  sale: Sale;
+  user?: User;
+}
+
+function ReceiptContent({ sale, user }: ReceiptContentProps) {
+  return (
+    <>
+      {/* Header info */}
+      <div className="text-center space-y-0.5" style={{ textAlign: "center" }}>
+        <h3 className="font-black text-base uppercase tracking-tight text-zinc-900" style={{ fontWeight: "black", fontSize: "16px", textTransform: "uppercase" }}>
+          {user?.storeName || "Visu Gestão de Vendas"}
+        </h3>
+        {user?.category && (
+          <p className="text-[9px] text-zinc-500 uppercase tracking-widest" style={{ fontSize: "9px", color: "#71717a", textTransform: "uppercase" }}>{user.category}</p>
+        )}
+        {user?.phoneNumber && (
+          <p className="text-[10px] text-zinc-500" style={{ fontSize: "10px", color: "#71717a" }}>Tel: {user.phoneNumber}</p>
+        )}
+        {user?.email && (
+          <p className="text-[10px] text-zinc-500" style={{ fontSize: "10px", color: "#71717a" }}>Email: {user.email}</p>
+        )}
+        <p className="text-zinc-400 text-[10px] text-center" style={{ color: "#a1a1aa", fontSize: "10px", textAlign: "center" }}>==============*==============</p>
+      </div>
+
+      {/* Main Label */}
+      <div className="text-center py-0.5" style={{ textAlign: "center" }}>
+        <span className="font-bold text-xs uppercase border-y border-dashed border-zinc-900 py-0.5 px-3 inline-block w-full text-center" style={{ fontWeight: "bold", borderTop: "1px dashed #18181b", borderBottom: "1px dashed #18181b", textTransform: "uppercase", display: "block" }}>
+          {(sale.type || "sale") === "budget" ? "DEMONSTRATIVO DE ORÇAMENTO" : "CUPOM DE VENDA"}
+        </span>
+        {sale.status === "canceled" && (
+          <span className="text-red-650 font-black text-xs block mt-1 uppercase text-center" style={{ color: "#d97706", fontWeight: "950", fontSize: "12px", textTransform: "uppercase", display: "block", marginTop: "4px" }}>*** DOCUMENTO CANCELADO ***</span>
+        )}
+        {sale.status === "returned" && (
+          <span className="text-red-156 font-black text-xs block mt-1 uppercase text-center" style={{ color: "#d97706", fontWeight: "950", fontSize: "12px", textTransform: "uppercase", display: "block", marginTop: "4px" }}>*** DEVOLVIDO/ESTORNADO ***</span>
+        )}
+      </div>
+
+      {/* Sub-header info */}
+      <div className="space-y-0.5 text-[10px] text-zinc-800" style={{ fontSize: "10px", color: "#27272a" }}>
+        <p><b>EMISSÃO:</b> {sale.date} {sale.time}</p>
+        <p><b>CÓDIGO:</b> #{sale.id.substring(0, 8).toUpperCase()}</p>
+        {sale.clientName && (
+          <p><b>CLIENTE:</b> {sale.clientName.toUpperCase()}</p>
+        )}
+        <p className="text-zinc-400 text-[10px]" style={{ color: "#a1a1aa", fontSize: "10px" }}>---------------------------</p>
+      </div>
+
+      {/* Items detail list */}
+      <div className="space-y-1.5" style={{ marginTop: "6px" }}>
+        <div className="font-bold flex justify-between text-[10px]" style={{ fontWeight: "bold", display: "flex", justifyContent: "space-between", fontSize: "10px" }}>
+          <span>DESCRIÇÃO</span>
+          <span className="shrink-0" style={{ flexShrink: 0 }}>TOTAL</span>
+        </div>
+        <p className="text-zinc-300 text-[9px] -mt-2" style={{ color: "#d4d4d8", fontSize: "9px", marginTop: "-4px" }}>---------------------------</p>
+        
+        {sale.items && sale.items.length > 0 ? (
+          <div className="space-y-2 text-[10px]" style={{ fontSize: "10px" }}>
+            {sale.items.map((it, idx) => (
+              <div key={idx} className="space-y-0.5">
+                <div className="flex justify-between font-bold" style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
+                  <span className="text-left break-words max-w-[70%] text-zinc-900" style={{ textAlign: "left", maxWidth: "70%", color: "#18181b" }}>
+                    {idx + 1}. {it.name.toUpperCase()}
+                  </span>
+                  <span className="shrink-0 font-bold text-zinc-900" style={{ flexShrink: 0, fontWeight: "bold", color: "#18181b" }}>
+                    R$ {(it.price * it.quantity).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-[9px] text-zinc-500 pl-2" style={{ fontSize: "9px", color: "#71717a", paddingLeft: "8px" }}>
+                  {it.quantity} un x R$ {it.price.toFixed(2)} {it.code ? `[Ref: ${it.code}]` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-0.5 text-[10px]" style={{ fontSize: "10px" }}>
+            <div className="flex justify-between font-bold" style={{ display: "flex", justifyContent: "space-between" }}>
+              <span className="text-left break-words max-w-[70%] text-zinc-900 font-bold" style={{ textAlign: "left", maxWidth: "70%", color: "#18181b", fontWeight: "bold" }}>
+                1. {sale.itemDescription.toUpperCase()}
+              </span>
+              <span className="shrink-0 font-bold text-zinc-900" style={{ flexShrink: 0, fontWeight: "bold", color: "#18181b" }}>
+                R$ {sale.amount.toFixed(2)}
+              </span>
+            </div>
+            <div className="text-[9px] text-zinc-500 pl-2" style={{ fontSize: "9px", color: "#71717a", paddingLeft: "8px" }}>
+              {sale.quantity} un x R$ {(sale.amount / sale.quantity).toFixed(2)}
+            </div>
+          </div>
+        )}
+        <p className="text-zinc-400 text-[10px]" style={{ color: "#a1a1aa", fontSize: "10px" }}>---------------------------</p>
+      </div>
+
+      {/* Totals panel */}
+      <div className="space-y-0.5 text-right text-[10px]" style={{ fontSize: "10px", textAlign: "right" }}>
+        {sale.originalAmount && sale.originalAmount !== sale.amount && (
+          <p><b>SUBTOTAL:</b> R$ {sale.originalAmount.toFixed(2)}</p>
+        )}
+        {sale.discountAmount && sale.discountAmount > 0 && (
+          <p><b>DESCONTO:</b> -R$ {sale.discountAmount.toFixed(2)} ({sale.discountPercent}%)</p>
+        )}
+        <div className="text-xs font-black border-t border-dashed border-zinc-900 pt-1 flex justify-between text-zinc-900" style={{ borderTop: "1px dashed #18181b", paddingTop: "4px", display: "flex", justifyContent: "space-between", fontWeight: "black", fontSize: "12px", color: "#18181b", marginTop: "4px" }}>
+          <span>VALOR TOTAL:</span>
+          <span>R$ {sale.amount.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Note annotation */}
+      {sale.description && (
+        <div className="mt-1 text-[9px] p-1.5 bg-zinc-50 border border-zinc-200 rounded text-zinc-800 leading-tight" style={{ fontSize: "9px", padding: "6px", backgroundColor: "#fafafa", border: "1px solid #e4e4e7", borderRadius: "4px", color: "#27272a" }}>
+          <p className="font-bold uppercase text-[8px] text-zinc-500 mb-0.5" style={{ fontWeight: "bold", textTransform: "uppercase", fontSize: "8px", color: "#71717a" }}>Observações:</p>
+          <p className="italic" style={{ fontStyle: "italic" }}>{sale.description}</p>
+        </div>
+      )}
+
+      <p className="text-zinc-400 text-[10px] text-center" style={{ color: "#a1a1aa", fontSize: "10px", textAlign: "center" }}>===========================</p>
+
+      {/* Legal / Thank you notes */}
+      <div className="text-center text-[9px] text-zinc-500 space-y-0.5" style={{ textAlign: "center", fontSize: "9px", color: "#71717a" }}>
+        {(sale.type || "sale") === "budget" ? (
+          <>
+            <p className="font-bold" style={{ fontWeight: "bold" }}>ORÇAMENTO INTEGRADO</p>
+            <p>Reserva de estoque não efetuada.</p>
+            <p>Válido por 10 dias corridos.</p>
+          </>
+        ) : (
+          <>
+            <p className="font-bold" style={{ fontWeight: "bold" }}>AGRADECEMOS A PREFERÊNCIA!</p>
+            <p>Guarde este recibo para trocas.</p>
+          </>
+        )}
+        <p className="text-[8px] mt-2 tracking-tight block select-none uppercase font-black" style={{ fontSize: "8px", textTransform: "uppercase", fontWeight: "black", marginTop: "8px" }}>NÃO É DOCUMENTO FISCAL</p>
+      </div>
+    </>
+  );
 }
 
 const MONTHS_PT = [
@@ -936,7 +1073,7 @@ NÃO É DOCUMENTO FISCAL
 
       {/* RENDER BEAUTIFUL THERMAL PRINT-SIMULATOR MODAL OVERLAY */}
       {activePrintSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 overflow-y-auto no-print">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 overflow-y-auto print-modal-overlay">
           <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-[8px_8px_0px_0px_rgba(26,28,28,1)] animate-fade-in flex flex-col max-h-[95vh]">
             
             {/* Modal Header */}
@@ -991,136 +1128,12 @@ NÃO É DOCUMENTO FISCAL
               )}
 
               <div 
-                id="printable-receipt-area" 
-                className="bg-white text-zinc-900 p-5 w-full max-w-[310px] border border-zinc-300 shadow-md font-mono text-xs leading-normal text-left flex flex-col gap-2.5"
+                className="simulated-receipt-preview bg-white text-zinc-900 p-5 w-full max-w-[310px] border border-zinc-300 shadow-md font-mono text-xs leading-normal text-left flex flex-col gap-2.5"
                 style={{ fontFamily: "Courier New, Courier, monospace" }}
               >
-                {/* Header info */}
-                <div className="text-center space-y-0.5">
-                  <h3 className="font-black text-base uppercase tracking-tight text-zinc-900">
-                    {user?.storeName || "Visu Gestão de Vendas"}
-                  </h3>
-                  {user?.category && (
-                    <p className="text-[9px] text-zinc-500 uppercase tracking-widest">{user.category}</p>
-                  )}
-                  {user?.phoneNumber && (
-                    <p className="text-[10px] text-zinc-500">Tel: {user.phoneNumber}</p>
-                  )}
-                  {user?.email && (
-                    <p className="text-[10px] text-zinc-500">Email: {user.email}</p>
-                  )}
-                  <p className="text-zinc-400 text-[10px]">==============*==============</p>
-                </div>
-
-                {/* Main Label */}
-                <div className="text-center py-0.5">
-                  <span className="font-bold text-xs uppercase border-y border-dashed border-zinc-900 py-0.5 px-3 inline-block w-full text-center">
-                    {(activePrintSale.type || "sale") === "budget" ? "DEMONSTRATIVO DE ORÇAMENTO" : "CUPOM DE VENDA"}
-                  </span>
-                  {activePrintSale.status === "canceled" && (
-                    <span className="text-red-650 font-black text-xs block mt-1 uppercase text-center">*** DOCUMENTO CANCELADO ***</span>
-                  )}
-                  {activePrintSale.status === "returned" && (
-                    <span className="text-red-650 font-black text-xs block mt-1 uppercase text-center">*** DEVOLVIDO/ESTORNADO ***</span>
-                  )}
-                </div>
-
-                {/* Sub-header info */}
-                <div className="space-y-0.5 text-[10px] text-zinc-800">
-                  <p><b>EMISSÃO:</b> {activePrintSale.date} {activePrintSale.time}</p>
-                  <p><b>CÓDIGO:</b> #{activePrintSale.id.substring(0, 8).toUpperCase()}</p>
-                  {activePrintSale.clientName && (
-                    <p><b>CLIENTE:</b> {activePrintSale.clientName.toUpperCase()}</p>
-                  )}
-                  <p className="text-zinc-400 text-[10px]">---------------------------</p>
-                </div>
-
-                {/* Items detail list */}
-                <div className="space-y-1.5">
-                  <div className="font-bold flex justify-between text-[10px]">
-                    <span>DESCRIÇÃO</span>
-                    <span className="shrink-0">TOTAL</span>
-                  </div>
-                  <p className="text-zinc-300 text-[9px] -mt-2">---------------------------</p>
-                  
-                  {activePrintSale.items && activePrintSale.items.length > 0 ? (
-                    <div className="space-y-2 text-[10px]">
-                      {activePrintSale.items.map((it, idx) => (
-                        <div key={idx} className="space-y-0.5">
-                          <div className="flex justify-between font-bold">
-                            <span className="text-left break-words max-w-[70%] text-zinc-900">
-                              {idx + 1}. {it.name.toUpperCase()}
-                            </span>
-                            <span className="shrink-0 font-bold text-zinc-900">
-                              R$ {(it.price * it.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="text-[9px] text-zinc-500 pl-2">
-                            {it.quantity} un x R$ {it.price.toFixed(2)} {it.code ? `[Ref: ${it.code}]` : ''}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-0.5 text-[10px]">
-                      <div className="flex justify-between font-bold">
-                        <span className="text-left break-words max-w-[70%] text-zinc-900 font-bold">
-                          1. {activePrintSale.itemDescription.toUpperCase()}
-                        </span>
-                        <span className="shrink-0 font-bold text-zinc-900">
-                          R$ {activePrintSale.amount.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="text-[9px] text-zinc-500 pl-2">
-                        {activePrintSale.quantity} un x R$ {(activePrintSale.amount / activePrintSale.quantity).toFixed(2)}
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-zinc-400 text-[10px]">---------------------------</p>
-                </div>
-
-                {/* Totals panel */}
-                <div className="space-y-0.5 text-right text-[10px]">
-                  {activePrintSale.originalAmount && activePrintSale.originalAmount !== activePrintSale.amount && (
-                    <p><b>SUBTOTAL:</b> R$ {activePrintSale.originalAmount.toFixed(2)}</p>
-                  )}
-                  {activePrintSale.discountAmount && activePrintSale.discountAmount > 0 && (
-                    <p><b>DESCONTO:</b> -R$ {activePrintSale.discountAmount.toFixed(2)} ({activePrintSale.discountPercent}%)</p>
-                  )}
-                  <p className="text-xs font-black border-t border-dashed border-zinc-900 pt-1 flex justify-between text-zinc-900">
-                    <span>VALOR TOTAL:</span>
-                    <span>R$ {activePrintSale.amount.toFixed(2)}</span>
-                  </p>
-                </div>
-
-                {/* Note annotation */}
-                {activePrintSale.description && (
-                  <div className="mt-1 text-[9px] p-1.5 bg-zinc-50 border border-zinc-200 rounded text-zinc-800 leading-tight">
-                    <p className="font-bold uppercase text-[8px] text-zinc-500 mb-0.5">Observações:</p>
-                    <p className="italic">{activePrintSale.description}</p>
-                  </div>
-                )}
-
-                <p className="text-zinc-400 text-[10px] text-center">===========================</p>
-
-                {/* Legal / Thank you notes */}
-                <div className="text-center text-[9px] text-zinc-500 space-y-0.5">
-                  {(activePrintSale.type || "sale") === "budget" ? (
-                    <>
-                      <p className="font-bold">ORÇAMENTO INTEGRADO</p>
-                      <p>Reserva de estoque não efetuada.</p>
-                      <p>Válido por 10 dias corridos.</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-bold">AGRADECEMOS A PREFERÊNCIA!</p>
-                      <p>Guarde este recibo para trocas.</p>
-                    </>
-                  )}
-                  <p className="text-[8px] mt-2 tracking-tight block select-none uppercase font-black">NÃO É DOCUMENTO FISCAL</p>
-                </div>
-
+                <ReceiptContent sale={activePrintSale} user={user} />
               </div>
+
             </div>
 
             {/* Modal action footer controls */}
@@ -1146,6 +1159,21 @@ NÃO É DOCUMENTO FISCAL
 
           </div>
         </div>
+      )}
+
+      {/* Real Printable Receipt rendered outside of React App root via Portal for browser print optimization */}
+      {activePrintSale && typeof document !== "undefined" && createPortal(
+        <div 
+          id="printable-receipt-area"
+          style={{
+            fontFamily: "Courier New, Courier, monospace",
+            backgroundColor: "#ffffff",
+            color: "#000000"
+          }}
+        >
+          <ReceiptContent sale={activePrintSale} user={user} />
+        </div>,
+        document.body
       )}
 
     </div>
