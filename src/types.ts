@@ -10,6 +10,14 @@ export interface User {
   password?: string;
 }
 
+export interface SaleItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  code?: string;
+}
+
 export interface Sale {
   id: string;
   date: string; // YYYY-MM-DD
@@ -23,6 +31,9 @@ export interface Sale {
   discountPercent?: number;
   originalAmount?: number;
   description?: string;
+  items?: SaleItem[];
+  type?: "sale" | "budget";
+  status?: "completed" | "canceled" | "returned" | "exchanged";
 }
 
 export interface InventoryItem {

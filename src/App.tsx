@@ -631,17 +631,34 @@ export default function App() {
     const updatedSales = [newSale, ...sales];
     setSales(updatedSales);
 
-    // Deduct stock item quantity
-    const updatedInventory = inventory.map((item) => {
-      if (item.name === newSale.itemDescription) {
-        if (item.category === "Serviços") return item;
-        return {
-          ...item,
-          quantity: item.quantity - newSale.quantity
-        };
+    // Deduct stock item quantity (do NOT deduct for budgets)
+    let updatedInventory = inventory;
+    if (newSale.type !== "budget") {
+      if (newSale.items && newSale.items.length > 0) {
+        updatedInventory = inventory.map((invItem) => {
+          const matchedSaleItem = newSale.items?.find((i) => i.id === invItem.id);
+          if (matchedSaleItem) {
+            if (invItem.category === "Serviços") return invItem;
+            return {
+              ...invItem,
+              quantity: Math.max(0, invItem.quantity - matchedSaleItem.quantity)
+            };
+          }
+          return invItem;
+        });
+      } else {
+        updatedInventory = inventory.map((item) => {
+          if (item.name === newSale.itemDescription) {
+            if (item.category === "Serviços") return item;
+            return {
+              ...item,
+              quantity: item.quantity - newSale.quantity
+            };
+          }
+          return item;
+        });
       }
-      return item;
-    });
+    }
     setInventory(updatedInventory);
 
     // Live Firebase persistence
@@ -650,10 +667,21 @@ export default function App() {
       try {
         await addSaleDocument(activeUid, newSale);
         
-        // Find corresponding product item and update in db
-        const matchingItem = inventory.find(i => i.name === newSale.itemDescription);
-        if (matchingItem && matchingItem.category !== "Serviços") {
-          await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity - newSale.quantity);
+        // Find corresponding product item and update in db (if not budget)
+        if (newSale.type !== "budget") {
+          if (newSale.items && newSale.items.length > 0) {
+            for (const sItem of newSale.items) {
+              const matchingItem = inventory.find(i => i.id === sItem.id);
+              if (matchingItem && matchingItem.category !== "Serviços") {
+                await updateInventoryDocumentQty(activeUid, matchingItem.id, Math.max(0, matchingItem.quantity - sItem.quantity));
+              }
+            }
+          } else {
+            const matchingItem = inventory.find(i => i.name === newSale.itemDescription);
+            if (matchingItem && matchingItem.category !== "Serviços") {
+              await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity - newSale.quantity);
+            }
+          }
         }
       } catch (err) {
         console.error("Falha ao salvar venda no Firestore:", err);
@@ -692,7 +720,7 @@ export default function App() {
     setActiveTab("sales");
   };
 
-  // Remove Sale ledger entry
+  // Remove Sale ledger entry (including budget deletion)
   const handleRemoveSale = async (id: string) => {
     const removedSale = sales.find((s) => s.id === id);
     const updatedSales = sales.filter((s) => s.id !== id);
@@ -700,17 +728,34 @@ export default function App() {
 
     let updatedInventory = inventory;
     if (removedSale) {
-      updatedInventory = inventory.map((item) => {
-        if (item.name === removedSale.itemDescription) {
-          if (item.category === "Serviços") return item;
-          return {
-            ...item,
-            quantity: item.quantity + removedSale.quantity
-          };
+      // Only restore stock if it's NOT a budget and NOT already canceled or returned
+      if (removedSale.type !== "budget" && removedSale.status !== "canceled" && removedSale.status !== "returned") {
+        if (removedSale.items && removedSale.items.length > 0) {
+          updatedInventory = inventory.map((invItem) => {
+            const matchedSaleItem = removedSale.items?.find((i) => i.id === invItem.id);
+            if (matchedSaleItem) {
+              if (invItem.category === "Serviços") return invItem;
+              return {
+                ...invItem,
+                quantity: invItem.quantity + matchedSaleItem.quantity
+              };
+            }
+            return invItem;
+          });
+        } else {
+          updatedInventory = inventory.map((item) => {
+            if (item.name === removedSale.itemDescription) {
+              if (item.category === "Serviços") return item;
+              return {
+                ...item,
+                quantity: item.quantity + removedSale.quantity
+              };
+            }
+            return item;
+          });
         }
-        return item;
-      });
-      setInventory(updatedInventory);
+        setInventory(updatedInventory);
+      }
     }
 
     // Live Firebase sync
@@ -719,14 +764,360 @@ export default function App() {
       try {
         await deleteSaleDocument(activeUid, id);
         
-        if (removedSale) {
-          const matchingItem = inventory.find(i => i.name === removedSale.itemDescription);
-          if (matchingItem && matchingItem.category !== "Serviços") {
-            await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + removedSale.quantity);
+        if (removedSale && removedSale.type !== "budget" && removedSale.status !== "canceled" && removedSale.status !== "returned") {
+          if (removedSale.items && removedSale.items.length > 0) {
+            for (const sItem of removedSale.items) {
+              const matchingItem = inventory.find(i => i.id === sItem.id);
+              if (matchingItem && matchingItem.category !== "Serviços") {
+                await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + sItem.quantity);
+              }
+            }
+          } else {
+            const matchingItem = inventory.find(i => i.name === removedSale.itemDescription);
+            if (matchingItem && matchingItem.category !== "Serviços") {
+              await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + removedSale.quantity);
+            }
           }
         }
       } catch (err) {
         console.error("Erro ao deletar venda no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, updatedSales, updatedInventory, goal);
+    }
+  };
+
+  // Support canceling sale or budget
+  const handleCancelSale = async (id: string) => {
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
+
+    const previousStatus = sale.status || "completed";
+    if (previousStatus === "canceled") return;
+
+    const updatedSale: Sale = {
+      ...sale,
+      status: "canceled"
+    };
+
+    const updatedSales = sales.map(s => s.id === id ? updatedSale : s);
+    setSales(updatedSales);
+
+    // If it was a sale (not budget) and was active/not returned, restore stock
+    let updatedInventory = inventory;
+    if (sale.type !== "budget" && previousStatus !== "returned") {
+      if (sale.items && sale.items.length > 0) {
+        updatedInventory = inventory.map((invItem) => {
+          const matchedItem = sale.items?.find((i) => i.id === invItem.id);
+          if (matchedItem) {
+            if (invItem.category === "Serviços") return invItem;
+            return {
+              ...invItem,
+              quantity: invItem.quantity + matchedItem.quantity
+            };
+          }
+          return invItem;
+        });
+      } else {
+        updatedInventory = inventory.map((item) => {
+          if (item.name === sale.itemDescription) {
+            if (item.category === "Serviços") return item;
+            return {
+              ...item,
+              quantity: item.quantity + sale.quantity
+            };
+          }
+          return item;
+        });
+      }
+      setInventory(updatedInventory);
+    }
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await addSaleDocument(activeUid, updatedSale);
+        if (sale.type !== "budget" && previousStatus !== "returned") {
+          if (sale.items && sale.items.length > 0) {
+            for (const sItem of sale.items) {
+              const matchingItem = inventory.find(i => i.id === sItem.id);
+              if (matchingItem && matchingItem.category !== "Serviços") {
+                await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + sItem.quantity);
+              }
+            }
+          } else {
+            const matchingItem = inventory.find(i => i.name === sale.itemDescription);
+            if (matchingItem && matchingItem.category !== "Serviços") {
+              await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + sale.quantity);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao cancelar venda/orçamento no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, updatedSales, updatedInventory, goal);
+    }
+  };
+
+  // Support item returning (devolução)
+  const handleReturnSale = async (id: string) => {
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
+
+    if (sale.status === "returned" || sale.status === "canceled") return;
+
+    const updatedSale: Sale = {
+      ...sale,
+      status: "returned"
+    };
+
+    const updatedSales = sales.map(s => s.id === id ? updatedSale : s);
+    setSales(updatedSales);
+
+    let updatedInventory = inventory;
+    if (sale.type !== "budget") {
+      if (sale.items && sale.items.length > 0) {
+        updatedInventory = inventory.map((invItem) => {
+          const matchedItem = sale.items?.find((i) => i.id === invItem.id);
+          if (matchedItem) {
+            if (invItem.category === "Serviços") return invItem;
+            return {
+              ...invItem,
+              quantity: invItem.quantity + matchedItem.quantity
+            };
+          }
+          return invItem;
+        });
+      } else {
+        updatedInventory = inventory.map((item) => {
+          if (item.name === sale.itemDescription) {
+            if (item.category === "Serviços") return item;
+            return {
+              ...item,
+              quantity: item.quantity + sale.quantity
+            };
+          }
+          return item;
+        });
+      }
+      setInventory(updatedInventory);
+    }
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await addSaleDocument(activeUid, updatedSale);
+        if (sale.type !== "budget") {
+          if (sale.items && sale.items.length > 0) {
+            for (const sItem of sale.items) {
+              const matchingItem = inventory.find(i => i.id === sItem.id);
+              if (matchingItem && matchingItem.category !== "Serviços") {
+                await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + sItem.quantity);
+              }
+            }
+          } else {
+            const matchingItem = inventory.find(i => i.name === sale.itemDescription);
+            if (matchingItem && matchingItem.category !== "Serviços") {
+              await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity + sale.quantity);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao registrar devolução no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, updatedSales, updatedInventory, goal);
+    }
+  };
+
+  // Support converting a budget into a real completed sale (with inventory decrement)
+  const handleConfirmBudget = async (
+    id: string,
+    allowNegativeStock: boolean = false
+  ): Promise<{ success: boolean; message?: string }> => {
+    const sale = sales.find((s) => s.id === id);
+    if (!sale) return { success: false, message: "Orçamento não encontrado." };
+
+    if ((sale.type || "sale") !== "budget") {
+      return { success: false, message: "Este registro já é uma venda ativa." };
+    }
+
+    // Verify stock constraints (unless category is Serviços or allowNegativeStock is true)
+    let updatedInventory = [...inventory];
+    if (sale.items && sale.items.length > 0) {
+      for (const sItem of sale.items) {
+        const invItem = updatedInventory.find(i => i.id === sItem.id);
+        if (invItem && invItem.category !== "Serviços") {
+          if (invItem.quantity < sItem.quantity && !allowNegativeStock) {
+            return {
+              success: false,
+              message: `Estoque insuficiente para "${invItem.name}". Estoque atual: ${invItem.quantity} un. Deseja confirmar mesmo assim?`
+            };
+          }
+        }
+      }
+      
+      // If validation is passed, deduct inventory
+      updatedInventory = updatedInventory.map((invItem) => {
+        const sItem = sale.items?.find((i) => i.id === invItem.id);
+        if (sItem && invItem.category !== "Serviços") {
+          return {
+            ...invItem,
+            quantity: Math.max(0, invItem.quantity - sItem.quantity)
+          };
+        }
+        return invItem;
+      });
+    } else {
+      // Find item by name
+      const matchingItem = updatedInventory.find(i => i.name === sale.itemDescription);
+      if (matchingItem && matchingItem.category !== "Serviços") {
+        if (matchingItem.quantity < sale.quantity && !allowNegativeStock) {
+          return {
+            success: false,
+            message: `Estoque insuficiente para "${matchingItem.name}". Estoque atual: ${matchingItem.quantity} un. Deseja confirmar mesmo assim?`
+          };
+        }
+        updatedInventory = updatedInventory.map((invItem) => {
+          if (invItem.id === matchingItem.id) {
+            return {
+              ...invItem,
+              quantity: Math.max(0, invItem.quantity - sale.quantity)
+            };
+          }
+          return invItem;
+        });
+      }
+    }
+
+    const updatedSale: Sale = {
+      ...sale,
+      type: "sale",
+      status: "completed"
+    };
+
+    const updatedSales = sales.map((s) => (s.id === id ? updatedSale : s));
+    setSales(updatedSales);
+    setInventory(updatedInventory);
+
+    // Live Firebase sync
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await addSaleDocument(activeUid, updatedSale);
+        if (sale.items && sale.items.length > 0) {
+          for (const sItem of sale.items) {
+            const matchingItem = inventory.find(i => i.id === sItem.id);
+            if (matchingItem && matchingItem.category !== "Serviços") {
+              await updateInventoryDocumentQty(activeUid, matchingItem.id, Math.max(0, matchingItem.quantity - sItem.quantity));
+            }
+          }
+        } else {
+          const matchingItem = inventory.find(i => i.name === sale.itemDescription);
+          if (matchingItem && matchingItem.category !== "Serviços") {
+            await updateInventoryDocumentQty(activeUid, matchingItem.id, Math.max(0, matchingItem.quantity - sale.quantity));
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao converter orçamento no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, updatedSales, updatedInventory, goal);
+    }
+
+    return { success: true };
+  };
+
+  // Support item exchange (troca)
+  const handleExchangeItems = async (
+    saleId: string,
+    oldItemId: string,
+    newItemId: string,
+    exchangeQty: number,
+    isSamePrice: boolean,
+    customDiffValue?: number
+  ) => {
+    const sale = sales.find(s => s.id === saleId);
+    if (!sale) return;
+
+    const oldItem = inventory.find(i => i.id === oldItemId);
+    const newItem = inventory.find(i => i.id === newItemId);
+    if (!newItem) return;
+
+    let updatedItems = sale.items ? [...sale.items] : [];
+    let updatedItemDescription = sale.itemDescription;
+    let updatedAmount = sale.amount;
+
+    if (sale.items && sale.items.length > 0) {
+      updatedItems = sale.items.map(i => {
+        if (i.id === oldItemId) {
+          return {
+            ...i,
+            id: newItem.id,
+            name: newItem.name,
+            price: newItem.price,
+            code: newItem.code,
+            quantity: exchangeQty
+          };
+        }
+        return i;
+      });
+      updatedItemDescription = updatedItems.map(i => i.name).join(", ");
+    } else {
+      updatedItemDescription = newItem.name;
+    }
+
+    if (!isSamePrice) {
+      if (customDiffValue !== undefined) {
+        updatedAmount = Math.max(0, sale.amount + customDiffValue);
+      } else if (oldItem) {
+        const priceDiff = (newItem.price - oldItem.price) * exchangeQty;
+        updatedAmount = Math.max(0, sale.amount + priceDiff);
+      }
+    }
+
+    const updatedSale: Sale = {
+      ...sale,
+      amount: updatedAmount,
+      itemDescription: updatedItemDescription,
+      items: updatedItems.length > 0 ? updatedItems : undefined,
+      status: "exchanged"
+    };
+
+    const updatedSales = sales.map(s => s.id === saleId ? updatedSale : s);
+    setSales(updatedSales);
+
+    const updatedInventory = inventory.map((invItem) => {
+      let currentQty = invItem.quantity;
+      if (invItem.id === oldItemId && invItem.category !== "Serviços") {
+        currentQty += exchangeQty;
+      }
+      if (invItem.id === newItemId && invItem.category !== "Serviços") {
+        currentQty -= exchangeQty;
+      }
+      return {
+        ...invItem,
+        quantity: Math.max(0, currentQty)
+      };
+    });
+    setInventory(updatedInventory);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await addSaleDocument(activeUid, updatedSale);
+        
+        if (oldItem && oldItem.category !== "Serviços") {
+          const syncedOldQty = updatedInventory.find(i => i.id === oldItemId)?.quantity ?? (oldItem.quantity + exchangeQty);
+          await updateInventoryDocumentQty(activeUid, oldItemId, syncedOldQty);
+        }
+        if (newItem.category !== "Serviços") {
+          const syncedNewQty = updatedInventory.find(i => i.id === newItemId)?.quantity ?? (newItem.quantity - exchangeQty);
+          await updateInventoryDocumentQty(activeUid, newItemId, syncedNewQty);
+        }
+      } catch (err) {
+        console.error("Erro ao registrar troca de itens no Firestore:", err);
       }
     } else {
       handleSaveState(user, updatedSales, updatedInventory, goal);
@@ -1044,8 +1435,14 @@ export default function App() {
 
         {user && activeTab === "sales" && (
           <SalesHistory
+            user={user}
             sales={sales}
             onRemoveSale={handleRemoveSale}
+            onCancelSale={handleCancelSale}
+            onReturnSale={handleReturnSale}
+            onExchangeItems={handleExchangeItems}
+            onConfirmBudget={handleConfirmBudget}
+            inventory={inventory}
             goal={goal}
           />
         )}

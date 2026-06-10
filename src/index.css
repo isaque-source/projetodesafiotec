@@ -53,3 +53,40 @@
 .animate-slide-up {
   animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Print thermal optimization */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  /* Hide all elements visually by default */
+  body * {
+    visibility: hidden !important;
+  }
+  /* Make only the receipt area and its descendants visible */
+  #printable-receipt-area, 
+  #printable-receipt-area * {
+    visibility: visible !important;
+  }
+  /* Position and size the receipt to occupy the top-left section cleanly */
+  #printable-receipt-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 300px !important; /* Perfect width for thermal printers (80mm) */
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+  }
+  /* Extra safeguard to hide UI things */
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+}
+

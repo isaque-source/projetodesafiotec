@@ -150,11 +150,22 @@ export default function Dashboard({
   const todayStr = "2026-05-27"; // Sync with ADD_METADATA context date of 2026-05-27
   
   // Filter sales for today
-  const todaySales = sales.filter((s) => s.date === todayStr);
+  const todaySales = sales.filter((s) => {
+    const isToday = s.date === todayStr;
+    const isRealSale = (s.type || "sale") === "sale";
+    const isActive = s.status !== "canceled" && s.status !== "returned";
+    return isToday && isRealSale && isActive;
+  });
   const todaySalesSum = todaySales.reduce((acc, s) => acc + s.amount, 0);
 
-  // Dynamic monthly calculations for revenue meta-goals
-  const monthlySalesSum = sales.reduce((acc, s) => acc + s.amount, 0);
+  // Dynamic monthly calculations for revenue meta-goals (excluding cancelled/returned sales and budgets)
+  const monthlySalesSum = sales
+    .filter((s) => {
+      const isRealSale = (s.type || "sale") === "sale";
+      const isActive = s.status !== "canceled" && s.status !== "returned";
+      return isRealSale && isActive;
+    })
+    .reduce((acc, s) => acc + s.amount, 0);
   const progressPercent = Math.min(100, Math.round((monthlySalesSum / (goal?.targetAmount || 15000)) * 100));
 
   // Low stock calculation: item.quantity < item.minQuantity

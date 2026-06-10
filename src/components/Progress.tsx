@@ -542,8 +542,15 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
   const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
   const currentYearMonth = `${currentYearStr}-${currentMonthStr}`;
 
+  // Filter sales to include only active completed sales (excluding budgets, cancelled, and returned entries)
+  const activeSales = sales.filter((s) => {
+    const isRealSale = (s.type || "sale") === "sale";
+    const isActive = s.status !== "canceled" && s.status !== "returned";
+    return isRealSale && isActive;
+  });
+
   // Current Month Real Sales Sum
-  const currentMonthSales = sales.filter((s) => s.date.startsWith(currentYearMonth));
+  const currentMonthSales = activeSales.filter((s) => s.date.startsWith(currentYearMonth));
   const monthlySalesSum = currentMonthSales.reduce((acc, s) => acc + s.amount, 0);
   const progressPercent = goal.targetAmount > 0 ? Math.min(100, Math.round((monthlySalesSum / goal.targetAmount) * 100)) : 0;
 
@@ -558,7 +565,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
   const lastMonthStr = String(lastMonthDate.getMonth() + 1).padStart(2, "0");
   const lastMonthYearMonth = `${lastMonthYearStr}-${lastMonthStr}`;
 
-  const lastMonthSales = sales.filter((s) => s.date.startsWith(lastMonthYearMonth));
+  const lastMonthSales = activeSales.filter((s) => s.date.startsWith(lastMonthYearMonth));
   const lastMonthSalesSum = lastMonthSales.reduce((acc, s) => acc + s.amount, 0);
 
   let trendText = "Estável";
@@ -594,8 +601,8 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
   const monthlySalesCount = currentMonthSales.length;
   const averageTicketThisMonth = monthlySalesCount > 0 ? (monthlySalesSum / monthlySalesCount) : 0;
 
-  const allTimeSalesCount = sales.length;
-  const allTimeSalesSum = sales.reduce((acc, s) => acc + s.amount, 0);
+  const allTimeSalesCount = activeSales.length;
+  const allTimeSalesSum = activeSales.reduce((acc, s) => acc + s.amount, 0);
   const averageTicketAllTime = allTimeSalesCount > 0 ? (allTimeSalesSum / allTimeSalesCount) : 0;
 
   const displayTicket = averageTicketThisMonth > 0 ? averageTicketThisMonth : averageTicketAllTime;
@@ -613,7 +620,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
     const yearMonth = `${year}-${String(monthNum).padStart(2, "0")}`;
     const label = monthNames[d.getMonth()];
     
-    const monthSales = sales.filter(s => s.date.startsWith(yearMonth));
+    const monthSales = activeSales.filter(s => s.date.startsWith(yearMonth));
     const total = monthSales.reduce((acc, s) => acc + s.amount, 0);
     return { label, total, yearMonth };
   };
