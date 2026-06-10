@@ -34,11 +34,11 @@ let auth: any;
 try {
   app = initializeApp(resolvedConfig);
   
-  // Prioritize explicit firestoreDatabaseId from the provisioned config file
+  // Prioritize environment variable first, then fall back to local configuration
   const rawEnvDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
-  const targetDatabaseId = (firebaseAppletConfig as any).firestoreDatabaseId || 
-                            (rawEnvDbId && rawEnvDbId !== "(default)" ? rawEnvDbId : "") || 
-                            "(default)";
+  const targetDatabaseId = rawEnvDbId !== undefined 
+    ? rawEnvDbId 
+    : ((firebaseAppletConfig as any).firestoreDatabaseId || "(default)");
 
   console.log(`[Firebase Init]: Project: ${resolvedConfig.projectId}, Database ID: ${targetDatabaseId}`);
 
