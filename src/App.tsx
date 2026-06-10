@@ -293,6 +293,7 @@ export default function App() {
               setGoal({ targetAmount: 15180, period: "Mensal" });
               setSales([]);
               setInventory([]);
+              setClients([]);
               
               if (isResetFlow) {
                 setActiveTab("reset-password");
@@ -311,6 +312,7 @@ export default function App() {
               // Clear simulated mock records so they aren't carried into or written to the real account
               setSales([]);
               setInventory([]);
+              setClients([]);
               setGoal({ targetAmount: 15000, period: "Mensal" });
               if (isResetFlow) {
                 setActiveTab("reset-password");
@@ -528,6 +530,7 @@ export default function App() {
     
     setInventory(updatedInventory);
     setSales(updatedSales);
+    setClients([]);
 
     // Clear and reset gamification: 0 coins, 0 streak, 0 progress
     setVisuCoins(0);
@@ -617,9 +620,29 @@ export default function App() {
       }
     }
     
+    // Reset all React data states to prevent leakage between user sessions
     setUser(null);
+    setDataOwnerUid(null);
+    setSales([]);
+    setInventory([]);
+    setGoal({ targetAmount: 15180, period: "Mensal" });
+    setClients([]);
+    setVisuCoins(450);
+    setStreak(3);
+
     try {
       localStorage.removeItem("visu_user");
+      localStorage.removeItem("visu_clients");
+      localStorage.removeItem("visu_sales");
+      localStorage.removeItem("visu_inventory");
+      localStorage.removeItem("visu_goal");
+      localStorage.removeItem("visu_gamified_points");
+      localStorage.removeItem("visu_gamified_streak");
+      localStorage.removeItem("visu_gamified_missions");
+      localStorage.removeItem("visu_insta_task_index");
+      localStorage.removeItem("visu_insta_feedbacks");
+      localStorage.removeItem("visu_store_niche");
+      localStorage.removeItem("visu_insta_metrics");
     } catch (e) {
       console.warn("localStorage block ignored:", e);
     }
