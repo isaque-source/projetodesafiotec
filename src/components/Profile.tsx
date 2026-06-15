@@ -43,9 +43,20 @@ interface ProfileProps {
   onUpdateUser: (updated: User) => void;
   onGoBack: () => void;
   dataOwnerUid?: string | null;
+  activeEmployee?: { email: string; name: string } | null;
+  onAddEmployee?: (email: string, name: string) => Promise<void>;
+  onRemoveEmployee?: (email: string) => Promise<void>;
 }
 
-export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: ProfileProps) {
+export default function Profile({ 
+  user, 
+  onUpdateUser, 
+  onGoBack, 
+  dataOwnerUid,
+  activeEmployee,
+  onAddEmployee,
+  onRemoveEmployee
+}: ProfileProps) {
   // Editing profile states
   const [name, setName] = useState(user.name || "");
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || "");
@@ -63,6 +74,15 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Employee invite states
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [employeeEmail, setEmployeeEmail] = useState("");
+  const [employeeName, setEmployeeName] = useState("");
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [employeeFormError, setEmployeeFormError] = useState("");
+  const [employeeFormSuccess, setEmployeeFormSuccess] = useState("");
 
   // Sync state with local updates when user changes
   useEffect(() => {
@@ -493,6 +513,256 @@ export default function Profile({ user, onUpdateUser, onGoBack, dataOwnerUid }: 
               </button>
             </div>
           </form>
+
+          {/* Gestão de Funcionários Widget */}
+          <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark rounded-xl p-6 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] text-left space-y-4">
+            <div className="flex items-center justify-between border-b border-brand-gray/35 pb-2">
+              <h4 className="font-display font-black text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-widest">
+                Gestão de Funcionários / Equipe
+              </h4>
+              <span className="bg-brand-orange/20 text-brand-orange text-[10px] font-black px-2 py-0.5 rounded-full border border-brand-dark">
+                Apenas Dono
+              </span>
+            </div>
+
+            {activeEmployee ? (
+              <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-brand-gray/30 text-sm font-semibold text-brand-muted dark:text-zinc-400">
+                ⚠️ Você está acessando o sistema como funcionário (<strong>{activeEmployee.name}</strong>). Apenas o proprietário fundador da loja pode administrar e convidar novos integrantes de equipe.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-semibold leading-relaxed">
+                  Adicione e autorize funcionários a acessarem sua conta do Visu de forma segura. Eles compartilharão o mesmo catálogo de produtos, estoque, vendas e clientes que você de forma simultânea.
+                </p>
+
+                {/* Employees list */}
+                <div className="space-y-3">
+                  <h5 className="font-display font-bold text-xs text-brand-dark dark:text-zinc-200 uppercase">
+                    Membros Ativos ({user.employees?.length || 0})
+                  </h5>
+                  
+                  {!user.employees || user.employees.length === 0 ? (
+                    <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-700 text-center text-xs font-semibold text-brand-muted dark:text-zinc-500 py-6">
+                      Nenhum funcionário cadastrado no momento. Clique no botão de convite abaixo para adicionar o primeiro funcionário!
+                    </div>
+                  ) : (
+                    <div className="divide-y-2 divide-brand-dark/10 border-2 border-brand-dark rounded-xl overflow-hidden bg-zinc-50 dark:bg-zinc-850">
+                      {user.employees.map((emp, index) => {
+                        const dateString = emp.addedAt ? new Date(emp.addedAt).toLocaleDateString("pt-BR") : "---";
+                        const inviteUrl = `${window.location.origin}/?invite_owner_uid=${dataOwnerUid || auth.currentUser?.uid || ""}&storeName=${encodeURIComponent(user.storeName)}&employeeEmail=${encodeURIComponent(emp.email)}&employeeName=${encodeURIComponent(emp.name)}`;
+                        
+                        return (
+                          <div key={index} className="p-3 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-brand-yellow/20 border border-brand-dark text-brand-primary dark:text-brand-yellow flex items-center justify-center font-display font-black text-sm uppercase">
+                                {emp.name ? emp.name.substring(0, 2) : "FU"}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-sans font-bold text-sm text-brand-dark dark:text-zinc-200 leading-tight truncate">
+                                  {emp.name}
+                                </p>
+                                <p className="font-sans text-[10px] text-brand-muted dark:text-zinc-400 font-bold leading-none mt-1 truncate">
+                                  {emp.email} • Adicionado em {dateString}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  try {
+                                    navigator.clipboard.writeText(inviteUrl);
+                                    setCopiedLink(true);
+                                    setTimeout(() => setCopiedLink(false), 2000);
+                                  } catch (err) {
+                                    console.warn("Copiar clip falhou:", err);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 border border-brand-dark bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-brand-dark dark:text-zinc-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                                title="Copiar link de convite novamente"
+                              >
+                                {copiedLink ? "Copiado! ✓" : "Copiar Link"}
+                              </button>
+                              
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Deseja revogar o acesso do funcionário ${emp.name}? Ele não poderá mais visualizar ou acessar seus dados.`)) {
+                                    onRemoveEmployee?.(emp.email);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 dark:hover:bg-red-950/40 border border-red-500 text-red-600 dark:text-red-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                                title="Remover funcionário do sistema"
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add employee action and form expand */}
+                {!showInviteForm ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInviteForm(true);
+                      setGeneratedInviteLink("");
+                      setEmployeeFormError("");
+                      setEmployeeFormSuccess("");
+                    }}
+                    className="w-full h-11 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark border-2 border-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>➕ Gerar Link de Convite para Funcionário</span>
+                  </button>
+                ) : (
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setEmployeeFormError("");
+                      setEmployeeFormSuccess("");
+                      if (!employeeEmail.trim() || !employeeName.trim()) {
+                        setEmployeeFormError("Por favor, preencha o nome e e-mail do funcionário.");
+                        return;
+                      }
+                      if (!employeeEmail.trim().includes("@")) {
+                        setEmployeeFormError("Informe um e-mail válido para o funcionário.");
+                        return;
+                      }
+                      
+                      setLoading(true);
+                      try {
+                        await onAddEmployee?.(employeeEmail, employeeName);
+                        const inviteUrl = `${window.location.origin}/?invite_owner_uid=${dataOwnerUid || auth.currentUser?.uid || ""}&storeName=${encodeURIComponent(user.storeName || "Minha Loja")}&employeeEmail=${encodeURIComponent(employeeEmail.trim())}&employeeName=${encodeURIComponent(employeeName.trim())}`;
+                        
+                        setGeneratedInviteLink(inviteUrl);
+                        setEmployeeFormSuccess(`Funcionário ${employeeName} adicionado com sucesso! Link gerado.`);
+                        setEmployeeEmail("");
+                        setEmployeeName("");
+                      } catch (err: any) {
+                        setEmployeeFormError(`Falha ao salvar funcionário: ${err.message || err}`);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-xl border-2 border-brand-dark space-y-3"
+                  >
+                    <h5 className="font-display font-black text-xs text-brand-dark dark:text-zinc-200 uppercase tracking-wider">
+                      Novo Cadastro de Funcionário
+                    </h5>
+
+                    {employeeFormError && (
+                      <div className="p-3 bg-red-100 dark:bg-red-950/40 border-2 border-red-500 text-brand-dark dark:text-red-300 text-xs rounded-lg font-bold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                        <span>{employeeFormError}</span>
+                      </div>
+                    )}
+
+                    {employeeFormSuccess && (
+                      <div className="p-3 bg-green-100 dark:bg-green-950/40 border-2 border-green-500 text-brand-dark dark:text-green-300 text-xs rounded-lg font-bold flex items-center gap-2">
+                        <Check className="w-4 h-4 shrink-0 text-green-500" />
+                        <span>{employeeFormSuccess}</span>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                          Nome Completo
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={employeeName}
+                          onChange={(e) => setEmployeeName(e.target.value)}
+                          placeholder="Ex: João da Silva"
+                          className="w-full h-9 px-3 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                          E-mail Comercial de Acesso
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={employeeEmail}
+                          onChange={(e) => setEmployeeEmail(e.target.value)}
+                          placeholder="Ex: joao.estoque@exemplo.com"
+                          className="w-full h-9 px-3 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange"
+                        />
+                      </div>
+                    </div>
+
+                    {generatedInviteLink && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-brand-dark rounded-lg space-y-2 mt-2">
+                        <p className="font-sans font-semibold text-[11px] text-amber-800 dark:text-amber-400 leading-snug">
+                          ✓ <strong>Link Gerado com Sucesso!</strong> Copie e envie para o seu funcionário para que ele possa se registrar na sua loja de forma acoplada:
+                        </p>
+                        <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-brand-dark p-1 rounded">
+                          <input
+                            type="text"
+                            readOnly
+                            value={generatedInviteLink}
+                            className="bg-transparent text-[10px] text-zinc-500 font-mono w-full select-all border-none focus:outline-none py-1 px-1.5"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                navigator.clipboard.writeText(generatedInviteLink);
+                                setCopiedLink(true);
+                                setTimeout(() => setCopiedLink(false), 2000);
+                              } catch (clErr) {
+                                console.warn("Erro clip:", clErr);
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-brand-yellow text-[9px] font-black uppercase rounded shrink-0 cursor-pointer border border-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                          >
+                            {copiedLink ? "Copiado!" : "Copiar"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowInviteForm(false);
+                          setGeneratedInviteLink("");
+                          setEmployeeEmail("");
+                          setEmployeeName("");
+                        }}
+                        className="px-3 h-8 border border-brand-dark text-[10px] font-extrabold uppercase tracking-widest text-[#ba1a1a] bg-white dark:bg-zinc-800 rounded-lg cursor-pointer transition-colors"
+                      >
+                        Fechar / Cancelar
+                      </button>
+                      
+                      {!generatedInviteLink && (
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="px-4 h-8 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark border-2 border-brand-dark font-display font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_rgba(20,20,20,1)] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center cursor-pointer gap-1"
+                        >
+                          {loading ? (
+                            <div className="w-3.5 h-3.5 border border-brand-dark border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <span>Gerar Link de Convite</span>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Account Security Widget - Alteração de Senha */}
           <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark rounded-xl p-6 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] text-left">

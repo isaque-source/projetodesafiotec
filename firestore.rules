@@ -16,6 +16,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isEmployee(userId) {
+      return isSignedIn() && request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/usuarios/$(userId)/employees/$(request.auth.token.email.lower()));
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
@@ -88,39 +93,45 @@ service cloud.firestore {
 
     // Rules matching path hierarchies
     match /usuarios/{userId} {
-      allow get: if isOwner(userId);
+      allow get: if isOwner(userId) || isEmployee(userId);
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidUser(request.resource.data);
       allow delete: if false;
 
+      // Employees list subcollection
+      match /employees/{employeeEmail} {
+        allow get: if isOwner(userId) || (isSignedIn() && request.auth.token.email.lower() == employeeEmail.lower());
+        allow list, create, update, delete: if isOwner(userId);
+      }
+
       // Sales subcollection
       match /sales/{saleId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
 
       // Inventory Catalog subcollection
       match /inventory/{itemId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
 
       // Goals subcollection
       match /goals/{goalId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
 
       // Instagram progress document (single doc path)
       match /instagram/progress {
-        allow get, create, update, delete: if isOwner(userId);
+        allow get, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
 
       // Instagram feedbacks subcollection
       match /instagramFeedbacks/{feedbackId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
 
       // Clients subcollection
       match /clients/{clientId} {
-        allow get, list, create, update, delete: if isOwner(userId);
+        allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
       }
     }
 

@@ -12,7 +12,20 @@
         "email": { "type": "string", "description": "The email address of the business owner" },
         "phoneNumber": { "type": "string", "description": "Optional phone number of the owner" },
         "photoUrl": { "type": "string", "description": "Optional custom profile picture URL" },
-        "darkModeEnabled": { "type": "boolean", "description": "Whether Dark Mode is active in the user interface" }
+        "darkModeEnabled": { "type": "boolean", "description": "Whether Dark Mode is active in the user interface" },
+        "employees": {
+          "type": "array",
+          "description": "Optional list of registered employees under this store",
+          "items": {
+            "type": "object",
+            "properties": {
+              "email": { "type": "string", "description": "Sanitized email of employee" },
+              "name": { "type": "string", "description": "Full name of employee" },
+              "addedAt": { "type": "string", "description": "ISO date employee was added" }
+            },
+            "required": ["email", "name", "addedAt"]
+          }
+        }
       },
       "required": ["name", "storeName", "category", "registered", "email"]
     },

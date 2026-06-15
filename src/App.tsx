@@ -19,6 +19,9 @@ import {
   saveGoal,
   getEmailToUidMapping,
   saveEmailToUidMapping,
+  deleteEmailToUidMapping,
+  saveEmployeePermission,
+  deleteEmployeePermission,
   saveInstagramProgress,
   clearAllInstagramFeedbacks,
   fetchClients,
@@ -39,6 +42,7 @@ import LockScreen from "./components/LockScreen";
 import Profile from "./components/Profile";
 import ResetPassword from "./components/ResetPassword";
 import ClientsManager from "./components/ClientsManager";
+import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -79,6 +83,8 @@ export default function App() {
   // State variables synchronized from localStorage, Firebase or Seed templates
   const [user, setUser] = useState<User | null>(null);
   const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
+  const [invitation, setInvitation] = useState<{ ownerUid: string; storeName: string; employeeEmail: string; employeeName: string } | null>(null);
+  const [activeEmployee, setActiveEmployee] = useState<{ email: string; name: string } | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
   const [inventoryState, setInventoryState] = useState<InventoryItem[]>([]);
 
@@ -133,13 +139,28 @@ export default function App() {
   // Modals state flags
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [isAdjustGoalOpen, setIsAdjustGoalOpen] = useState(false);
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
   // Initialize and synchronise state components on startup or auth change
   useEffect(() => {
-    // Detect custom recovery route parameters
+    // Detect custom recovery route parameters or employee invitation parameters
     try {
       const currentUrl = new URL(window.location.href);
-      if (
+      
+      const inviteOwnerUid = currentUrl.searchParams.get("invite_owner_uid");
+      const storeName = currentUrl.searchParams.get("storeName");
+      const employeeEmail = currentUrl.searchParams.get("employeeEmail");
+      const employeeName = currentUrl.searchParams.get("employeeName");
+
+      if (inviteOwnerUid && storeName && employeeEmail && employeeName) {
+        setInvitation({
+          ownerUid: inviteOwnerUid,
+          storeName,
+          employeeEmail,
+          employeeName
+        });
+        setActiveTab("register");
+      } else if (
         currentUrl.pathname === "/redefinir-senha" || 
         currentUrl.pathname.includes("redefinir-senha") || 
         currentUrl.searchParams.has("email")
@@ -166,10 +187,12 @@ export default function App() {
       setIsLocked(true);
     }
 
-    // Check if we are connected on mount
-    testFirestoreConnection().then((connected) => {
-      setIsDbConnected(connected);
-    });
+    // Check if we are connected on mount (with a small delay to let Firebase initialize)
+    setTimeout(() => {
+      testFirestoreConnection().then((connected) => {
+        setIsDbConnected(connected);
+      });
+    }, 1500);
 
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       setLoadingFirebase(true);
@@ -219,10 +242,28 @@ export default function App() {
             return;
           }
 
-          // Attempt to load from firestore
+           // Attempt to load from firestore
           const profile = await getUserProfile(mappedUid);
           if (profile) {
             setUser(profile);
+            setIsDbConnected(true);
+            
+            // Check if user is an employee of this account
+            const userEmail = firebaseUser.email || "";
+            if (userEmail && profile.employees && profile.employees.length > 0) {
+              const lowercaseEmail = userEmail.toLowerCase().trim();
+              const matchedEmployee = profile.employees.find(emp => emp.email.toLowerCase().trim() === lowercaseEmail);
+              if (matchedEmployee) {
+                setActiveEmployee({
+                  email: matchedEmployee.email,
+                  name: matchedEmployee.name
+                });
+              } else {
+                setActiveEmployee(null);
+              }
+            } else {
+              setActiveEmployee(null);
+            }
             
             // Sync rest of the data, wrapping each fetch individually so network/permission/index errors don't crash login
             let dbSales: Sale[] = [];
@@ -363,10 +404,14 @@ export default function App() {
           } catch (_) {
             setUser(null);
           }
+          setActiveEmployee(null);
+          setInvitation(null);
           // Always land on the Login screen first rather than bypassing to the progress tab unless resolving reset password link
           setActiveTab(isResetFlow ? "reset-password" : "login");
         } else {
           setUser(null);
+          setActiveEmployee(null);
+          setInvitation(null);
           setActiveTab(isResetFlow ? "reset-password" : "login");
         }
 
@@ -480,6 +525,7 @@ export default function App() {
         const profile = await getUserProfile(mappedUid);
         if (profile) {
           setUser(profile);
+          setIsDbConnected(true);
           
           let dbSales: Sale[] = [];
           let dbInventory: InventoryItem[] = [];
@@ -516,6 +562,91 @@ export default function App() {
 
   // Register completion handler
   const handleRegisterComplete = async (newUser: User, initialGoal?: Goal, initialItem?: InventoryItem) => {
+    // If registration is completed via an active invitation link
+    if (invitation) {
+      setLoadingFirebase(true);
+      try {
+        const ownerUid = invitation.ownerUid;
+        const employeeEmail = newUser.email || "";
+        const safeEmail = employeeEmail.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
+
+        // Save email mapping securely on Firestore so when they log back in it points to ownerUid
+        if (employeeEmail) {
+          try {
+            await saveEmailToUidMapping(safeEmail, ownerUid, newUser.password);
+          } catch (mErr) {
+            console.warn("Could not save email mapping to server, proceeding locally:", mErr);
+          }
+        }
+
+        setDataOwnerUid(ownerUid);
+
+        // Fetch owner's user profile to load correct store
+        let ownerProfile = null;
+        try {
+          ownerProfile = await getUserProfile(ownerUid);
+        } catch (pErr) {
+          console.warn("Could not load owner profile from server:", pErr);
+        }
+
+        if (ownerProfile) {
+          setUser(ownerProfile);
+          setIsDbConnected(true);
+          setActiveEmployee({
+            email: employeeEmail,
+            name: newUser.name
+          });
+
+          // Also sync owner's subcollections (sales, inventory, clients, goals)
+          let dbSales: Sale[] = [];
+          let dbInventory: InventoryItem[] = [];
+          let dbGoal: Goal | null = null;
+          let dbClients: Client[] = [];
+
+          try { dbSales = await fetchSales(ownerUid); } catch (_) {}
+          try { dbInventory = await fetchInventory(ownerUid); } catch (_) {}
+          try { dbGoal = await fetchGoal(ownerUid); } catch (_) {}
+          try { dbClients = await fetchClients(ownerUid); } catch (_) {}
+
+          setSales(dbSales || []);
+          setInventory(dbInventory || []);
+          setClients(dbClients || []);
+          if (dbGoal) {
+            setGoal(dbGoal);
+          }
+        } else {
+          // If profile fetch fails or we are offline, fallback gracefully
+          const fallbackProfile: User = {
+            name: newUser.name,
+            storeName: invitation.storeName || "Loja Compartilhada",
+            category: "Artesanato",
+            registered: true,
+            email: employeeEmail,
+            employees: [
+              {
+                email: employeeEmail,
+                name: newUser.name,
+                addedAt: Date.now()
+              }
+            ]
+          };
+          setUser(fallbackProfile);
+          setActiveEmployee({
+            email: employeeEmail,
+            name: newUser.name
+          });
+        }
+
+        setInvitation(null);
+        setActiveTab("home");
+      } catch (err) {
+        console.error("Erro ao registrar funcionário no espaço da loja:", err);
+      } finally {
+        setLoadingFirebase(false);
+      }
+      return;
+    }
+
     setUser(newUser);
     
     let updatedGoal = goal;
@@ -539,7 +670,7 @@ export default function App() {
     const resetMissions = [
       { id: 1, moduleName: "Módulo 1: Vitrine", title: "Refinar a Proposta de Valor da Bio do Instagram", points: 150, completed: false },
       { id: 2, moduleName: "Módulo 2: Conteúdo", title: "Pesquisar 3 referências de Reels para seu nicho", points: 100, completed: false },
-      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete ativa de preferência de produto", points: 120, completed: false },
+      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete activa de preferência de produto", points: 120, completed: false },
       { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false }
     ];
 
@@ -605,6 +736,81 @@ export default function App() {
     }
 
     setActiveTab("home");
+  };
+
+  const handleAddEmployee = async (emailStr: string, nameStr: string) => {
+    if (!user) return;
+    const ownerUid = dataOwnerUid || auth.currentUser?.uid;
+    if (!ownerUid) throw new Error("Usuário não autenticado");
+
+    const cleanEmail = emailStr.trim().toLowerCase();
+    const safeEmail = cleanEmail.replace(/[^a-z0-9_]/g, "_");
+
+    const currentEmployees = user.employees ? [...user.employees] : [];
+    if (currentEmployees.some(e => e.email.toLowerCase().trim() === cleanEmail)) {
+      throw new Error(`O funcionário com e-mail ${emailStr} já está cadastrado.`);
+    }
+
+    const updatedEmployees = [
+      ...currentEmployees,
+      {
+        email: cleanEmail,
+        name: nameStr.trim(),
+        addedAt: Date.now()
+      }
+    ];
+
+    const updatedUser = {
+      ...user,
+      employees: updatedEmployees
+    };
+
+    // Attempt server persistence but catch network/offline blocks so invite links generate regardless
+    if (auth.currentUser && dataOwnerUid) {
+      try {
+        await saveUserProfile(ownerUid, updatedUser);
+        await saveEmailToUidMapping(safeEmail, ownerUid);
+        await saveEmployeePermission(ownerUid, cleanEmail, nameStr);
+      } catch (err) {
+        console.warn("[Firestore] Conectado localmente/offline. Dados salvos em contingência. Erro:", err);
+      }
+    } else {
+      // Local storage fallback
+      handleSaveState(updatedUser, sales, inventory, goal);
+    }
+
+    setUser(updatedUser);
+  };
+
+  const handleRemoveEmployee = async (emailStr: string) => {
+    if (!user) return;
+    const ownerUid = dataOwnerUid || auth.currentUser?.uid;
+    if (!ownerUid) throw new Error("Usuário não autenticado");
+
+    const cleanEmail = emailStr.trim().toLowerCase();
+    const safeEmail = cleanEmail.replace(/[^a-z0-9_]/g, "_");
+
+    const currentEmployees = user.employees ? [...user.employees] : [];
+    const updatedEmployees = currentEmployees.filter(e => e.email.toLowerCase().trim() !== cleanEmail);
+
+    const updatedUser = {
+      ...user,
+      employees: updatedEmployees
+    };
+
+    if (auth.currentUser && dataOwnerUid) {
+      try {
+        await saveUserProfile(ownerUid, updatedUser);
+        await deleteEmailToUidMapping(safeEmail);
+        await deleteEmployeePermission(ownerUid, cleanEmail);
+      } catch (err) {
+        console.warn("[Firestore] Falha ao remover no servidor, processado localmente. Erro:", err);
+      }
+    } else {
+      handleSaveState(updatedUser, sales, inventory, goal);
+    }
+
+    setUser(updatedUser);
   };
 
   const handleLogout = async () => {
@@ -1336,16 +1542,25 @@ export default function App() {
           <span className="flex items-center gap-1">
             ⚠️ Modo de Contingência Local Ativo (Instância Firebase Offline ou Indisponível)
           </span>
-          <button 
-            id="reconnect-db-btn"
-            onClick={async () => {
-              const res = await testFirestoreConnection();
-              setIsDbConnected(res);
-            }} 
-            className="underline ml-2 bg-neutral-900 text-amber-500 px-2.5 py-1 rounded font-display text-[10px] font-black uppercase hover:bg-neutral-800 transition-colors cursor-pointer"
-          >
-            Tentar Reconectar
-          </button>
+          <div className="flex gap-2">
+            <button 
+              id="reconnect-db-btn"
+              onClick={async () => {
+                const res = await testFirestoreConnection();
+                setIsDbConnected(res);
+              }} 
+              className="underline bg-neutral-900 text-amber-500 px-2.5 py-1 rounded font-display text-[10px] font-black uppercase hover:bg-neutral-800 transition-colors cursor-pointer"
+            >
+              Tentar Reconectar
+            </button>
+            <button 
+              id="diagnose-db-btn"
+              onClick={() => setIsDiagnosticOpen(true)}
+              className="underline bg-neutral-900 text-white px-2.5 py-1 rounded font-display text-[10px] font-black uppercase hover:bg-neutral-800 transition-colors cursor-pointer"
+            >
+              Diagnosticar Conexão 🔬
+            </button>
+          </div>
         </div>
       )}
       
@@ -1429,7 +1644,11 @@ export default function App() {
         {activeTab === "register" && (
           <Register
             onRegisterComplete={handleRegisterComplete}
-            onGoBack={() => setActiveTab("login")}
+            onGoBack={() => {
+              setInvitation(null);
+              setActiveTab("login");
+            }}
+            invitation={invitation}
           />
         )}
 
@@ -1510,6 +1729,9 @@ export default function App() {
             onUpdateUser={(updated) => setUser(updated)}
             onGoBack={() => setActiveTab("home")}
             dataOwnerUid={dataOwnerUid}
+            activeEmployee={activeEmployee}
+            onAddEmployee={handleAddEmployee}
+            onRemoveEmployee={handleRemoveEmployee}
           />
         )}
 
@@ -1611,6 +1833,16 @@ export default function App() {
           onUpdateGoal={handleUpdateGoal}
         />
       )}
+
+      {/* Firebase Diagnostics and troubleshooting tool */}
+      <FirebaseDiagnosticModal
+        isOpen={isDiagnosticOpen}
+        onClose={() => setIsDiagnosticOpen(false)}
+        onReconnectSuccess={() => {
+          setIsDbConnected(true);
+          setIsDiagnosticOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -1,3 +1,9 @@
+export interface Employee {
+  email: string;
+  name: string;
+  addedAt: string | number;
+}
+
 export interface User {
   name: string;
   storeName: string;
@@ -8,6 +14,7 @@ export interface User {
   photoUrl?: string;
   darkModeEnabled?: boolean;
   password?: string;
+  employees?: Employee[];
 }
 
 export interface SaleItem {

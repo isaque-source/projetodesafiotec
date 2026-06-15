@@ -33,37 +33,68 @@ export interface InstagramFeedbackState {
  * Validates connection to Firestore at App start-up as requested by the critical constraints
  */
 export async function testFirestoreConnection(): Promise<boolean> {
-  const testPath = "usuarios/connection_test";
-  try {
-    // Attempt a light server lookup
-    await getDocFromServer(doc(db, "test", "connection"));
-    return true;
-  } catch (error: any) {
-    console.error("[Firestore Connection Error Details]:", error);
-    const isPermissionDenied = error && (
-      error.code === "permission-denied" ||
-      (error.message && (
-        error.message.toLowerCase().includes("permission") ||
-        error.message.toLowerCase().includes("insufficient")
-      ))
-    );
-
-    if (isPermissionDenied) {
-      console.log("[Firestore Connection]: Conectado ao banco online com sucesso (respondido pelo security rules).");
-      return true;
-    }
-
-    const isOffline = error instanceof Error && (
-      error.message.includes("offline") || 
-      error.message.includes("failed to get document") ||
-      error.message.includes("network") ||
-      error.message.includes("Database")
-    );
-    if (isOffline) {
-      console.warn("[Firestore Dynamic Diagnostics]: Banco de dados indisponível ou offline. Executando em modo de contingência local.");
-    }
+  // If the browser environment explicitly reports offline, treat as disconnected
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    console.log("[Firestore Connection]: O navegador está offline.");
     return false;
   }
+
+  let attempts = 4;
+  let success = false;
+  let lastError: any = null;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      // Apply exponential backoff delay before retries to allow the socket to establish
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, i * 600));
+      }
+
+      // Attempt a light server lookup
+      await getDocFromServer(doc(db, "test", "connection"));
+      success = true;
+      break;
+    } catch (error: any) {
+      lastError = error;
+      const errorMsg = error?.message?.toLowerCase() || "";
+      const errorCode = error?.code || "";
+
+      // If we receive "permission-denied" or "unauthenticated", this confirms
+      // we successfully reached the Firestore server!
+      const isReached = 
+        errorCode === "permission-denied" || 
+        errorCode === "unauthenticated" ||
+        errorMsg.includes("permission") ||
+        errorMsg.includes("insufficient");
+
+      if (isReached) {
+        success = true;
+        break;
+      }
+
+      // Check if it matches typical transient offline connection errors
+      const isOfflineStatus = 
+        errorMsg.includes("offline") || 
+        errorMsg.includes("failed to get document") ||
+        errorMsg.includes("network") ||
+        errorMsg.includes("database") ||
+        errorCode === "unavailable";
+
+      if (isOfflineStatus && i < attempts - 1) {
+        console.log(`[Firestore Connection Retry]: Tentativa ${i + 1} falhou com status offline. Tentando novamente em breve...`);
+      } else {
+        break;
+      }
+    }
+  }
+
+  if (success) {
+    console.log("[Firestore Connection]: Conectado ao banco online com sucesso.");
+    return true;
+  }
+
+  console.log("[Firestore Connection]: Não foi possível sincronizar online. Ativando modo de contingência local.");
+  return false;
 }
 
 /**
@@ -383,3 +414,37 @@ export async function saveEmailToUidMapping(safeEmail: string, uid: string, pass
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
+
+export async function deleteEmailToUidMapping(safeEmail: string): Promise<void> {
+  const path = `email_to_uid/${safeEmail}`;
+  try {
+    await deleteDoc(doc(db, "email_to_uid", safeEmail));
+  } catch (error: any) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function saveEmployeePermission(uid: string, employeeEmail: string, employeeName: string): Promise<void> {
+  const cleanEmail = employeeEmail.trim().toLowerCase();
+  const path = `usuarios/${uid}/employees/${cleanEmail}`;
+  try {
+    await setDoc(doc(db, "usuarios", uid, "employees", cleanEmail), {
+      email: cleanEmail,
+      name: employeeName.trim(),
+      addedAt: Date.now()
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteEmployeePermission(uid: string, employeeEmail: string): Promise<void> {
+  const cleanEmail = employeeEmail.trim().toLowerCase();
+  const path = `usuarios/${uid}/employees/${cleanEmail}`;
+  try {
+    await deleteDoc(doc(db, "usuarios", uid, "employees", cleanEmail));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+

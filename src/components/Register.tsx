@@ -8,21 +8,31 @@ import { getEmailToUidMapping } from "../lib/db";
 interface RegisterProps {
   onRegisterComplete: (user: User, initialGoal?: Goal, initialItem?: InventoryItem) => void;
   onGoBack: () => void;
+  invitation?: { ownerUid: string; storeName: string; employeeEmail: string; employeeName: string } | null;
 }
 
-export default function Register({ onRegisterComplete, onGoBack }: RegisterProps) {
+export default function Register({ onRegisterComplete, onGoBack, invitation }: RegisterProps) {
   const [step, setStep] = useState(1);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [showFirebaseSetupGuide, setShowFirebaseSetupGuide] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   
   // Step 1: Basic profiles
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(invitation?.employeeName || "");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [storeName, setStoreName] = useState("");
+  const [storeName, setStoreName] = useState(invitation?.storeName || "");
   const [category, setCategory] = useState("Artesanato");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitation?.employeeEmail || "");
   const [password, setPassword] = useState("");
+
+  // Sync with invitation if loaded asynchronously
+  useEffect(() => {
+    if (invitation) {
+      if (invitation.employeeName) setFullName(invitation.employeeName);
+      if (invitation.storeName) setStoreName(invitation.storeName);
+      if (invitation.employeeEmail) setEmail(invitation.employeeEmail);
+    }
+  }, [invitation]);
 
   // Email validation states
   const [checkingEmail, setCheckingEmail] = useState(false);
@@ -141,9 +151,29 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
-    if (goalAmount <= 0) {
-      setErrorMessage("Por favor, configure uma meta real de faturamento.");
-      return;
+    
+    if (invitation) {
+      if (!fullName.trim() || !phoneNumber.trim()) {
+        setErrorMessage("Por favor, preencha todos os campos obrigatórios (Seu Nome e Telefone são obrigatórios).");
+        return;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        setErrorMessage("Por favor, preencha o campo de e-mail com uma conta válida.");
+        return;
+      }
+      if (!password.trim()) {
+        setErrorMessage("Por favor, defina uma senha de acesso.");
+        return;
+      }
+      if (!/^\d{6,}$/.test(password)) {
+        setErrorMessage("A senha de acesso deve conter pelo menos 6 dígitos numéricos (somente números).");
+        return;
+      }
+    } else {
+      if (goalAmount <= 0) {
+        setErrorMessage("Por favor, configure uma meta real de faturamento.");
+        return;
+      }
     }
 
     setRegisterLoading(true);
@@ -176,7 +206,7 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
         password: password, // Store in Firestore as official password
       };
 
-      const finalGoal: Goal = {
+      const finalGoal: Goal = invitation ? { targetAmount: 0, period: "Mensal" } : {
         targetAmount: Number(goalAmount),
         period: goalPeriod,
       };
@@ -188,7 +218,7 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
       } catch (e) {
         console.warn("Storage restricted on finish registration:", e);
       }
-      onRegisterComplete(newUser, finalGoal, undefined);
+      onRegisterComplete(newUser, invitation ? undefined : finalGoal, undefined);
     } catch (err: any) {
       console.warn("Fluxo normal de registro Firebase Auth:", err?.code || err);
       if (err.code === "auth/email-already-in-use" || err.message?.includes("email-already-in-use")) {
@@ -259,13 +289,31 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
         {step === 1 && (
           <div className="animate-fade-in space-y-6">
+            {/* Invitation Banner */}
+            {invitation && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-brand-dark rounded-xl shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] text-left flex items-start gap-3 mb-6 animate-fade-in">
+                <span className="text-2xl shrink-0">🤝</span>
+                <div>
+                  <h3 className="font-display font-black text-sm text-brand-dark dark:text-brand-orange uppercase tracking-wide">
+                    Convite de Funcionário Ativo
+                  </h3>
+                  <p className="font-sans text-brand-muted dark:text-zinc-300 text-xs font-semibold leading-relaxed mt-1">
+                    Você foi convidado(a) por <strong>o dono da loja</strong> para se juntar à equipe da loja <strong>{invitation.storeName}</strong>. 
+                    Seu cadastro será vinculado ao catálogo, estoque, clientes e vendas da loja de forma integrada e segura.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Welcome text */}
             <div>
               <h2 className="font-display text-2xl md:text-3xl font-extrabold text-brand-dark">
-                Bem-vindo ao Visu!
+                {invitation ? "Cadastro de Funcionário" : "Bem-vindo ao Visu!"}
               </h2>
               <p className="font-sans text-brand-muted font-medium mt-1">
-                Vamos configurar sua conta para personalizar sua experiência de gestão.
+                {invitation 
+                  ? "Preencha seus dados de acesso individuais para começar a trabalhar nesta loja." 
+                  : "Vamos configurar sua conta para personalizar sua experiência de gestão."}
               </p>
             </div>
 
@@ -306,25 +354,26 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
                   Seu E-mail Comercial
                 </label>
                 <input
-                  className={`h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c] ${emailExists ? 'border-red-500 focus:border-red-505' : ''}`}
+                  className={`h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 text-[#1a1c1c] ${emailExists ? 'border-red-500 focus:border-red-505' : ''} read-only:opacity-75 read-only:bg-zinc-100 dark:read-only:bg-zinc-800`}
                   id="register_email"
                   type="email"
                   placeholder="Ex: marta.gerente@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  readOnly={!!invitation}
                   required
                 />
-                {checkingEmail && (
+                {!invitation && checkingEmail && (
                   <p className="text-xs font-bold text-brand-orange animate-pulse mt-0.5">
                     ⚙️ Verificando e-mail...
                   </p>
                 )}
-                {emailChecked && emailExists && (
+                {!invitation && emailChecked && emailExists && (
                   <p className="text-xs font-bold text-red-600 mt-0.5">
                     ❌ Este e-mail já possui cadastro ativo no Visu! Use outro e-mail ou faça login.
                   </p>
                 )}
-                {emailChecked && !emailExists && !checkingEmail && (
+                {!invitation && emailChecked && !emailExists && !checkingEmail && (
                   <p className="text-xs font-bold text-green-700 mt-0.5">
                     ✓ E-mail disponível para cadastro!
                   </p>
@@ -352,52 +401,55 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
                   Nome da sua Loja ou Negócio
                 </label>
                 <input
-                  className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40"
+                  className="h-12 px-4 border-2 border-brand-dark bg-[#f9f9f9] rounded-lg font-sans text-base focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/20 transition-all placeholder:text-brand-muted/40 read-only:opacity-75 read-only:bg-zinc-100 dark:read-only:bg-zinc-800"
                   id="store_name"
                   type="text"
                   placeholder="Ex: Ateliê da Maria"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
+                  readOnly={!!invitation}
                   required
                 />
               </div>
 
               {/* Ramo de atuacao group */}
-              <div className="flex flex-col gap-2 text-left">
-                <div className="flex flex-col gap-0.5">
-                  <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide">
-                    Ramo de Atuação
-                  </label>
-                  <p className="text-xs text-brand-muted font-medium italic">
-                    Informar seu ramo nos ajuda a criar um guia de aprendizado e dashboard específico para seu nicho.
-                  </p>
-                </div>
+              {!invitation && (
+                <div className="flex flex-col gap-2 text-left">
+                  <div className="flex flex-col gap-0.5">
+                    <label className="font-sans font-bold text-sm text-brand-dark uppercase tracking-wide">
+                      Ramo de Atuação
+                    </label>
+                    <p className="text-xs text-brand-muted font-medium italic">
+                      Informar seu ramo nos ajuda a criar um guia de aprendizado e dashboard específico para seu nicho.
+                    </p>
+                  </div>
 
-                {/* Grid layout categories selectors */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
-                  {categories.map((cat) => {
-                    const Icon = cat.icon;
-                    const isActive = category === cat.name;
-                    return (
-                      <button
-                        key={cat.name}
-                        type="button"
-                        onClick={() => setCategory(cat.name)}
-                        className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all duration-200 cursor-pointer h-24 ${
-                          isActive
-                            ? "bg-brand-yellow border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] -translate-x-1 -translate-y-1"
-                            : "bg-white border-brand-gray hover:border-brand-dark hover:shadow-[3px_3px_0px_0px_rgba(26,28,28,0.5)]"
-                        }`}
-                      >
-                        <Icon className={`w-8 h-8 mb-2 ${isActive ? 'text-brand-dark' : 'text-brand-muted'}`} />
-                        <span className="font-display font-bold text-xs text-brand-dark truncate w-full text-center">
-                          {cat.name}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {/* Grid layout categories selectors */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+                    {categories.map((cat) => {
+                      const Icon = cat.icon;
+                      const isActive = category === cat.name;
+                      return (
+                        <button
+                          key={cat.name}
+                          type="button"
+                          onClick={() => setCategory(cat.name)}
+                          className={`flex flex-col items-center justify-center p-3 border-2 rounded-xl transition-all duration-200 cursor-pointer h-24 ${
+                            isActive
+                              ? "bg-brand-yellow border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] -translate-x-1 -translate-y-1"
+                              : "bg-white border-brand-gray hover:border-brand-dark hover:shadow-[3px_3px_0px_0px_rgba(26,28,28,0.5)]"
+                          }`}
+                        >
+                          <Icon className={`w-8 h-8 mb-2 ${isActive ? 'text-brand-dark' : 'text-brand-muted'}`} />
+                          <span className="font-display font-bold text-xs text-brand-dark truncate w-full text-center">
+                            {cat.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Retro Illustration decoration */}
@@ -482,7 +534,15 @@ export default function Register({ onRegisterComplete, onGoBack }: RegisterProps
 
         {/* Global Action Footer bar in register */}
         <div className="mt-8 flex flex-col items-center">
-          {step < 2 ? (
+          {invitation ? (
+            <button
+              onClick={handleFinish}
+              className="w-full max-w-md h-12 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-extrabold uppercase tracking-widest rounded-lg border-2 border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] active:translate-y-1 active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Check className="w-5 h-5" />
+              <span>Finalizar Cadastro de Funcionário</span>
+            </button>
+          ) : step < 2 ? (
             <button
               type="button"
               onClick={handleNextStep}

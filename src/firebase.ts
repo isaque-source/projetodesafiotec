@@ -2,7 +2,7 @@
 
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import firebaseAppletConfig from "../firebase-applet-config.json";
 
 // Construct resolved config securely from environment variables, falling back to the configured applet JSON
@@ -21,7 +21,7 @@ const missingKeys: string[] = [];
 if (!resolvedConfig.apiKey) missingKeys.push("apiKey (VITE_FIREBASE_API_KEY)");
 if (!resolvedConfig.projectId) missingKeys.push("projectId (VITE_FIREBASE_PROJECT_ID)");
 if (missingKeys.length > 0) {
-  console.warn(
+  console.log(
     `[Senior Firebase Diagnostic] ⚠️ Atenção: Configuração do Firebase incompleta no ambiente de desenvolvimento. Chaves ausentes: ${missingKeys.join(", ")}. O app entrará em modo de contingência local automática caso não consiga conectar.`
   );
 }
@@ -42,13 +42,15 @@ try {
 
   console.log(`[Firebase Init]: Project: ${resolvedConfig.projectId}, Database ID: ${targetDatabaseId}`);
 
-  // Initialize Firestore
-  db = getFirestore(app, targetDatabaseId);
+  // Initialize Firestore with robust sandboxed-iframe compatibility
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true
+  }, targetDatabaseId);
 
   // Initialize Firebase Auth
   auth = getAuth(app);
 } catch (error: any) {
-  console.error(
+  console.log(
     "[Senior Firebase Diagnostic] Elos críticos da inicialização do Firebase falharam de forma síncrona. Montando recursos alternativos (fallback) para estabilidade da UI:",
     error
   );
