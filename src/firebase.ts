@@ -36,9 +36,15 @@ try {
   
   // Prioritize environment variable first, then fall back to local configuration
   const rawEnvDbId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
-  const targetDatabaseId = rawEnvDbId !== undefined 
-    ? rawEnvDbId 
-    : ((firebaseAppletConfig as any).firestoreDatabaseId || "(default)");
+  let targetDatabaseId = "(default)";
+
+  // Robust Self-Healing Logic: If the database env variable matches the projectId or is blank,
+  // it is a common environment misconfiguration. We instantly fallback to the correct applet database ID.
+  if (rawEnvDbId && rawEnvDbId.trim() !== "" && rawEnvDbId !== resolvedConfig.projectId) {
+    targetDatabaseId = rawEnvDbId;
+  } else if ((firebaseAppletConfig as any).firestoreDatabaseId) {
+    targetDatabaseId = (firebaseAppletConfig as any).firestoreDatabaseId;
+  }
 
   console.log(`[Firebase Init]: Project: ${resolvedConfig.projectId}, Database ID: ${targetDatabaseId}`);
 
