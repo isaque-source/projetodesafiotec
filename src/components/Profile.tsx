@@ -172,9 +172,11 @@ export default function Profile({
     try {
       if (auth.currentUser) {
         // 1. Profile Display Name update in Firebase Auth
+        // Prevent sending long Base64 data-URIs to Auth photoURL, as Auth photoURL only supports valid HTTP URLs (auth/invalid-profile-attribute)
+        const isHttpUrl = photoUrl.startsWith("http://") || photoUrl.startsWith("https://");
         await updateProfile(auth.currentUser, {
           displayName: name.trim(),
-          photoURL: photoUrl.trim() || null
+          photoURL: isHttpUrl ? photoUrl.trim() : null
         });
 
         // 2. Real Firestore document save

@@ -98,12 +98,36 @@ export async function testFirestoreConnection(): Promise<boolean> {
 }
 
 /**
+ * Recursively removes any keys with undefined values from an object,
+ * ensuring Firestore won't throw "Unsupported field value: undefined" errors.
+ */
+export function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined) as any;
+  }
+  if (typeof obj === "object") {
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (val !== undefined) {
+          cleaned[key] = cleanUndefined(val);
+        }
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
  * User Profile Operations
  */
 export async function saveUserProfile(uid: string, userData: User): Promise<void> {
   const path = `usuarios/${uid}`;
   try {
-    await setDoc(doc(db, "usuarios", uid), userData);
+    await setDoc(doc(db, "usuarios", uid), cleanUndefined(userData));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -146,7 +170,7 @@ export async function addSaleDocument(uid: string, sale: Sale): Promise<void> {
   try {
     // Extract ID and build clean object for Firestore
     const { id, ...data } = sale;
-    await setDoc(doc(db, "usuarios", uid, "sales", id), data);
+    await setDoc(doc(db, "usuarios", uid, "sales", id), cleanUndefined(data));
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
@@ -183,8 +207,7 @@ export async function saveClientDocument(uid: string, client: Client): Promise<v
   const path = `usuarios/${uid}/clients/${client.id}`;
   try {
     const { id, ...data } = client;
-    const cleanData = JSON.parse(JSON.stringify(data));
-    await setDoc(doc(db, "usuarios", uid, "clients", id), cleanData);
+    await setDoc(doc(db, "usuarios", uid, "clients", id), cleanUndefined(data));
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
@@ -221,8 +244,7 @@ export async function addInventoryDocument(uid: string, item: InventoryItem): Pr
   const path = `usuarios/${uid}/inventory/${item.id}`;
   try {
     const { id, ...data } = item;
-    const cleanData = JSON.parse(JSON.stringify(data));
-    await setDoc(doc(db, "usuarios", uid, "inventory", id), cleanData);
+    await setDoc(doc(db, "usuarios", uid, "inventory", id), cleanUndefined(data));
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
@@ -242,8 +264,7 @@ export async function updateInventoryDocumentFull(uid: string, item: InventoryIt
   const path = `usuarios/${uid}/inventory/${item.id}`;
   try {
     const { id, ...data } = item;
-    const cleanData = JSON.parse(JSON.stringify(data));
-    await setDoc(doc(db, "usuarios", uid, "inventory", id), cleanData);
+    await setDoc(doc(db, "usuarios", uid, "inventory", id), cleanUndefined(data));
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -268,7 +289,7 @@ export async function fetchGoal(uid: string): Promise<Goal | null> {
 export async function saveGoal(uid: string, goal: Goal): Promise<void> {
   const path = `usuarios/${uid}/goals/current`;
   try {
-    await setDoc(doc(db, "usuarios", uid, "goals", "current"), goal);
+    await setDoc(doc(db, "usuarios", uid, "goals", "current"), cleanUndefined(goal));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -293,7 +314,7 @@ export async function fetchInstagramProgress(uid: string): Promise<InstagramProg
 export async function saveInstagramProgress(uid: string, progress: InstagramProgressState): Promise<void> {
   const path = `usuarios/${uid}/instagram/progress`;
   try {
-    await setDoc(doc(doc(db, "usuarios", uid), "instagram", "progress"), progress);
+    await setDoc(doc(doc(db, "usuarios", uid), "instagram", "progress"), cleanUndefined(progress));
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -321,7 +342,7 @@ export async function addInstagramFeedback(uid: string, feedback: InstagramFeedb
   const id = `task-${feedback.taskId}`;
   const path = `usuarios/${uid}/instagramFeedbacks/${id}`;
   try {
-    await setDoc(doc(db, "usuarios", uid, "instagramFeedbacks", id), feedback);
+    await setDoc(doc(db, "usuarios", uid, "instagramFeedbacks", id), cleanUndefined(feedback));
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
