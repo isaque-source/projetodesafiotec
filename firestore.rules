@@ -34,7 +34,7 @@ service cloud.firestore {
         && user.registered is bool
         && user.email is string && user.email.size() <= 200
         && (!user.keys().hasAny(['phoneNumber']) || user.phoneNumber == null || (user.phoneNumber is string && user.phoneNumber.size() <= 50))
-        && (!user.keys().hasAny(['photoUrl']) || user.photoUrl == null || (user.photoUrl is string && user.photoUrl.size() <= 2000))
+        && (!user.keys().hasAny(['photoUrl']) || user.photoUrl == null || (user.photoUrl is string && user.photoUrl.size() <= 1000000))
         && (!user.keys().hasAny(['darkModeEnabled']) || user.darkModeEnabled == null || user.darkModeEnabled is bool);
     }
 
@@ -54,7 +54,7 @@ service cloud.firestore {
         && item.minQuantity is number && item.minQuantity >= 0
         && item.price is number && item.price >= 0
         && item.category is string && item.category.size() <= 100
-        && (!item.keys().hasAny(['imageUrl']) || item.imageUrl == null || (item.imageUrl is string && item.imageUrl.size() <= 2000))
+        && (!item.keys().hasAny(['imageUrl']) || item.imageUrl == null || (item.imageUrl is string && item.imageUrl.size() <= 1000000))
         && (!item.keys().hasAny(['costPrice']) || item.costPrice == null || item.costPrice is number)
         && (!item.keys().hasAny(['profitMargin']) || item.profitMargin == null || item.profitMargin is number);
     }
