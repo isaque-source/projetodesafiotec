@@ -738,7 +738,13 @@ export default function App() {
     setActiveTab("home");
   };
 
-  const handleAddEmployee = async (emailStr: string, nameStr: string) => {
+  const handleAddEmployee = async (
+    emailStr: string, 
+    nameStr: string,
+    roleStr?: string,
+    hasCommission?: boolean,
+    commissionPercent?: number
+  ) => {
     if (!user) return;
     const ownerUid = dataOwnerUid || auth.currentUser?.uid;
     if (!ownerUid) throw new Error("Usuário não autenticado");
@@ -756,7 +762,11 @@ export default function App() {
       {
         email: cleanEmail,
         name: nameStr.trim(),
-        addedAt: Date.now()
+        addedAt: Date.now(),
+        role: roleStr?.trim() || "Vendedor",
+        hasCommission: !!hasCommission,
+        commissionPercentage: hasCommission ? commissionPercent || 0 : undefined,
+        commissionResetTimestamp: Date.now()
       }
     ];
 
@@ -776,6 +786,42 @@ export default function App() {
       }
     } else {
       // Local storage fallback
+      handleSaveState(updatedUser, sales, inventory, goal);
+    }
+
+    setUser(updatedUser);
+  };
+
+  const handleResetEmployeeCommission = async (emailStr: string) => {
+    if (!user) return;
+    const ownerUid = dataOwnerUid || auth.currentUser?.uid;
+    if (!ownerUid) throw new Error("Usuário não autenticado");
+
+    const cleanEmail = emailStr.trim().toLowerCase();
+    const currentEmployees = user.employees ? [...user.employees] : [];
+    
+    const updatedEmployees = currentEmployees.map(emp => {
+      if (emp.email.toLowerCase().trim() === cleanEmail) {
+        return {
+          ...emp,
+          commissionResetTimestamp: Date.now()
+        };
+      }
+      return emp;
+    });
+
+    const updatedUser = {
+      ...user,
+      employees: updatedEmployees
+    };
+
+    if (auth.currentUser && dataOwnerUid) {
+      try {
+        await saveUserProfile(ownerUid, updatedUser);
+      } catch (err) {
+        console.warn("[Firestore] Erro ao salvar comissão resetada no banco de dados:", err);
+      }
+    } else {
       handleSaveState(updatedUser, sales, inventory, goal);
     }
 
@@ -1732,6 +1778,8 @@ export default function App() {
             activeEmployee={activeEmployee}
             onAddEmployee={handleAddEmployee}
             onRemoveEmployee={handleRemoveEmployee}
+            sales={sales}
+            onResetEmployeeCommission={handleResetEmployeeCommission}
           />
         )}
 
@@ -1821,6 +1869,7 @@ export default function App() {
           isOpen={isNewSaleOpen}
           onClose={() => setIsNewSaleOpen(false)}
           onAddSale={handleAddSale}
+          employees={user.employees || []}
         />
       )}
 

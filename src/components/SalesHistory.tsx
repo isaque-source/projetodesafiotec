@@ -19,7 +19,8 @@ import {
   HelpCircle,
   AlertTriangle,
   X,
-  Printer
+  Printer,
+  Share2
 } from "lucide-react";
 import { User, Sale, Goal, InventoryItem } from "../types";
 
@@ -203,6 +204,54 @@ export default function SalesHistory({
   const [activePrintSale, setActivePrintSale] = useState<Sale | null>(null);
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+
+  const generateWhatsAppShareUrl = (sale: Sale) => {
+    const storeName = user?.storeName || "Minha Loja";
+    const isBudget = (sale.type || "sale") === "budget";
+    const title = isBudget ? `*ORÇAMENTO - ${storeName.toUpperCase()}*` : `*COMPROVANTE DE VENDA - ${storeName.toUpperCase()}*`;
+    const code = `Código: #${sale.id.substring(sale.id.lastIndexOf("-") + 1).toUpperCase()}`;
+    const date = `Data: ${sale.date} ${sale.time || ""}`;
+    const client = sale.clientName ? `Cliente: *${sale.clientName.toUpperCase()}*` : "";
+    
+    let itemsList = "";
+    if (sale.items && sale.items.length > 0) {
+      sale.items.forEach((it) => {
+        itemsList += `• _${it.name}_ - *${it.quantity}x* R$ ${it.price.toFixed(2)} = *R$ ${(it.price * it.quantity).toFixed(2)}*\n`;
+      });
+    } else {
+      itemsList += `• _${sale.itemDescription}_ - *${sale.quantity}x* = *R$ ${sale.amount.toFixed(2)}*\n`;
+    }
+    
+    const discountStr = sale.discountAmount && sale.discountAmount > 0 
+      ? `\n~Valor Normal: R$ ${sale.originalAmount?.toFixed(2)}~\n*Desconto: -R$ ${sale.discountAmount.toFixed(2)} (${sale.discountPercent}%)*` 
+      : "";
+      
+    let paymentStr = "";
+    if (!isBudget && sale.paymentMethod) {
+      if (sale.paymentMethod.toLowerCase() === "credito" && sale.installments) {
+        paymentStr = `\nForma de Pagamento: *Crédito (${sale.installments}x)*`;
+      } else {
+        const displayMethod = sale.paymentMethod.charAt(0).toUpperCase() + sale.paymentMethod.slice(1);
+        paymentStr = `\nForma de Pagamento: *${displayMethod}*`;
+      }
+    }
+
+    const sellerStr = sale.sellerName ? `\nVendedor: *${sale.sellerName}*` : "";
+
+    const totalStr = `*VALOR TOTAL: R$ ${sale.amount.toFixed(2)}*`;
+    const notesStr = sale.description ? `\n_Obs: ${sale.description}_` : "";
+    
+    const text = `${title}
+${code}
+${date}
+${client ? client + "\n" : ""}---------------------------
+${itemsList}---------------------------${discountStr}${paymentStr}${sellerStr}
+${totalStr}${notesStr}
+---------------------------
+_Obrigado pela preferência!_`;
+
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  };
 
   const copyReceiptToClipboard = (sale: Sale) => {
     try {
@@ -607,6 +656,24 @@ NÃO É DOCUMENTO FISCAL
                             <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded uppercase text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                               {sale.quantity} itens no lançamento
                             </span>
+                            {sale.paymentMethod && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-black uppercase">
+                                  💵 {sale.paymentMethod.toLowerCase() === "credito" && sale.installments
+                                    ? `Crédito (${sale.installments}x)`
+                                    : sale.paymentMethod}
+                                </span>
+                              </>
+                            )}
+                            {sale.sellerName && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 px-1.5 py-0.5 rounded text-[10px] font-black uppercase">
+                                  👤 Vendedor: {sale.sellerName}
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           {/* Render sub-item details breakdown if available */}
@@ -656,15 +723,15 @@ NÃO É DOCUMENTO FISCAL
                             <button
                               type="button"
                               onClick={() => {
-                                if (confirm(`Deseja realmente cancelar este lançamento (${typeFilter === "sale" ? "venda" : "orçamento"})? Estoques integrados serão recalculados automaticamente.`)) {
-                                  onCancelSale(sale.id);
+                                if (confirm(`Deseja realmente cancelar e excluir permanentemente este lançamento (${typeFilter === "sale" ? "venda" : "orçamento"}) do aplicativo? O estoque associado será reintegrado.`)) {
+                                  onRemoveSale(sale.id);
                                 }
                               }}
                               className="h-8 px-2.5 rounded-lg bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-300 md:flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold"
-                              title="Cancelar a transação, reintegrando produtos ao estoque"
+                              title="Cancelar e excluir a transação, reintegrando produtos ao estoque"
                             >
                               <Ban className="w-3.5 h-3.5 shrink-0" />
-                              <span className="hidden sm:inline">Cancelar</span>
+                              <span className="hidden sm:inline">Cancelar Venda</span>
                             </button>
                           )}
 
@@ -675,12 +742,12 @@ NÃO É DOCUMENTO FISCAL
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm("Devolver item(ns) ao estoque e marcar venda inteira como estornada/devolvida?")) {
-                                    onReturnSale(sale.id);
+                                  if (confirm("Deseja realmente devolver os itens ao estoque e excluir esta venda definitivamente do aplicativo?")) {
+                                    onRemoveSale(sale.id);
                                   }
                                 }}
                                 className="h-8 px-2.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 md:flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold"
-                                title="Estornar venda e efetuar a devolução ao estoque"
+                                title="Estornar e excluir venda, devolvendo produtos ao estoque"
                               >
                                 <Undo2 className="w-3.5 h-3.5 shrink-0" />
                                 <span className="hidden sm:inline">Devolver</span>
@@ -709,6 +776,18 @@ NÃO É DOCUMENTO FISCAL
                             <Printer className="w-3.5 h-3.5 shrink-0" />
                             <span className="hidden sm:inline">Imprimir</span>
                           </button>
+
+                          {/* WhatsApp sharing button */}
+                          <a
+                            href={generateWhatsAppShareUrl(sale)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-8 px-2.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0 no-underline"
+                            title="Compartilhar via WhatsApp"
+                          >
+                            <Share2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="hidden sm:inline">WhatsApp</span>
+                          </a>
 
                           {/* Confirm budget details button - only for active budget items */}
                           {(sale.type || "sale") === "budget" && !isCanceled && (
@@ -747,7 +826,7 @@ NÃO É DOCUMENTO FISCAL
                           <button
                             type="button"
                             onClick={() => {
-                              if (confirm("Quer realmente deletar permanentemente este registro do relatório geral? Esta operação é irreversível.")) {
+                              if (confirm("Deseja realmente excluir permanentemente esta venda/orçamento do aplicativo? Produtos serão reintegrados ao estoque.")) {
                                 onRemoveSale(sale.id);
                               }
                             }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User } from "../types";
+import { User, Employee, Sale } from "../types";
 import { auth } from "../firebase";
 import { updatePassword, updateProfile } from "firebase/auth";
 import { saveUserProfile } from "../lib/db";
@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Download,
   Smartphone,
-  Monitor
+  Monitor,
+  Percent,
+  Coins
 } from "lucide-react";
 
 const maskEmail = (email: string): string => {
@@ -44,8 +46,16 @@ interface ProfileProps {
   onGoBack: () => void;
   dataOwnerUid?: string | null;
   activeEmployee?: { email: string; name: string } | null;
-  onAddEmployee?: (email: string, name: string) => Promise<void>;
+  onAddEmployee?: (
+    email: string, 
+    name: string, 
+    role: string, 
+    hasCommission: boolean, 
+    commissionPercentage?: number
+  ) => Promise<void>;
   onRemoveEmployee?: (email: string) => Promise<void>;
+  sales?: Sale[];
+  onResetEmployeeCommission?: (email: string) => Promise<void>;
 }
 
 export default function Profile({ 
@@ -55,7 +65,9 @@ export default function Profile({
   dataOwnerUid,
   activeEmployee,
   onAddEmployee,
-  onRemoveEmployee
+  onRemoveEmployee,
+  sales = [],
+  onResetEmployeeCommission
 }: ProfileProps) {
   // Editing profile states
   const [name, setName] = useState(user.name || "");
@@ -64,6 +76,33 @@ export default function Profile({
   const [storeName, setStoreName] = useState(user.storeName || "");
   const [category, setCategory] = useState(user.category || "");
   const [darkModeEnabled, setDarkModeEnabled] = useState(!!user.darkModeEnabled);
+
+  const getEmployeeCommission = (emp: Employee) => {
+    if (!emp.hasCommission || !emp.commissionPercentage) return 0;
+    
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const resetTime = emp.commissionResetTimestamp || 0;
+    const trackingStartTime = Math.max(startOfMonth, resetTime);
+    
+    let totalComm = 0;
+    sales.forEach(sale => {
+      if (
+        sale.sellerEmail?.toLowerCase().trim() === emp.email.toLowerCase().trim() &&
+        (sale.type || "sale") === "sale" &&
+        sale.status !== "canceled" &&
+        sale.status !== "returned"
+      ) {
+        // Parse date safely
+        const saleDate = new Date(`${sale.date}T${sale.time || "00:00"}:00`);
+        const saleTime = saleDate.getTime();
+        if (saleTime >= trackingStartTime) {
+          totalComm += (sale.amount * (emp.commissionPercentage || 0)) / 100;
+        }
+      }
+    });
+    return totalComm;
+  };
 
   // Password change states
   const [newPassword, setNewPassword] = useState("");
@@ -79,6 +118,9 @@ export default function Profile({
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [employeeEmail, setEmployeeEmail] = useState("");
   const [employeeName, setEmployeeName] = useState("");
+  const [employeeRole, setEmployeeRole] = useState("Vendedor");
+  const [hasCommission, setHasCommission] = useState(false);
+  const [commissionPercentage, setCommissionPercentage] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [employeeFormError, setEmployeeFormError] = useState("");
@@ -545,48 +587,59 @@ export default function Profile({
                   
                   {!user.employees || user.employees.length === 0 ? (
                     <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-700 text-center text-xs font-semibold text-brand-muted dark:text-zinc-500 py-6">
-                      Nenhum funcionário cadastrado no momento. Clique no botão de convite abaixo para adicionar o primeiro funcionário!
+                      Nenhum funcionário cadastrado no momento. Clique no botão abaixo para cadastrar o primeiro funcionário!
                     </div>
                   ) : (
                     <div className="divide-y-2 divide-brand-dark/10 border-2 border-brand-dark rounded-xl overflow-hidden bg-zinc-50 dark:bg-zinc-850">
                       {user.employees.map((emp, index) => {
                         const dateString = emp.addedAt ? new Date(emp.addedAt).toLocaleDateString("pt-BR") : "---";
-                        const inviteUrl = `${window.location.origin}/?invite_owner_uid=${dataOwnerUid || auth.currentUser?.uid || ""}&storeName=${encodeURIComponent(user.storeName)}&employeeEmail=${encodeURIComponent(emp.email)}&employeeName=${encodeURIComponent(emp.name)}`;
+                        const commissionToReceive = getEmployeeCommission(emp);
                         
                         return (
-                          <div key={index} className="p-3 bg-white dark:bg-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                          <div key={index} className="p-3 bg-white dark:bg-zinc-900 flex flex-col md:flex-row md:items-center justify-between gap-3 text-left">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-brand-yellow/20 border border-brand-dark text-brand-primary dark:text-brand-yellow flex items-center justify-center font-display font-black text-sm uppercase">
+                              <div className="w-10 h-10 rounded-full bg-brand-yellow/20 border border-brand-dark text-brand-primary dark:text-brand-yellow flex items-center justify-center font-display font-black text-sm uppercase shrink-0">
                                 {emp.name ? emp.name.substring(0, 2) : "FU"}
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="font-sans font-bold text-sm text-brand-dark dark:text-zinc-200 leading-tight truncate">
-                                  {emp.name}
+                                  {emp.name} <span className="text-xs text-brand-muted dark:text-zinc-400 font-semibold">• {emp.role || "Vendedor"}</span>
                                 </p>
                                 <p className="font-sans text-[10px] text-brand-muted dark:text-zinc-400 font-bold leading-none mt-1 truncate">
-                                  {emp.email} • Adicionado em {dateString}
+                                  Cadastrado em {dateString}
                                 </p>
+                                {emp.hasCommission && (
+                                  <div className="mt-1.5 flex items-center gap-2 bg-yellow-50 dark:bg-yellow-950/20 border border-brand-yellow/30 px-2 py-1 rounded-md text-[10px] font-black text-brand-dark dark:text-zinc-300 w-fit">
+                                    <span>Percentual: {emp.commissionPercentage}%</span>
+                                    <span>•</span>
+                                    <span className="text-brand-primary dark:text-brand-yellow">Comissão Acumulada: R$ {commissionToReceive.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  try {
-                                    navigator.clipboard.writeText(inviteUrl);
-                                    setCopiedLink(true);
-                                    setTimeout(() => setCopiedLink(false), 2000);
-                                  } catch (err) {
-                                    console.warn("Copiar clip falhou:", err);
-                                  }
-                                }}
-                                className="px-2.5 py-1.5 border border-brand-dark bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-brand-dark dark:text-zinc-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
-                                title="Copiar link de convite novamente"
-                              >
-                                {copiedLink ? "Copiado! ✓" : "Copiar Link"}
-                              </button>
-                              
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {emp.hasCommission && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Deseja realmente zerar o acumulado de comissão de ${emp.name}?`)) {
+                                      try {
+                                        await onResetEmployeeCommission?.(emp.email);
+                                        alert("Comissão zerada com sucesso!");
+                                      } catch (err) {
+                                        console.warn("Erro ao zerar comissão:", err);
+                                        alert("Não foi possível zerar a comissão.");
+                                      }
+                                    }
+                                  }}
+                                  className="px-2 py-1 border border-brand-dark bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                                  title="Zerar comissão acumulada do mês"
+                                >
+                                  Zerar Comissão
+                                </button>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -594,7 +647,7 @@ export default function Profile({
                                     onRemoveEmployee?.(emp.email);
                                   }
                                 }}
-                                className="px-2.5 py-1.5 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 dark:hover:bg-red-950/40 border border-red-500 text-red-600 dark:text-red-400 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                                className="px-2 py-1 bg-red-100 dark:bg-red-950/20 hover:bg-red-200 dark:hover:bg-red-950/40 border border-red-500 text-red-600 dark:text-red-400 rounded-lg text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1 shrink-0"
                                 title="Remover funcionário do sistema"
                               >
                                 Excluir
@@ -613,13 +666,12 @@ export default function Profile({
                     type="button"
                     onClick={() => {
                       setShowInviteForm(true);
-                      setGeneratedInviteLink("");
                       setEmployeeFormError("");
                       setEmployeeFormSuccess("");
                     }}
                     className="w-full h-11 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark border-2 border-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[3px] active:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <span>➕ Gerar Link de Convite para Funcionário</span>
+                    <span>➕ Cadastrar Novo Funcionário</span>
                   </button>
                 ) : (
                   <form 
@@ -627,26 +679,42 @@ export default function Profile({
                       e.preventDefault();
                       setEmployeeFormError("");
                       setEmployeeFormSuccess("");
-                      if (!employeeEmail.trim() || !employeeName.trim()) {
-                        setEmployeeFormError("Por favor, preencha o nome e e-mail do funcionário.");
+                      if (!employeeName.trim()) {
+                        setEmployeeFormError("Por favor, preencha o nome do funcionário.");
                         return;
                       }
-                      if (!employeeEmail.trim().includes("@")) {
-                        setEmployeeFormError("Informe um e-mail válido para o funcionário.");
+                      if (hasCommission && (!commissionPercentage || parseFloat(commissionPercentage) <= 0)) {
+                        setEmployeeFormError("Por favor, informe uma porcentagem de comissão válida.");
                         return;
                       }
                       
                       setLoading(true);
                       try {
-                        await onAddEmployee?.(employeeEmail, employeeName);
-                        const inviteUrl = `${window.location.origin}/?invite_owner_uid=${dataOwnerUid || auth.currentUser?.uid || ""}&storeName=${encodeURIComponent(user.storeName || "Minha Loja")}&employeeEmail=${encodeURIComponent(employeeEmail.trim())}&employeeName=${encodeURIComponent(employeeName.trim())}`;
+                        const commissionVal = hasCommission ? parseFloat(commissionPercentage) || 0 : undefined;
+                        // Generate a unique internal email/ID for referencing
+                        const uniqueId = Math.random().toString(36).substring(2, 9);
+                        const generatedEmail = `func_${uniqueId}@visugestao.com`;
+
+                        await onAddEmployee?.(
+                          generatedEmail, 
+                          employeeName.trim(), 
+                          employeeRole.trim(), 
+                          hasCommission, 
+                          commissionVal
+                        );
                         
-                        setGeneratedInviteLink(inviteUrl);
-                        setEmployeeFormSuccess(`Funcionário ${employeeName} adicionado com sucesso! Link gerado.`);
-                        setEmployeeEmail("");
+                        setEmployeeFormSuccess(`Funcionário "${employeeName}" cadastrado com sucesso!`);
                         setEmployeeName("");
+                        setEmployeeRole("Vendedor");
+                        setHasCommission(false);
+                        setCommissionPercentage("");
+                        // Hide form after delay
+                        setTimeout(() => {
+                          setShowInviteForm(false);
+                          setEmployeeFormSuccess("");
+                        }, 2000);
                       } catch (err: any) {
-                        setEmployeeFormError(`Falha ao salvar funcionário: ${err.message || err}`);
+                        setEmployeeFormError(`Falha ao cadastrar funcionário: ${err.message || err}`);
                       } finally {
                         setLoading(false);
                       }
@@ -688,57 +756,77 @@ export default function Profile({
 
                       <div className="flex flex-col gap-1">
                         <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
-                          E-mail Comercial de Acesso
+                          Cargo / Função
                         </label>
                         <input
-                          type="email"
+                          type="text"
                           required
-                          value={employeeEmail}
-                          onChange={(e) => setEmployeeEmail(e.target.value)}
-                          placeholder="Ex: joao.estoque@exemplo.com"
+                          value={employeeRole}
+                          onChange={(e) => setEmployeeRole(e.target.value)}
+                          placeholder="Ex: Vendedor, Auxiliar, Gerente"
                           className="w-full h-9 px-3 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange"
                         />
                       </div>
-                    </div>
 
-                    {generatedInviteLink && (
-                      <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-brand-dark rounded-lg space-y-2 mt-2">
-                        <p className="font-sans font-semibold text-[11px] text-amber-800 dark:text-amber-400 leading-snug">
-                          ✓ <strong>Link Gerado com Sucesso!</strong> Copie e envie para o seu funcionário para que ele possa se registrar na sua loja de forma acoplada:
-                        </p>
-                        <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-900 border border-brand-dark p-1 rounded">
-                          <input
-                            type="text"
-                            readOnly
-                            value={generatedInviteLink}
-                            className="bg-transparent text-[10px] text-zinc-500 font-mono w-full select-all border-none focus:outline-none py-1 px-1.5"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              try {
-                                navigator.clipboard.writeText(generatedInviteLink);
-                                setCopiedLink(true);
-                                setTimeout(() => setCopiedLink(false), 2000);
-                              } catch (clErr) {
-                                console.warn("Erro clip:", clErr);
-                              }
-                            }}
-                            className="px-2.5 py-1 bg-brand-yellow text-[9px] font-black uppercase rounded shrink-0 cursor-pointer border border-brand-dark shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
-                          >
-                            {copiedLink ? "Copiado!" : "Copiar"}
-                          </button>
+                      <div className="flex flex-col gap-1 col-span-1 sm:col-span-2">
+                        <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                          Tem Comissão sobre as Vendas?
+                        </label>
+                        <div className="flex items-center gap-4 mt-1">
+                          <label className="flex items-center gap-1.5 font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasCommission"
+                              checked={hasCommission === true}
+                              onChange={() => setHasCommission(true)}
+                              className="w-4 h-4 accent-brand-orange"
+                            />
+                            <span>Sim</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasCommission"
+                              checked={hasCommission === false}
+                              onChange={() => {
+                                setHasCommission(false);
+                                setCommissionPercentage("");
+                              }}
+                              className="w-4 h-4 accent-brand-orange"
+                            />
+                            <span>Não</span>
+                          </label>
                         </div>
                       </div>
-                    )}
+
+                      {hasCommission && (
+                        <div className="flex flex-col gap-1 col-span-1 sm:col-span-2">
+                          <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                            Porcentagem da Comissão (%)
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              required
+                              value={commissionPercentage}
+                              onChange={(e) => setCommissionPercentage(e.target.value)}
+                              placeholder="Ex: 5.0"
+                              className="w-full h-9 pl-3 pr-8 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 font-sans text-xs font-bold pointer-events-none">%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="flex justify-end gap-2 pt-2">
                       <button
                         type="button"
                         onClick={() => {
                           setShowInviteForm(false);
-                          setGeneratedInviteLink("");
-                          setEmployeeEmail("");
                           setEmployeeName("");
                         }}
                         className="px-3 h-8 border border-brand-dark text-[10px] font-extrabold uppercase tracking-widest text-[#ba1a1a] bg-white dark:bg-zinc-800 rounded-lg cursor-pointer transition-colors"
@@ -746,19 +834,17 @@ export default function Profile({
                         Fechar / Cancelar
                       </button>
                       
-                      {!generatedInviteLink && (
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="px-4 h-8 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark border-2 border-brand-dark font-display font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_rgba(20,20,20,1)] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center cursor-pointer gap-1"
-                        >
-                          {loading ? (
-                            <div className="w-3.5 h-3.5 border border-brand-dark border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <span>Gerar Link de Convite</span>
-                          )}
-                        </button>
-                      )}
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="px-4 h-8 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark border-2 border-brand-dark font-display font-black text-[10px] uppercase tracking-wider rounded-lg shadow-[2px_2px_0px_0px_rgba(20,20,20,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0px_0px_rgba(20,20,20,1)] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center cursor-pointer gap-1"
+                      >
+                        {loading ? (
+                          <div className="w-3.5 h-3.5 border border-brand-dark border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <span>Cadastrar Funcionário</span>
+                        )}
+                      </button>
                     </div>
                   </form>
                 )}

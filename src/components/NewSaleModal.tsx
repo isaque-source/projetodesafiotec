@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Check, ShoppingBag, Plus, Minus, DollarSign, GripHorizontal, Trash2, ShoppingCart, HelpCircle } from "lucide-react";
 import { motion, useDragControls } from "motion/react";
-import { InventoryItem, Sale, Client, SaleItem } from "../types";
+import { InventoryItem, Sale, Client, SaleItem, Employee } from "../types";
 
 interface NewSaleModalProps {
   inventory: InventoryItem[];
@@ -9,6 +9,7 @@ interface NewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddSale: (sale: Sale) => void;
+  employees?: Employee[];
 }
 
 interface CartItem {
@@ -20,9 +21,12 @@ interface CartItem {
   category: string;
 }
 
-export default function NewSaleModal({ inventory = [], clients = [], isOpen, onClose, onAddSale }: NewSaleModalProps) {
+export default function NewSaleModal({ inventory = [], clients = [], isOpen, onClose, onAddSale, employees = [] }: NewSaleModalProps) {
   const [transactionType, setTransactionType] = useState<"sale" | "budget">("sale");
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("Dinheiro");
+  const [installments, setInstallments] = useState<number>(1);
+  const [selectedEmployeeEmail, setSelectedEmployeeEmail] = useState<string>("");
   
   // Selection state for current product being searched / selected to add to cart
   const [selectedItemId, setSelectedItemId] = useState("");
@@ -60,6 +64,9 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
     setCart([]);
     setTransactionType("sale");
     setSelectedClientId("");
+    setPaymentMethod("Dinheiro");
+    setInstallments(1);
+    setSelectedEmployeeEmail("");
     setQuantity(1);
     setCustomPrice("");
     setDiscountPercent("");
@@ -308,6 +315,20 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
       code: item.code
     }));
 
+    // Find seller details
+    const selectedEmployee = employees.find(
+      e => e.email.toLowerCase().trim() === selectedEmployeeEmail.toLowerCase().trim()
+    );
+
+    // Validation: if employees are registered, a seller must be chosen
+    if (employees && employees.length > 0 && !selectedEmployeeEmail) {
+      setErrorMsg("Por favor, selecione qual vendedor realizou esta operação.");
+      return;
+    }
+
+    const sellerEmail = selectedEmployee ? selectedEmployee.email : "owner";
+    const sellerName = selectedEmployee ? selectedEmployee.name : "Dono (Admin)";
+
     const newSale: Sale = {
       id: `sale-user-${Date.now()}`,
       date: dateStr,
@@ -323,7 +344,11 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
       description: description.trim() !== "" ? description.trim() : undefined,
       type: transactionType,
       status: "completed",
-      items: saleItems
+      items: saleItems,
+      paymentMethod: transactionType === "sale" ? paymentMethod : undefined,
+      installments: (transactionType === "sale" && paymentMethod === "credito") ? installments : undefined,
+      sellerEmail,
+      sellerName
     };
 
     onAddSale(newSale);
@@ -827,6 +852,82 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                 </div>
               </div>
             </div>
+
+            {/* PAYMENT METHOD SELECTION */}
+            {transactionType === "sale" && (
+              <div className="border-t border-brand-gray/30 pt-3 flex flex-col gap-1.5">
+                <label className="font-sans font-extrabold text-xs text-brand-dark uppercase tracking-wider flex items-center gap-1.5 select-none">
+                  💵 Forma de Pagamento
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[
+                    { id: "Dinheiro", name: "Dinheiro" },
+                    { id: "pix", name: "Pix" },
+                    { id: "credito", name: "Crédito" },
+                    { id: "debito", name: "Débito" },
+                    { id: "boleto", name: "Boleto" }
+                  ].map((method) => {
+                    const isSelected = paymentMethod === method.id;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(method.id)}
+                        className={`h-9 border-2 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-[#fd8b00] text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] translate-x-[1px] translate-y-[1px]"
+                            : "bg-white hover:bg-zinc-50 text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[2px] active:shadow-none"
+                        }`}
+                      >
+                        {method.name}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {paymentMethod === "credito" && (
+                  <div className="mt-2.5 p-3 bg-zinc-50 dark:bg-zinc-850 border-2 border-brand-dark rounded-lg flex flex-col gap-1 sm:w-1/2">
+                    <label className="font-sans font-bold text-[10px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                      Quantidade de Parcelas
+                    </label>
+                    <select
+                      value={installments}
+                      onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
+                      className="w-full h-9 px-2 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange font-bold text-brand-dark dark:text-white"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n === 1 ? "1x (À vista)" : `${n}x`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SELLER / VENDEDOR SELECTION */}
+            {employees && employees.length > 0 && (
+              <div className="border-t border-brand-gray/30 pt-3 flex flex-col gap-1.5">
+                <label className="font-sans font-extrabold text-xs text-[#fd8b00] uppercase tracking-wider flex items-center gap-1.5 select-none">
+                  👤 Vendedor Responsável *
+                </label>
+                <select
+                  value={selectedEmployeeEmail}
+                  onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
+                  className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-brand-dark font-extrabold"
+                  required
+                >
+                  <option value="">Selecione quem realizou a venda...</option>
+                  <option value="owner">Dono / Proprietário (Você)</option>
+                  {employees.map((emp) => (
+                    <option key={emp.email} value={emp.email}>
+                      {emp.name} ({emp.role || "Vendedor"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* SALE COMMENTARY/DESCRIPTION */}
             <div className="border-t border-brand-gray/30 pt-3 flex flex-col gap-1.5">

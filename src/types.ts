@@ -2,6 +2,10 @@ export interface Employee {
   email: string;
   name: string;
   addedAt: string | number;
+  role?: string;
+  hasCommission?: boolean;
+  commissionPercentage?: number;
+  commissionResetTimestamp?: number;
 }
 
 export interface User {
@@ -41,6 +45,10 @@ export interface Sale {
   items?: SaleItem[];
   type?: "sale" | "budget";
   status?: "completed" | "canceled" | "returned" | "exchanged";
+  paymentMethod?: string;
+  installments?: number;
+  sellerEmail?: string;
+  sellerName?: string;
 }
 
 export interface InventoryItem {
