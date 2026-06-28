@@ -242,8 +242,37 @@ export default function App() {
             return;
           }
 
-           // Attempt to load from firestore
-          const profile = await getUserProfile(mappedUid);
+           // Attempt to load from firestore with self-healing fallback for outdated or permission-restricted email mappings
+          let profile = null;
+          try {
+            profile = await getUserProfile(mappedUid);
+          } catch (profileErr: any) {
+            console.warn(`[Self-Healing Auth] Falha ao ler perfil para mappedUid ${mappedUid}:`, profileErr);
+            if (mappedUid !== firebaseUser.uid) {
+              console.log(`[Self-Healing Auth] Erro de permissão ou leitura no UID mapeado. Retornando ao UID real do Firebase: ${firebaseUser.uid}`);
+              mappedUid = firebaseUser.uid;
+              setDataOwnerUid(firebaseUser.uid);
+              
+              if (userEmail) {
+                const safeEmail = userEmail.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
+                try {
+                  await saveEmailToUidMapping(safeEmail, firebaseUser.uid);
+                  console.log(`[Self-Healing Auth] Mapeamento de e-mail corrigido para apontar ao UID próprio: ${firebaseUser.uid}`);
+                } catch (mapErr) {
+                  console.warn("[Self-Healing Auth] Falha ao atualizar mapeamento de e-mail:", mapErr);
+                }
+              }
+              
+              try {
+                profile = await getUserProfile(firebaseUser.uid);
+              } catch (ownProfileErr) {
+                console.error("[Self-Healing Auth] Erro ao buscar perfil próprio:", ownProfileErr);
+              }
+            } else {
+              throw profileErr;
+            }
+          }
+
           if (profile) {
             setUser(profile);
             setIsDbConnected(true);
