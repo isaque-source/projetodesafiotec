@@ -3,6 +3,7 @@ import { User, Employee, Sale } from "../types";
 import { auth } from "../firebase";
 import { updatePassword, updateProfile } from "firebase/auth";
 import { saveUserProfile } from "../lib/db";
+import { compressImage } from "../lib/imageCompression";
 import { 
   User as UserIcon, 
   Phone, 
@@ -516,9 +517,10 @@ export default function Profile({
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onloadend = () => {
+                        reader.onloadend = async () => {
                           if (typeof reader.result === "string") {
-                            setPhotoUrl(reader.result);
+                            const compressed = await compressImage(reader.result, 400, 400, 0.75);
+                            setPhotoUrl(compressed);
                           }
                         };
                         reader.readAsDataURL(file);

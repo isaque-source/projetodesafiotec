@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { Package, Plus, Minus, Search, AlertTriangle, ShieldCheck, ShoppingBag } from "lucide-react";
 import { InventoryItem } from "../types";
+import { compressImage } from "../lib/imageCompression";
 
 interface InventoryManagerProps {
   inventory: InventoryItem[];
   onUpdateQuantity: (id: string, newQty: number) => void;
   onAddItem: (item: InventoryItem) => void;
   onEditItem?: (item: InventoryItem) => void;
+  onDeleteItem?: (id: string) => void;
   initialFilterLowStock: boolean;
   onClearLowStockFilter: () => void;
 }
@@ -16,6 +18,7 @@ export default function InventoryManager({
   onUpdateQuantity,
   onAddItem,
   onEditItem,
+  onDeleteItem,
   initialFilterLowStock,
   onClearLowStockFilter,
 }: InventoryManagerProps) {
@@ -332,9 +335,10 @@ export default function InventoryManager({
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onloadend = () => {
+                        reader.onloadend = async () => {
                           if (typeof reader.result === "string") {
-                            setNewItemImageUrl(reader.result);
+                            const compressed = await compressImage(reader.result, 600, 600, 0.7);
+                            setNewItemImageUrl(compressed);
                           }
                         };
                         reader.readAsDataURL(file);
@@ -486,6 +490,20 @@ export default function InventoryManager({
                         >
                           ✏️ Editar
                         </button>
+                        {onDeleteItem && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Tem certeza que deseja excluir o item "${item.name}"?`)) {
+                                onDeleteItem(item.id);
+                              }
+                            }}
+                            className="px-2 py-0.5 text-[9px] font-extrabold uppercase font-sans tracking-wide bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-900/65 hover:bg-red-200 dark:hover:bg-red-900/50 rounded cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                            title="Excluir Item"
+                          >
+                            🗑️ Excluir
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -736,9 +754,10 @@ export default function InventoryManager({
                           const file = e.target.files?.[0];
                           if (file) {
                             const reader = new FileReader();
-                            reader.onloadend = () => {
+                            reader.onloadend = async () => {
                               if (typeof reader.result === "string") {
-                                setEditItemImageUrl(reader.result);
+                                const compressed = await compressImage(reader.result, 600, 600, 0.7);
+                                setEditItemImageUrl(compressed);
                               }
                             };
                             reader.readAsDataURL(file);
@@ -751,20 +770,36 @@ export default function InventoryManager({
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-4 pt-4 border-t-2 border-brand-dark/20 dark:border-zinc-800 shrink-0 bg-[#f9f9f9] dark:bg-zinc-900">
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(null)}
-                  className="flex-1 h-11 bg-white dark:bg-zinc-800 border-2 border-brand-gray dark:border-zinc-700 text-brand-muted hover:text-brand-dark dark:hover:text-zinc-100 font-display font-bold text-xs rounded-lg transition-all cursor-pointer uppercase tracking-wide"
-                >
-                  CANCELAR
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 h-11 bg-brand-orange text-brand-dark font-display font-extrabold text-xs tracking-wider border-2 border-brand-dark rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer uppercase"
-                >
-                  SALVAR ALTERAÇÕES
-                </button>
+              <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-4 border-t-2 border-brand-dark/20 dark:border-zinc-800 shrink-0 bg-[#f9f9f9] dark:bg-zinc-900">
+                {onDeleteItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Tem certeza que deseja excluir o item "${editingItem.name}"?`)) {
+                        onDeleteItem(editingItem.id);
+                        setEditingItem(null);
+                      }
+                    }}
+                    className="h-11 px-4 bg-red-100 dark:bg-red-950/45 text-red-700 dark:text-red-400 border-2 border-red-300 dark:border-red-900 rounded-lg font-display font-extrabold text-xs transition-all cursor-pointer uppercase tracking-wide hover:bg-red-200 dark:hover:bg-red-900/60 flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    🗑️ EXCLUIR PRODUTO
+                  </button>
+                )}
+                <div className="flex-grow flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem(null)}
+                    className="flex-1 h-11 bg-white dark:bg-zinc-800 border-2 border-brand-gray dark:border-zinc-700 text-brand-muted hover:text-brand-dark dark:hover:text-zinc-100 font-display font-bold text-xs rounded-lg transition-all cursor-pointer uppercase tracking-wide"
+                  >
+                    CANCELAR
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 h-11 bg-brand-orange text-brand-dark font-display font-extrabold text-xs tracking-wider border-2 border-brand-dark rounded-lg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer uppercase"
+                  >
+                    SALVAR ALTERAÇÕES
+                  </button>
+                </div>
               </div>
             </form>
           </div>

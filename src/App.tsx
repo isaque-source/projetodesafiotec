@@ -15,6 +15,7 @@ import {
   addInventoryDocument,
   updateInventoryDocumentQty,
   updateInventoryDocumentFull,
+  deleteInventoryDocument,
   fetchGoal,
   saveGoal,
   getEmailToUidMapping,
@@ -1505,6 +1506,24 @@ export default function App() {
     }
   };
 
+  // Product Delete
+  const handleDeleteInventoryProduct = async (itemId: string) => {
+    const updatedInventory = inventory.filter(item => item.id !== itemId);
+    setInventory(updatedInventory);
+
+    // Live Firebase sync
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await deleteInventoryDocument(activeUid, itemId);
+      } catch (err) {
+        console.error("Erro ao excluir produto no Firestore:", err);
+      }
+    } else {
+      handleSaveState(user, sales, updatedInventory, goal);
+    }
+  };
+
   // Client operations
   const handleAddClient = async (newClient: Client) => {
     const updatedClients = [newClient, ...clients];
@@ -1670,7 +1689,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab("profile")}
-              className={`flex items-center gap-1.5 border-2 border-brand-dark px-3 h-9 rounded-lg font-display text-xs font-black uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all ${
+              className={`flex items-center gap-1.5 border-2 border-brand-dark px-2.5 sm:px-3 h-9 rounded-lg font-display text-xs font-black uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all ${
                 activeTab === "profile"
                   ? "bg-brand-orange text-brand-dark"
                   : "bg-brand-yellow/15 dark:bg-zinc-800 dark:text-zinc-200 hover:bg-brand-yellow/30"
@@ -1678,7 +1697,7 @@ export default function App() {
               title="Acessar Meu Perfil"
             >
               <UserIcon className="w-4 h-4 text-brand-primary dark:text-brand-yellow" />
-              <span>{user.name || user.storeName || "Perfil"}</span>
+              <span className="hidden sm:inline max-w-[100px] truncate">{user.name || user.storeName || "Perfil"}</span>
             </button>
 
             <button
@@ -1770,6 +1789,7 @@ export default function App() {
             onUpdateQuantity={handleUpdateItemQty}
             onAddItem={handleAddInventoryProduct}
             onEditItem={handleUpdateInventoryProduct}
+            onDeleteItem={handleDeleteInventoryProduct}
             initialFilterLowStock={inventoryLowStockOnly}
             onClearLowStockFilter={() => setInventoryLowStockOnly(false)}
           />
@@ -1816,18 +1836,18 @@ export default function App() {
 
       {/* Bottom Sticky Interactive Floating Navigation Bar */}
       {user && activeTab !== "login" && activeTab !== "register" && activeTab !== "reset-password" && (
-        <nav className="fixed bottom-0 left-0 w-full h-[72px] flex justify-around items-center px-4 bg-[#f9f9f9] dark:bg-zinc-900 border-t-2 border-brand-dark dark:border-zinc-800 z-40 select-none">
+        <nav className="fixed bottom-0 left-0 w-full h-[72px] flex justify-around items-center px-2 sm:px-4 bg-[#f9f9f9] dark:bg-zinc-900 border-t-2 border-brand-dark dark:border-zinc-800 z-40 select-none">
           {/* Goal progress tab (Progresso) - FIRST OPTION */}
           <button
             onClick={() => setActiveTab("progress")}
             className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
               activeTab === "progress"
-                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(255,215,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
             }`}
           >
-            <TrendingUp className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Progresso</span>
+            <TrendingUp className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Progresso</span>
           </button>
 
           {/* Home Tab (Visu Dashboard) - SECOND OPTION */}
@@ -1838,12 +1858,12 @@ export default function App() {
             }}
             className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
               activeTab === "home"
-                ? "bg-brand-yellow text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+                ? "bg-brand-yellow text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
             }`}
           >
-            <HomeIcon className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Visu</span>
+            <HomeIcon className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Visu</span>
           </button>
 
           {/* Sales ledger tab (Vendas) - THIRD OPTION */}
@@ -1851,12 +1871,12 @@ export default function App() {
             onClick={() => setActiveTab("sales")}
             className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
               activeTab === "sales"
-                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(255,215,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
             }`}
           >
-            <DollarSign className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Vendas</span>
+            <DollarSign className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Vendas</span>
           </button>
 
           {/* Catalog inventory tab (Estoque) - FOURTH OPTION */}
@@ -1867,12 +1887,12 @@ export default function App() {
             }}
             className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
               activeTab === "inventory"
-                ? "bg-brand-yellow text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+                ? "bg-brand-yellow text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
             }`}
           >
-            <Package className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Estoque</span>
+            <Package className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Estoque</span>
           </button>
 
           {/* Customers management tab (Clientes) - FIFTH OPTION */}
@@ -1880,12 +1900,12 @@ export default function App() {
             onClick={() => setActiveTab("clients")}
             className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
               activeTab === "clients"
-                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-4 py-1 border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-1 font-bold font-display"
-                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-2 rounded-lg"
+                ? "bg-[#fd8b00] text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(255,215,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(255,215,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
             }`}
           >
-            <Users className="w-5 h-5 mb-0.5" />
-            <span className="font-sans font-bold text-xs">Clientes</span>
+            <Users className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Clientes</span>
           </button>
         </nav>
       )}

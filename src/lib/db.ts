@@ -270,6 +270,15 @@ export async function updateInventoryDocumentFull(uid: string, item: InventoryIt
   }
 }
 
+export async function deleteInventoryDocument(uid: string, itemId: string): Promise<void> {
+  const path = `usuarios/${uid}/inventory/${itemId}`;
+  try {
+    await deleteDoc(doc(db, "usuarios", uid, "inventory", itemId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 /**
  * Goals Configuration Operations
  */
