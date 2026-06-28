@@ -56,6 +56,17 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
   // Calculate cart metrics
   const cartSubtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   
+  // Derived final value for consistent display and saving
+  const displayFinalAmount = (() => {
+    if (overrideFinalValue !== "") {
+      const parsed = parseFloat(overrideFinalValue);
+      if (!isNaN(parsed)) {
+        return Math.max(0, parsed);
+      }
+    }
+    return cartSubtotal;
+  })();
+  
   // Setup default selected product on opens
   useEffect(() => {
     if (!isOpen) return;
@@ -295,7 +306,13 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
 
     // Prepare description and amounts
     const finalSubtotal = finalCart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const finalAmount = overrideFinalValue !== "" ? Math.max(0, parseFloat(overrideFinalValue)) : finalSubtotal;
+    let finalAmount = finalSubtotal;
+    if (cart.length > 0 && overrideFinalValue !== "") {
+      const parsed = parseFloat(overrideFinalValue);
+      if (!isNaN(parsed)) {
+        finalAmount = Math.max(0, parsed);
+      }
+    }
     
     // Compile display itemDescription
     const itemsLabel = finalCart.map(i => `${i.name} (${i.quantity}x)`).join(", ");
@@ -955,7 +972,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                   </span>
                 )}
                 <span className="font-display font-black text-2xl text-white inline-block animate-fade-in bg-zinc-800 border-2 border-brand-dark px-4 py-1 rounded-lg">
-                  R$ {(overrideFinalValue !== "" ? parseFloat(overrideFinalValue) || 0 : cartSubtotal).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  R$ {displayFinalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
                 {discountValue !== "" && parseFloat(discountValue) > 0 && (
                   <span className="text-brand-yellow font-sans text-[10px] font-black uppercase tracking-wider mt-1">

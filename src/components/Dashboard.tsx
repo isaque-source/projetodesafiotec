@@ -146,8 +146,17 @@ export default function Dashboard({
     localStorage.setItem("visu_always_require_password", checked ? "true" : "false");
   };
 
-  // Calculate today's sales and current month's sales
-  const todayStr = "2026-05-27"; // Sync with ADD_METADATA context date of 2026-05-27
+  // Obter fuso horário local correto do dispositivo no formato YYYY-MM-DD de forma dinâmica
+  const localDateStr = (() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  })();
+
+  const todayStr = localDateStr;
+  const currentYearMonth = localDateStr.substring(0, 7); // YYYY-MM
   
   // Filter sales for today
   const todaySales = sales.filter((s) => {
@@ -163,7 +172,8 @@ export default function Dashboard({
     .filter((s) => {
       const isRealSale = (s.type || "sale") === "sale";
       const isActive = s.status !== "canceled" && s.status !== "returned";
-      return isRealSale && isActive;
+      const isInCurrentMonth = s.date.startsWith(currentYearMonth);
+      return isRealSale && isActive && isInCurrentMonth;
     })
     .reduce((acc, s) => acc + s.amount, 0);
   const progressPercent = Math.min(100, Math.round((monthlySalesSum / (goal?.targetAmount || 15000)) * 100));
@@ -292,40 +302,57 @@ export default function Dashboard({
           {/* Interactive Custom Styled CSS/SVG Bar Chart placeholder */}
           <div className="w-full bg-[#f3f3f4] dark:bg-zinc-800 rounded-lg border-2 border-brand-dark dark:border-zinc-700 p-4 flex flex-col justify-between select-none p-4">
             <span className="font-display font-bold text-[10px] text-brand-muted dark:text-zinc-400 uppercase tracking-wider mb-2">
-              Últimas {chartSales.length} transações registradas hoje:
+              {chartSales.length === 0 
+                ? "Nenhuma transação registrada hoje" 
+                : `Últimas ${chartSales.length} transações registradas hoje:`}
             </span>
-            <div className="flex items-end justify-around h-[120px] gap-2">
-              {chartSales.map((sale, idx) => {
-                const isHighlight = idx === chartSales.length - 1;
-                // Height percentage helper
-                const heightPercent = Math.max(15, Math.min(100, (sale.amount / maxSaleAmount) * 100));
-                
-                return (
-                  <div key={sale.id} className="flex-1 flex flex-col items-center group relative cursor-help">
-                    {/* Tooltip on Hover */}
-                    <div className="absolute -top-12 opacity-0 group-hover:opacity-100 bg-brand-dark text-white text-[10px] font-mono p-1.5 rounded border border-white/20 transition-all pointer-events-none z-10 text-center w-24">
-                      {sale.itemDescription.substring(0, 12)}...
-                      <br />
-                      <strong>R$ {sale.amount}</strong>
-                    </div>
+            {chartSales.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[120px] text-center bg-[#f9f9f9] dark:bg-zinc-900/40 rounded-lg border-2 border-dashed border-brand-dark/20 dark:border-zinc-700/50 p-4">
+                <p className="font-sans text-xs font-bold text-brand-muted dark:text-zinc-400">
+                  Nenhuma venda realizada hoje até o momento.
+                </p>
+                <button
+                  type="button"
+                  onClick={onOpenNewSale}
+                  className="mt-2.5 px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1"
+                >
+                  ➕ Registrar Venda
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-end justify-around h-[120px] gap-2">
+                {chartSales.map((sale, idx) => {
+                  const isHighlight = idx === chartSales.length - 1;
+                  // Height percentage helper
+                  const heightPercent = Math.max(15, Math.min(100, (sale.amount / maxSaleAmount) * 100));
+                  
+                  return (
+                    <div key={sale.id} className="flex-1 flex flex-col items-center group relative cursor-help">
+                      {/* Tooltip on Hover */}
+                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 bg-brand-dark text-white text-[10px] font-mono p-1.5 rounded border border-white/20 transition-all pointer-events-none z-10 text-center w-24">
+                        {sale.itemDescription.substring(0, 12)}...
+                        <br />
+                        <strong>R$ {sale.amount}</strong>
+                      </div>
 
-                    <div className="w-full h-24 flex items-end justify-center">
-                      <div
-                        style={{ height: `${heightPercent}%` }}
-                        className={`w-10 rounded-t-sm border-t-2 border-x-2 border-brand-dark transition-all duration-300 ${
-                          isHighlight
-                            ? "bg-[#fd8b00] shadow-[2px_0px_0px_0px_rgba(0,0,0,1)] scale-105"
-                            : "bg-[#ffdcc3] hover:bg-brand-yellow dark:bg-zinc-700/60 dark:hover:bg-zinc-650"
-                        }`}
-                      ></div>
+                      <div className="w-full h-24 flex items-end justify-center">
+                        <div
+                          style={{ height: `${heightPercent}%` }}
+                          className={`w-10 rounded-t-sm border-t-2 border-x-2 border-brand-dark transition-all duration-300 ${
+                            isHighlight
+                              ? "bg-[#fd8b00] shadow-[2px_0px_0px_0px_rgba(0,0,0,1)] scale-105"
+                              : "bg-[#ffdcc3] hover:bg-brand-yellow dark:bg-zinc-700/60 dark:hover:bg-zinc-650"
+                          }`}
+                        ></div>
+                      </div>
+                      <span className="font-display font-bold text-[9px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider mt-1 truncate max-w-full">
+                        {sale.time}
+                      </span>
                     </div>
-                    <span className="font-display font-bold text-[9px] text-brand-dark dark:text-zinc-300 uppercase tracking-wider mt-1 truncate max-w-full">
-                      {sale.time}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
