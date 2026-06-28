@@ -321,12 +321,20 @@ export default function InventoryManager({
                   </div>
                 )}
                 <div className="flex-grow flex flex-col gap-1.5">
-                  <label 
-                    htmlFor="product-image-upload"
-                    className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-xs font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5"
-                  >
-                    <span>📂 Escolher Foto do Computador / Galeria</span>
-                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label 
+                      htmlFor="product-image-upload"
+                      className="inline-flex items-center justify-center gap-1.5 h-10 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[11px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5 text-center"
+                    >
+                      <span>📂 Galeria / Arquivo</span>
+                    </label>
+                    <label 
+                      htmlFor="product-image-camera-upload"
+                      className="inline-flex items-center justify-center gap-1.5 h-10 px-3 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[11px] sm:text-xs font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5 text-center"
+                    >
+                      <span>📷 Usar Câmera</span>
+                    </label>
+                  </div>
                   <input
                     type="file"
                     id="product-image-upload"
@@ -346,7 +354,27 @@ export default function InventoryManager({
                     }}
                     className="hidden"
                   />
-                  <p className="text-[9px] text-zinc-550">Os arquivos serão convertidos offline para o seu histórico instantaneamente.</p>
+                  <input
+                    type="file"
+                    id="product-image-camera-upload"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                          if (typeof reader.result === "string") {
+                            const compressed = await compressImage(reader.result, 600, 600, 0.7);
+                            setNewItemImageUrl(compressed);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <p className="text-[9px] text-zinc-550 dark:text-zinc-400">As imagens são compactadas e salvas diretamente no seu estoque.</p>
                 </div>
               </div>
             </div>
@@ -739,17 +767,45 @@ export default function InventoryManager({
                         🖼️
                       </div>
                     )}
-                    <div className="flex-grow flex flex-col gap-1">
-                      <label 
-                        htmlFor="product-image-edit-upload"
-                        className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all"
-                      >
-                        <span>📂 Nova Foto</span>
-                      </label>
+                    <div className="flex-grow flex flex-col gap-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label 
+                          htmlFor="product-image-edit-upload"
+                          className="inline-flex items-center justify-center gap-1 h-9 px-2 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[9px] font-black uppercase cursor-pointer select-none transition-all text-center"
+                        >
+                          <span>📂 Galeria</span>
+                        </label>
+                        <label 
+                          htmlFor="product-image-edit-camera"
+                          className="inline-flex items-center justify-center gap-1 h-9 px-2 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[9px] font-black uppercase cursor-pointer select-none transition-all text-center"
+                        >
+                          <span>📷 Câmera</span>
+                        </label>
+                      </div>
                       <input
                         type="file"
                         id="product-image-edit-upload"
                         accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = async () => {
+                              if (typeof reader.result === "string") {
+                                const compressed = await compressImage(reader.result, 600, 600, 0.7);
+                                setEditItemImageUrl(compressed);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <input
+                        type="file"
+                        id="product-image-edit-camera"
+                        accept="image/*"
+                        capture="environment"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {

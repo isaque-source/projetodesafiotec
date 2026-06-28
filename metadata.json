@@ -1,6 +1,6 @@
 {
   "name": "Visu",
   "description": "Gestão clara e marketing digital para o seu negócio crescer de forma organizada e produtiva.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

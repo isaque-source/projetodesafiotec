@@ -502,13 +502,21 @@ export default function Profile({
                     <UserIcon className="w-5 h-5 text-brand-muted" />
                   )}
                 </div>
-                <div className="flex-grow flex flex-col gap-1">
-                  <label 
-                    htmlFor="prof-photo-upload"
-                    className="inline-flex items-center justify-center gap-2 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[11px] font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5"
-                  >
-                    <span>📂 Escolher Foto de Perfil</span>
-                  </label>
+                <div className="flex-grow flex flex-col gap-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label 
+                      htmlFor="prof-photo-upload"
+                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-[#fd8b00] hover:bg-[#ff9f26] text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5 text-center"
+                    >
+                      <span>📂 Escolher Galeria</span>
+                    </label>
+                    <label 
+                      htmlFor="prof-photo-camera"
+                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] border-2 border-brand-dark rounded-lg font-sans text-[10px] font-black uppercase cursor-pointer select-none transition-all active:translate-y-0.5 text-center"
+                    >
+                      <span>📷 Tirar Foto</span>
+                    </label>
+                  </div>
                   <input
                     type="file"
                     id="prof-photo-upload"
@@ -528,7 +536,27 @@ export default function Profile({
                     }}
                     className="hidden"
                   />
-                  <span className="text-[9px] text-zinc-500 font-sans">Selecione uma imagem do seu dispositivo</span>
+                  <input
+                    type="file"
+                    id="prof-photo-camera"
+                    accept="image/*"
+                    capture="user"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = async () => {
+                          if (typeof reader.result === "string") {
+                            const compressed = await compressImage(reader.result, 400, 400, 0.75);
+                            setPhotoUrl(compressed);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <span className="text-[9px] text-zinc-500 font-sans">Selecione uma imagem ou utilize a câmera do smartphone</span>
                 </div>
               </div>
             </div>
