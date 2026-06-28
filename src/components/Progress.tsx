@@ -142,6 +142,25 @@ export default function Progress({ sales, clients, goal, onOpenAdjustGoal, point
   const [activeSubTab, setActiveSubTab] = useState<"metas" | "trilha">("trilha"); // Default to TRILHA following user requirements
 
   // -------------------------------------------------------------
+  // CALENDAR & MONTH CLOSING STATE
+  // -------------------------------------------------------------
+  const [simulateLastDay, setSimulateLastDay] = useState(() => {
+    try {
+      return localStorage.getItem("visu_simulate_last_day_closing") === "true";
+    } catch (_) {
+      return false;
+    }
+  });
+
+  const handleToggleSimulation = () => {
+    const nextVal = !simulateLastDay;
+    setSimulateLastDay(nextVal);
+    try {
+      localStorage.setItem("visu_simulate_last_day_closing", nextVal ? "true" : "false");
+    } catch (_) {}
+  };
+
+  // -------------------------------------------------------------
   // DAILY MODULES & GAME POINTS STATE
   // -------------------------------------------------------------
 
@@ -541,6 +560,12 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
   const currentYearStr = String(now.getFullYear());
   const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
   const currentYearMonth = `${currentYearStr}-${currentMonthStr}`;
+
+  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentDay = now.getDate();
+  
+  const isLastDay = simulateLastDay || (currentDay === totalDaysInMonth);
+  const daysRemaining = isLastDay ? 0 : (totalDaysInMonth - currentDay);
 
   // Filter sales to include only active completed sales (excluding budgets, cancelled, and returned entries)
   const activeSales = sales.filter((s) => {
@@ -1148,6 +1173,100 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
           ------------------------------------------------------------- */}
       {activeSubTab === "metas" && (
         <div className="space-y-6 animate-fade-in">
+          
+          {/* Calendário Mensal e Controle de Fechamento */}
+          <section className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-800 p-5 rounded-xl shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isLastDay ? 'bg-brand-orange animate-pulse' : 'bg-emerald-500'}`}></span>
+                  <h3 className="font-display font-black text-xs uppercase tracking-widest text-[#fd8b00]">
+                    Calendário de Metas e Fechamento
+                  </h3>
+                </div>
+                <h4 className="font-display font-extrabold text-lg text-brand-dark dark:text-zinc-100 mt-1">
+                  Ciclo de Vendas Mensal: Dia 01 ao Último Dia
+                </h4>
+                <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-bold mt-1">
+                  O calendário inicia no dia primeiro. No último dia do mês, o período é fechado automaticamente para que você possa analisar o faturamento e ajustar todas as suas metas comerciais para o ciclo seguinte.
+                </p>
+              </div>
+
+              {/* Action Buttons & Simulation Control */}
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleToggleSimulation}
+                  className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer ${
+                    simulateLastDay 
+                      ? "bg-brand-orange text-brand-dark" 
+                      : "bg-[#ffdcc3] text-brand-dark hover:bg-brand-yellow"
+                  }`}
+                >
+                  {simulateLastDay ? "⚙️ Desativar Simulação" : "🧪 Simular Último Dia (Fechamento)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenAdjustGoal}
+                  className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 transition-all cursor-pointer"
+                >
+                  🎯 Ajustar Metas
+                </button>
+              </div>
+            </div>
+
+            {/* Sub-grid of Status Indicators */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-brand-gray/30 dark:border-zinc-800">
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-850/50 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="font-sans text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Início do Ciclo</span>
+                <span className="font-display font-extrabold text-sm text-brand-dark dark:text-zinc-200">
+                  01/{currentMonthStr}/{currentYearStr}
+                </span>
+              </div>
+
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-850/50 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="font-sans text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Fim do Ciclo (Último Dia)</span>
+                <span className="font-display font-extrabold text-sm text-brand-dark dark:text-zinc-200">
+                  {totalDaysInMonth}/{currentMonthStr}/{currentYearStr}
+                </span>
+              </div>
+
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-850/50 border border-brand-dark/10 dark:border-zinc-750 rounded-lg flex items-center justify-between">
+                <div>
+                  <span className="font-sans text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Status do Período</span>
+                  <span className={`font-display font-extrabold text-sm ${isLastDay ? 'text-brand-orange animate-pulse' : 'text-emerald-650'}`}>
+                    {isLastDay ? "🔒 FECHADO" : "🟢 ATIVO"}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-sans text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Prazo</span>
+                  <span className="font-sans text-[11px] font-black text-brand-dark dark:text-zinc-300">
+                    {isLastDay ? "Dia de Ajustes!" : `${daysRemaining} ${daysRemaining === 1 ? 'dia restante' : 'dias restantes'}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Special block if Closed */}
+            {isLastDay && (
+              <div className="mt-4 p-4 bg-yellow-50/50 dark:bg-zinc-800/40 border-2 border-dashed border-[#fd8b00]/30 rounded-lg text-xs font-bold text-brand-dark dark:text-zinc-350 flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🔒</span>
+                  <span>
+                    <strong>Hoje é o último dia do mês!</strong> O faturamento atual está finalizado e fechado. Aproveite para ajustar suas metas comerciais para o próximo ciclo usando o botão de ajustes.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenAdjustGoal}
+                  className="px-4 py-2 bg-[#fd8b00] text-brand-dark font-display font-bold text-xs uppercase border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  🎯 Configurar Metas
+                </button>
+              </div>
+            )}
+          </section>
+
           {/* Summary Bento-Style Grid */}
           <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
             
@@ -1352,7 +1471,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
               <p className="font-sans text-xs font-bold text-brand-muted dark:text-zinc-405 leading-tight mt-0.5">
                 {remainingValue > 0 ? (
                   <>
-                    Você está a apenas <span className="text-brand-orange">R$ {remainingValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span> de bater sua meta comercial. Faltam 8 dias!
+                    Você está a apenas <span className="text-brand-orange">R$ {remainingValue.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</span> de bater sua meta comercial. {isLastDay ? "Hoje é o último dia do mês e o ciclo está fechado!" : `Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} para o fim do mês!`}
                   </>
                 ) : (
                   <>
