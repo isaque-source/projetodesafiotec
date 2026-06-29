@@ -73,6 +73,8 @@ export interface Client {
   lastPurchaseTime?: string;
   lastPurchaseTimestamp?: number;
   lastPurchaseAmount?: number;
+  description?: string;
+  warningDays?: number;
 }
 
 export interface Goal {

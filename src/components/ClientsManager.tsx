@@ -83,6 +83,8 @@ export default function ClientsManager({
   const [name, setName] = useState("");
   const [cellphone, setCellphone] = useState("");
   const [initialAmount, setInitialAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [warningDays, setWarningDays] = useState("");
 
   // Quick sale logger inline state
   const [activeQuickSaleId, setActiveQuickSaleId] = useState<string | null>(null);
@@ -107,10 +109,13 @@ export default function ClientsManager({
     // Clean Phone Mask or format
     const cleanPhone = cellphone.replace(/[^\d()-\s]/g, "");
 
+    const parsedDays = parseInt(warningDays, 10);
     const newClient: Client = {
       id: `client-${Date.now()}`,
       name: name.trim(),
       cellphone: cleanPhone,
+      description: description.trim() || undefined,
+      warningDays: !isNaN(parsedDays) && parsedDays > 0 ? parsedDays : undefined,
     };
 
     // If an initial purchase quantity/amount is provided
@@ -129,6 +134,8 @@ export default function ClientsManager({
     setName("");
     setCellphone("");
     setInitialAmount("");
+    setDescription("");
+    setWarningDays("");
     setIsAdding(false);
   };
 
@@ -247,6 +254,36 @@ export default function ClientsManager({
               />
             </div>
 
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                Descrição / Observações do Cliente
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
+                rows={2}
+                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 md:col-span-1">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider" title="Período personalizado de dias após a última compra para alertar inatividade.">
+                Alerta de Inatividade (Dias)
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="Padrão: 30 dias"
+                value={warningDays}
+                onChange={(e) => setWarningDays(e.target.value)}
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+              />
+              <span className="text-[10px] text-brand-muted dark:text-zinc-500 font-bold leading-none mt-1">
+                Tempo sem compras para disparar alerta.
+              </span>
+            </div>
+
             <div className="md:col-span-3 flex justify-end mt-2">
               <button
                 type="submit"
@@ -301,6 +338,36 @@ export default function ClientsManager({
               />
             </div>
 
+            <div className="flex flex-col gap-1 md:col-span-1">
+              <label className="font-sans text-xs font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                Descrição / Observações do Cliente
+              </label>
+              <textarea
+                value={editingClient.description || ""}
+                onChange={(e) => setEditingClient({ ...editingClient, description: e.target.value })}
+                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
+                rows={2}
+                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00] resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 md:col-span-1">
+              <label className="font-sans text-xs font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                Alerta de Inatividade (Dias)
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="Padrão: 30 dias"
+                value={editingClient.warningDays !== undefined ? editingClient.warningDays : ""}
+                onChange={(e) => setEditingClient({ ...editingClient, warningDays: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00]"
+              />
+              <span className="text-[10px] text-brand-muted dark:text-zinc-500 font-bold leading-none mt-1">
+                Período personalizado de dias para disparar o aviso de inatividade.
+              </span>
+            </div>
+
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
               <button
                 type="button"
@@ -339,7 +406,8 @@ export default function ClientsManager({
         const inactiveCount = clients.filter(c => {
           if (!c.lastPurchaseTimestamp) return false;
           const diff = (Date.now() - c.lastPurchaseTimestamp) / (1000 * 3600 * 24);
-          return diff > 30;
+          const limit = c.warningDays || 30;
+          return diff > limit;
         }).length;
 
         if (inactiveCount > 0) {
@@ -349,7 +417,7 @@ export default function ClientsManager({
               <div className="text-left">
                 <h4 className="font-sans font-extrabold text-xs text-brand-dark dark:text-zinc-100 uppercase tracking-wider block mb-0.5">⚠️ ALERTA DE INATIVIDADE</h4>
                 <p className="font-sans text-[11px] text-zinc-650 dark:text-zinc-300 font-semibold leading-relaxed">
-                  Atenção! Você possui <strong>{inactiveCount} {inactiveCount === 1 ? "cliente" : "clientes"}</strong> sem registrar nenhuma compra nos últimos <strong>30 dias</strong>. Clique no link do WhatsApp do cliente para entrar em contato e enviar novos descontos!
+                  Atenção! Você possui <strong>{inactiveCount} {inactiveCount === 1 ? "cliente" : "clientes"}</strong> sem registrar nenhuma compra no prazo limite estabelecido (padrão de 30 dias ou personalizado). Clique no link do WhatsApp do cliente para entrar em contato e enviar novos descontos!
                 </p>
               </div>
             </div>
@@ -364,6 +432,7 @@ export default function ClientsManager({
           filteredClients.map((client) => {
             const hasPurchased = !!client.lastPurchaseTimestamp;
             const waLink = formatWhatsAppLink(client.cellphone);
+            const inactivityLimit = client.warningDays || 30;
 
             // Calculate active color alerts based on purchase status
             let borderClasses = "border-brand-dark dark:border-zinc-850 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)]";
@@ -378,7 +447,7 @@ export default function ClientsManager({
                     ✨ Ativo
                   </span>
                 );
-              } else if (diffDays <= 30) {
+              } else if (diffDays <= inactivityLimit) {
                 borderClasses = "border-[#f59e0b] shadow-[4px_4px_0px_0px_rgba(245,158,11,1)]";
                 statusBadge = (
                   <span className="bg-yellow-150 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400 text-[10px] font-black border border-yellow-500 px-2 py-0.5 rounded uppercase font-sans">
@@ -431,6 +500,15 @@ export default function ClientsManager({
                     <span>WhatsApp</span>
                   </a>
 
+                  {client.description && (
+                    <div className="mb-4 text-left p-2.5 bg-zinc-50 dark:bg-zinc-850/50 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                      <span className="text-[9px] font-sans font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest block mb-1">Descrição / Observações</span>
+                      <p className="font-sans text-xs text-zinc-750 dark:text-zinc-300 leading-normal italic line-clamp-3">
+                        "{client.description}"
+                      </p>
+                    </div>
+                  )}
+
                   {/* Last Purchase details and Stopwatch block */}
                   <div className="space-y-2 border-t border-brand-gray/40 dark:border-zinc-800 pt-3 text-left">
                     <div className="flex justify-between items-center text-xs">
@@ -461,10 +539,10 @@ export default function ClientsManager({
                       <ClientChrono timestamp={client.lastPurchaseTimestamp} />
                     </div>
 
-                    {hasPurchased && ((Date.now() - (client.lastPurchaseTimestamp || 0)) / (1000 * 3600 * 24) > 30) && (
+                    {hasPurchased && ((Date.now() - (client.lastPurchaseTimestamp || 0)) / (1000 * 3600 * 24) > inactivityLimit) && (
                       <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-550 text-[#ba1a1a] dark:text-red-400 p-2 rounded-lg text-[10px] font-bold leading-normal flex items-start gap-1.5 mt-2.5 select-none animate-pulse">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-650" />
-                        <span>ALERTA DE INATIVIDADE: Cliente sem compras há +30 dias!</span>
+                        <span>ALERTA DE INATIVIDADE: Cliente sem compras há +{inactivityLimit} dias!</span>
                       </div>
                     )}
                   </div>
