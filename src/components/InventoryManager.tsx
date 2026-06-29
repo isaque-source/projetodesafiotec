@@ -28,6 +28,7 @@ export default function InventoryManager({
   // Adding modal triggers/form
   const [isAdding, setIsAdding] = useState(false);
   const [newItemName, setNewItemName] = useState("");
+  const [newItemDescription, setNewItemDescription] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [newItemQty, setNewItemQty] = useState("");
   const [newItemMinQty, setNewItemMinQty] = useState("");
@@ -39,6 +40,7 @@ export default function InventoryManager({
   // Editing state for products
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editItemName, setEditItemName] = useState("");
+  const [editItemDescription, setEditItemDescription] = useState("");
   const [editItemCategory, setEditItemCategory] = useState("Artesanato");
   const [editItemPrice, setEditItemPrice] = useState("");
   const [editItemCostPrice, setEditItemCostPrice] = useState("");
@@ -112,6 +114,7 @@ export default function InventoryManager({
   const startEditing = (item: InventoryItem) => {
     setEditingItem(item);
     setEditItemName(item.name);
+    setEditItemDescription(item.description || "");
     setEditItemCategory(item.category);
     setEditItemPrice(item.price.toString());
     setEditItemCostPrice(item.costPrice?.toString() || "");
@@ -133,6 +136,7 @@ export default function InventoryManager({
     const updatedItem: InventoryItem = {
       ...editingItem,
       name: editItemName.trim(),
+      description: editItemDescription.trim() || undefined,
       category: editItemCategory,
       price: Math.max(0, parseFloat(editItemPrice) || 0),
       costPrice: editItemCostPrice ? Math.max(0, parseFloat(editItemCostPrice)) : undefined,
@@ -178,7 +182,8 @@ export default function InventoryManager({
     const createdItem: InventoryItem = {
       id: `inv-${Date.now()}`,
       code: generateUniqueCode(),
-      name: newItemName,
+      name: newItemName.trim(),
+      description: newItemDescription.trim() || undefined,
       price: Math.max(0, parseFloat(newItemPrice) || 0),
       costPrice: newItemCostPrice ? Math.max(0, parseFloat(newItemCostPrice)) : undefined,
       profitMargin: newItemProfitMargin ? parseFloat(newItemProfitMargin) : undefined,
@@ -192,6 +197,7 @@ export default function InventoryManager({
     
     // Reset Form
     setNewItemName("");
+    setNewItemDescription("");
     setNewItemPrice("");
     setNewItemQty("");
     setNewItemMinQty("");
@@ -254,6 +260,17 @@ export default function InventoryManager({
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="flex flex-col gap-1 md:col-span-4">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Descrição do Produto</label>
+              <textarea
+                value={newItemDescription}
+                onChange={(e) => setNewItemDescription(e.target.value)}
+                placeholder="Ex: Peça pintada à mão com acabamento esmaltado, excelente para decoração ou uso diário..."
+                rows={2}
+                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20 resize-none"
+              />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -566,6 +583,12 @@ export default function InventoryManager({
                       <span>Estoque Seguro</span>
                     </div>
                   )}
+
+                  {item.description && (
+                    <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 mt-2 line-clamp-2 italic bg-zinc-50 dark:bg-zinc-850/45 p-2 rounded border border-zinc-100 dark:border-zinc-800">
+                      {item.description}
+                    </p>
+                  )}
                 </div>
  
                 {/* Price Label */}
@@ -672,6 +695,17 @@ export default function InventoryManager({
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                </div>
+
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-widest">Descrição do Produto</label>
+                  <textarea
+                    value={editItemDescription}
+                    onChange={(e) => setEditItemDescription(e.target.value)}
+                    placeholder="Ex: Peça pintada à mão com acabamento esmaltado, excelente para decoração ou uso diário..."
+                    rows={2}
+                    className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-850 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange resize-none"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1">

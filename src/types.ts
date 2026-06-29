@@ -62,6 +62,7 @@ export interface InventoryItem {
   imageUrl?: string;
   costPrice?: number;
   profitMargin?: number;
+  description?: string;
 }
 
 export interface Client {

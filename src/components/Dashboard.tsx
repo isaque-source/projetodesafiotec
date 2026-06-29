@@ -176,6 +176,16 @@ export default function Dashboard({
       return isRealSale && isActive && isInCurrentMonth;
     })
     .reduce((acc, s) => acc + s.amount, 0);
+
+  // Cumulative total of all-time collected revenue from completed sales
+  const totalArrecadado = sales
+    .filter((s) => {
+      const isRealSale = (s.type || "sale") === "sale";
+      const isActive = s.status !== "canceled" && s.status !== "returned";
+      return isRealSale && isActive;
+    })
+    .reduce((acc, s) => acc + s.amount, 0);
+
   const progressPercent = Math.min(100, Math.round((monthlySalesSum / (goal?.targetAmount || 15000)) * 100));
 
   // Low stock calculation: item.quantity < item.minQuantity
@@ -263,19 +273,39 @@ export default function Dashboard({
               <h4 className="font-display font-black text-sm text-white bg-zinc-900 px-3 py-1.5 border-2 border-brand-dark rounded-lg inline-flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] uppercase tracking-wide">
                 Visão de Vendas
               </h4>
-              <span className="font-display font-bold text-sm text-[#fd8b00] bg-[#fd8b00]/10 px-3 py-1 rounded-full border border-[#fd8b00]/30 select-none">
-                Hoje
+              <span className="font-display font-bold text-xs text-[#fd8b00] bg-[#fd8b00]/10 px-3 py-1 rounded-full border border-[#fd8b00]/30 select-none">
+                💰 Arrecadado até o momento
               </span>
             </div>
 
-            <div className="flex items-end gap-2 mb-4">
-              <span className="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-zinc-100">
-                R$ {todaySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            <div className="mb-4">
+              <span className="text-[10px] font-sans font-bold text-brand-muted dark:text-zinc-400 uppercase tracking-widest block mb-0.5">
+                Valor Total Arrecadado
               </span>
-              <span className="font-display font-bold text-sm text-brand-primary dark:text-brand-yellow mb-1 inline-flex items-center gap-0.5">
-                <TrendingUp className="w-4 h-4" />
-                +12%
-              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="font-display font-black text-3xl md:text-4xl text-[#fd8b00] dark:text-brand-yellow">
+                  R$ {totalArrecadado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="font-sans text-[11px] font-bold text-zinc-400 uppercase tracking-wide">
+                  (Acumulado)
+                </span>
+              </div>
+            </div>
+
+            {/* Quick stats mini-row */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="p-2.5 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block">Faturamento Hoje</span>
+                <span className="font-display font-bold text-sm text-brand-dark dark:text-zinc-200">
+                  R$ {todaySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="p-2.5 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block">Faturamento do Mês</span>
+                <span className="font-display font-bold text-sm text-brand-dark dark:text-zinc-200">
+                  R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
 
             {/* Live Interactive Revenue Goal Widget directly on the main Dashboard */}
@@ -293,7 +323,7 @@ export default function Dashboard({
                 ></div>
               </div>
               <p className="font-sans text-[10px] font-bold text-brand-muted dark:text-zinc-400 mt-1.5 flex justify-between">
-                <span>Vendido: <strong>R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</strong></span>
+                <span>Vendido no Mês: <strong>R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</strong></span>
                 <span>Meta: <strong>R$ {goal?.targetAmount?.toLocaleString("pt-BR", { minimumFractionDigits: 0 }) || "15.000"}</strong></span>
               </p>
             </div>
