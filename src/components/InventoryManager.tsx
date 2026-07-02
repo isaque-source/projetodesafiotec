@@ -429,7 +429,7 @@ export default function InventoryManager({
                     type="submit"
                     className="w-full h-10 bg-brand-yellow text-brand-dark font-display font-bold text-sm border-2 border-brand-dark dark:border-zinc-700 rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
                   >
-                    CADASTRAR PRODUTO
+                    FINALIZAR CADASTRO
                   </button>
                 </div>
               </>

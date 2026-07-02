@@ -199,6 +199,8 @@ export default function SalesHistory({
   const [typeFilter, setTypeFilter] = useState<"sale" | "budget">("sale");
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("Todos");
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
 
   // Printing state
   const [activePrintSale, setActivePrintSale] = useState<Sale | null>(null);
@@ -320,6 +322,22 @@ NÃO É DOCUMENTO FISCAL
     return monthKey;
   };
 
+  const formatMonthLabel = (monthKey: string) => {
+    if (monthKey === "all") return "Todos os Meses";
+    const [year, monthStr] = monthKey.split("-");
+    const monthIndex = parseInt(monthStr, 10) - 1;
+    const isCurrent = monthKey === currentMonthStr;
+    const formatted = monthIndex >= 0 && monthIndex < 12 ? `${MONTHS_PT[monthIndex]} de ${year}` : monthKey;
+    return isCurrent ? `Mês Atual (${formatted})` : formatted;
+  };
+
+  const uniqueMonths = Array.from(
+    new Set([
+      currentMonthStr,
+      ...sales.map((s) => s.date ? s.date.substring(0, 7) : "").filter(Boolean)
+    ])
+  ).sort((a, b) => b.localeCompare(a));
+
   // Filter individual transactions
   const filteredSales = sales.filter((sale) => {
     const defaultType = sale.type || "sale";
@@ -327,11 +345,15 @@ NÃO É DOCUMENTO FISCAL
 
     const matchesSearch = sale.itemDescription.toLowerCase().includes(search.toLowerCase());
     
+    // Check if within selectedMonth (YYYY-MM)
+    const saleMonth = sale.date ? sale.date.substring(0, 7) : "";
+    const matchesMonth = selectedMonth === "all" || saleMonth === selectedMonth;
+
     if (dateFilter === "Hoje") {
       const todayISO = new Date().toISOString().split("T")[0];
-      return matchesSearch && sale.date === todayISO;
+      return matchesSearch && sale.date === todayISO && matchesMonth;
     }
-    return matchesSearch;
+    return matchesSearch && matchesMonth;
   });
 
   // Calculate stats - completed/exchanged active sales count towards billing faturamento!
@@ -511,6 +533,64 @@ NÃO É DOCUMENTO FISCAL
             >
               📋 Orçamentos Salvos
             </button>
+          </section>
+
+          {/* Month Selector section */}
+          <section className="bg-white dark:bg-zinc-900 border-2 border-brand-dark p-4 rounded-xl shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-brand-dark/10 dark:border-zinc-800 pb-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-brand-orange" />
+                <div>
+                  <h4 className="font-display font-black text-xs uppercase tracking-wider text-brand-dark dark:text-white">
+                    Selecionar Período de Lançamentos
+                  </h4>
+                  <p className="font-sans text-[10px] text-brand-muted dark:text-zinc-400 font-bold">
+                    Exibindo apenas lançamentos do mês escolhido.
+                  </p>
+                </div>
+              </div>
+              <span className="shrink-0 text-xs font-display font-black bg-brand-orange/10 dark:bg-brand-orange/20 text-brand-orange border-2 border-brand-orange/30 px-3 py-1 rounded-full uppercase self-start sm:self-auto shadow-[1px_1px_0px_0px_rgba(253,139,0,0.2)] select-none">
+                📅 {formatMonthLabel(selectedMonth)}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2.5 pt-1 max-h-[160px] overflow-y-auto pr-1">
+              {uniqueMonths.map((mKey) => {
+                const isSelected = selectedMonth === mKey;
+                return (
+                  <button
+                    key={mKey}
+                    type="button"
+                    onClick={() => {
+                      setSelectedMonth(mKey);
+                      setDateFilter("Todos");
+                    }}
+                    className={`px-3 py-2 text-xs font-display font-bold rounded-lg cursor-pointer transition-all border-2 ${
+                      isSelected
+                        ? "bg-[#fd8b00] text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] -translate-y-0.5 font-black"
+                        : "bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 border-brand-dark/10 dark:border-zinc-800 hover:border-brand-dark/50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {formatMonthLabel(mKey)}
+                  </button>
+                );
+              })}
+              
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMonth("all");
+                  setDateFilter("Todos");
+                }}
+                className={`px-3 py-2 text-xs font-display font-bold rounded-lg cursor-pointer transition-all border-2 ${
+                  selectedMonth === "all"
+                    ? "bg-zinc-900 dark:bg-zinc-150 text-white dark:text-zinc-950 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] -translate-y-0.5 font-black"
+                    : "bg-zinc-50 dark:bg-zinc-850 text-zinc-600 dark:text-zinc-300 border-brand-dark/10 dark:border-zinc-800 hover:border-brand-dark/50 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                }`}
+              >
+                Todos os Meses (Sem Filtro)
+              </button>
+            </div>
           </section>
 
           {/* Header Ledger Stats */}
