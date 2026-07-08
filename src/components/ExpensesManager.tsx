@@ -71,12 +71,12 @@ export default function ExpensesManager({
     .reduce((acc, s) => acc + s.amount, 0);
 
   // Total expenses current month
-  const monthlyExpenses = expenses
-    .filter((e) => e.date.startsWith(currentYearMonth))
-    .reduce((acc, e) => acc + e.amount, 0);
+  const monthlyExpenses = (expenses || [])
+    .filter((e) => e && e.date && e.date.startsWith(currentYearMonth))
+    .reduce((acc, e) => acc + (e.amount || 0), 0);
 
   // Total expenses all time
-  const totalAllTimeExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+  const totalAllTimeExpenses = (expenses || []).reduce((acc, e) => acc + (e.amount || 0), 0);
 
   // Decide which values to display based on month filter
   const displayFaturamento = monthFilter === "Atual" ? monthlyFaturamento : totalAllTimeFaturamento;
@@ -110,7 +110,12 @@ export default function ExpensesManager({
       category,
     };
 
-    onAddExpense(newExpense);
+    try {
+      onAddExpense(newExpense);
+    } catch (err) {
+      console.error("Falha ao adicionar despesa:", err);
+      alert("Erro ao salvar despesa localmente. Por favor, tente novamente.");
+    }
 
     // Reset Form
     setDescription("");
@@ -120,11 +125,15 @@ export default function ExpensesManager({
   };
 
   // Filter and Search Expense items
-  const filteredExpenses = expenses.filter((e) => {
-    const matchesSearch = e.description.toLowerCase().includes(search.toLowerCase()) ||
-                          e.category.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryFilter === "Todos" || e.category === categoryFilter;
-    const matchesMonth = monthFilter === "Todos" || e.date.startsWith(currentYearMonth);
+  const filteredExpenses = (expenses || []).filter((e) => {
+    if (!e) return false;
+    const desc = e.description || "";
+    const cat = e.category || "";
+    const dateStr = e.date || "";
+    const matchesSearch = desc.toLowerCase().includes(search.toLowerCase()) ||
+                          cat.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = categoryFilter === "Todos" || cat === categoryFilter;
+    const matchesMonth = monthFilter === "Todos" || (dateStr && dateStr.startsWith(currentYearMonth));
     return matchesSearch && matchesCategory && matchesMonth;
   });
 
@@ -414,8 +423,9 @@ export default function ExpensesManager({
               </thead>
               <tbody>
                 {filteredExpenses.map((e) => {
-                  const [year, month, day] = e.date.split("-");
-                  const formattedDate = day && month && year ? `${day}/${month}/${year}` : e.date;
+                  const dateStr = e.date || "";
+                  const [year, month, day] = dateStr.includes("-") ? dateStr.split("-") : ["", "", ""];
+                  const formattedDate = day && month && year ? `${day}/${month}/${year}` : dateStr;
 
                   return (
                     <tr

@@ -180,9 +180,9 @@ export default function Dashboard({
     .reduce((acc, s) => acc + s.amount, 0);
 
   // Total expenses of current month
-  const monthlyExpenses = expenses
-    .filter((e) => e.date.startsWith(currentYearMonth))
-    .reduce((acc, e) => acc + e.amount, 0);
+  const monthlyExpenses = (expenses || [])
+    .filter((e) => e && e.date && e.date.startsWith(currentYearMonth))
+    .reduce((acc, e) => acc + (e.amount || 0), 0);
 
   // Cumulative total of current-month collected revenue from completed sales minus monthly expenses
   const grossArrecadado = sales

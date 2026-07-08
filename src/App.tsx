@@ -336,11 +336,44 @@ export default function App() {
             } catch (err) {
               console.error("[Firestore Sync] Erro ao buscar saídas:", err);
             }
+
+            // Sync and merge local offline expenses with Firestore data
+            let finalExpenses = [...dbExpenses];
+            try {
+              const savedExpenses = localStorage.getItem("visu_expenses");
+              if (savedExpenses) {
+                const localExps: Expense[] = JSON.parse(savedExpenses);
+                const dbIds = new Set(dbExpenses.map((e) => e.id));
+                let hasNewLocal = false;
+                for (const localExp of localExps) {
+                  if (localExp && localExp.id && !dbIds.has(localExp.id)) {
+                    finalExpenses.push(localExp);
+                    hasNewLocal = true;
+                    // Proactively sync this local expense to firestore
+                    try {
+                      await addExpenseDocument(mappedUid, localExp);
+                    } catch (uploadErr) {
+                      console.warn("Falha ao subir despesa local offline pendente:", uploadErr);
+                    }
+                  }
+                }
+                if (hasNewLocal) {
+                  finalExpenses.sort((a, b) => {
+                    const dateA = a.date || "";
+                    const dateB = b.date || "";
+                    return dateB.localeCompare(dateA);
+                  });
+                }
+              }
+              localStorage.setItem("visu_expenses", JSON.stringify(finalExpenses));
+            } catch (syncErr) {
+              console.warn("Erro ao sincronizar despesas locais:", syncErr);
+            }
             
             setSales(dbSales || []);
             setInventory(dbInventory || []);
             setClients(dbClients || []);
-            setExpenses(dbExpenses || []);
+            setExpenses(finalExpenses);
             if (dbGoal) {
               setGoal(dbGoal);
             }
@@ -1129,18 +1162,19 @@ export default function App() {
     const updatedExpenses = [newExpense, ...expenses];
     setExpenses(updatedExpenses);
 
+    // Always update localStorage as a robust local backup
+    try {
+      localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
+    } catch (e) {
+      console.warn("Storage access restricted on local fallback check:", e);
+    }
+
     const activeUid = dataOwnerUid || auth.currentUser?.uid;
     if (auth.currentUser && activeUid) {
       try {
         await addExpenseDocument(activeUid, newExpense);
       } catch (err) {
         console.error("Falha ao salvar saída no Firestore:", err);
-      }
-    } else {
-      try {
-        localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
-      } catch (e) {
-        console.warn("Storage access restricted on local fallback check:", e);
       }
     }
   };
@@ -1149,18 +1183,19 @@ export default function App() {
     const updatedExpenses = expenses.filter((e) => e.id !== id);
     setExpenses(updatedExpenses);
 
+    // Always update localStorage as a robust local backup
+    try {
+      localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
+    } catch (e) {
+      console.warn("Storage access restricted on local fallback check:", e);
+    }
+
     const activeUid = dataOwnerUid || auth.currentUser?.uid;
     if (auth.currentUser && activeUid) {
       try {
         await deleteExpenseDocument(activeUid, id);
       } catch (err) {
         console.error("Falha ao excluir saída no Firestore:", err);
-      }
-    } else {
-      try {
-        localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
-      } catch (e) {
-        console.warn("Storage access restricted on local fallback check:", e);
       }
     }
   };
