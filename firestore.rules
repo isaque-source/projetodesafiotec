@@ -91,6 +91,15 @@ service cloud.firestore {
         && feed.feedback is string && feed.feedback.size() <= 10000;
     }
 
+    function isValidExpense(expense) {
+      return expense.keys().hasAll(['date', 'description', 'amount', 'category'])
+        && expense.date is string && expense.date.size() == 10
+        && expense.description is string && expense.description.size() <= 300
+        && expense.amount is number && expense.amount >= 0
+        && expense.category is string && expense.category.size() <= 100
+        && (!expense.keys().hasAny(['time']) || expense.time == null || (expense.time is string && expense.time.size() == 5));
+    }
+
     // Rules matching path hierarchies
     match /usuarios/{userId} {
       allow get: if isOwner(userId) || isEmployee(userId);
@@ -132,6 +141,11 @@ service cloud.firestore {
       // Clients subcollection
       match /clients/{clientId} {
         allow get, list, create, update, delete: if isOwner(userId) || isEmployee(userId);
+      }
+
+      // Expenses subcollection
+      match /expenses/{expenseId} {
+        allow get, list, create, update, delete: if (isOwner(userId) || isEmployee(userId)) && (request.method in ['get', 'list', 'delete'] || isValidExpense(request.resource.data));
       }
     }
 

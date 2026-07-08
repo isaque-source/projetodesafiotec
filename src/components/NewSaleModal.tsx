@@ -50,6 +50,11 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
   const [discountPercent, setDiscountPercent] = useState("");
   const [discountValue, setDiscountValue] = useState("");
   const [overrideFinalValue, setOverrideFinalValue] = useState("");
+
+  // Local free typing states to avoid system interference during active input
+  const [localPercent, setLocalPercent] = useState("");
+  const [localValue, setLocalValue] = useState("");
+  const [localFinalValue, setLocalFinalValue] = useState("");
   
   const [description, setDescription] = useState("");
 
@@ -83,6 +88,9 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
     setDiscountPercent("");
     setDiscountValue("");
     setOverrideFinalValue("");
+    setLocalPercent("");
+    setLocalValue("");
+    setLocalFinalValue("");
     setDescription("");
     setErrorMsg("");
     setAllowNegativeStock(false);
@@ -104,74 +112,105 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
     }
   }, [selectedItemId]);
 
-  // Recalculate and update final totals based on cart total variations with discounts
+  // Sync local inputs when cartSubtotal changes or modal is opened (not while typing)
   useEffect(() => {
     if (!isOpen) return;
-    
+
     if (discountPercent !== "") {
       const pct = parseFloat(discountPercent);
       if (!isNaN(pct) && pct >= 0) {
         const amt = (pct / 100) * cartSubtotal;
+        const finalVal = cartSubtotal - amt;
         setDiscountValue(amt > 0 ? amt.toFixed(2) : "");
-        setOverrideFinalValue((cartSubtotal - amt).toFixed(2));
+        setOverrideFinalValue(finalVal.toFixed(2));
+        setLocalPercent(discountPercent);
+        setLocalValue(amt > 0 ? amt.toFixed(2) : "");
+        setLocalFinalValue(finalVal.toFixed(2));
         return;
       }
-    }
-    
-    if (discountValue !== "") {
+    } else if (discountValue !== "") {
       const amt = parseFloat(discountValue);
       if (!isNaN(amt) && amt >= 0 && cartSubtotal > 0) {
-        setOverrideFinalValue((cartSubtotal - amt).toFixed(2));
+        const pct = (amt / cartSubtotal) * 100;
+        const finalVal = cartSubtotal - amt;
+        setDiscountPercent(pct > 0 ? pct.toFixed(1) : "");
+        setOverrideFinalValue(finalVal.toFixed(2));
+        setLocalPercent(pct > 0 ? pct.toFixed(1) : "");
+        setLocalValue(discountValue);
+        setLocalFinalValue(finalVal.toFixed(2));
         return;
       }
     }
-    
+
+    // Default with no discount
     setOverrideFinalValue(cartSubtotal > 0 ? cartSubtotal.toFixed(2) : "0.00");
-  }, [cartSubtotal, discountPercent, discountValue, isOpen]);
+    setLocalPercent("");
+    setLocalValue("");
+    setLocalFinalValue(cartSubtotal > 0 ? cartSubtotal.toFixed(2) : "");
+  }, [cartSubtotal, isOpen]);
 
-  const handlePercentChange = (valStr: string) => {
-    setDiscountPercent(valStr);
-    if (valStr === "") {
-      setDiscountValue("");
-      setOverrideFinalValue(cartSubtotal > 0 ? cartSubtotal.toFixed(2) : "0.00");
-      return;
-    }
-    const pct = parseFloat(valStr);
-    if (!isNaN(pct) && pct >= 0) {
-      const amt = (pct / 100) * cartSubtotal;
-      setDiscountValue(amt > 0 ? amt.toFixed(2) : "0.00");
-      setOverrideFinalValue((cartSubtotal - amt).toFixed(2));
-    }
-  };
+  // Explicit calculation of discounts on Enter / Blur events
+  const handleCalculateDiscount = (type: 'percent' | 'value' | 'final') => {
+    if (cartSubtotal === 0) return;
 
-  const handleValueChange = (valStr: string) => {
-    setDiscountValue(valStr);
-    if (valStr === "") {
-      setDiscountPercent("");
-      setOverrideFinalValue(cartSubtotal > 0 ? cartSubtotal.toFixed(2) : "0.00");
-      return;
-    }
-    const amt = parseFloat(valStr);
-    if (!isNaN(amt) && amt >= 0 && cartSubtotal > 0) {
-      const pct = (amt / cartSubtotal) * 100;
-      setDiscountPercent(pct > 0 ? pct.toFixed(1) : "0.0");
-      setOverrideFinalValue((cartSubtotal - amt).toFixed(2));
-    }
-  };
-
-  const handleFinalValueChange = (valStr: string) => {
-    setOverrideFinalValue(valStr);
-    if (valStr === "") {
-      setDiscountValue("");
-      setDiscountPercent("");
-      return;
-    }
-    const finalVal = parseFloat(valStr);
-    if (!isNaN(finalVal) && finalVal >= 0) {
-      const amt = Math.max(0, cartSubtotal - finalVal);
-      setDiscountValue(amt > 0 ? amt.toFixed(2) : "0.00");
-      const pct = cartSubtotal > 0 ? (amt / cartSubtotal) * 100 : 0;
-      setDiscountPercent(pct > 0 ? pct.toFixed(1) : "0.0");
+    if (type === "percent") {
+      if (localPercent.trim() === "") {
+        setDiscountPercent("");
+        setDiscountValue("");
+        setOverrideFinalValue(cartSubtotal.toFixed(2));
+        setLocalValue("");
+        setLocalFinalValue(cartSubtotal.toFixed(2));
+        return;
+      }
+      const pct = parseFloat(localPercent);
+      if (!isNaN(pct) && pct >= 0) {
+        const amt = (pct / 100) * cartSubtotal;
+        const finalVal = cartSubtotal - amt;
+        setDiscountPercent(pct.toString());
+        setDiscountValue(amt > 0 ? amt.toFixed(2) : "");
+        setOverrideFinalValue(finalVal.toFixed(2));
+        setLocalValue(amt > 0 ? amt.toFixed(2) : "");
+        setLocalFinalValue(finalVal.toFixed(2));
+      }
+    } else if (type === "value") {
+      if (localValue.trim() === "") {
+        setDiscountPercent("");
+        setDiscountValue("");
+        setOverrideFinalValue(cartSubtotal.toFixed(2));
+        setLocalPercent("");
+        setLocalFinalValue(cartSubtotal.toFixed(2));
+        return;
+      }
+      const amt = parseFloat(localValue);
+      if (!isNaN(amt) && amt >= 0) {
+        const pct = (amt / cartSubtotal) * 100;
+        const finalVal = cartSubtotal - amt;
+        setDiscountPercent(pct > 0 ? pct.toFixed(1) : "");
+        setDiscountValue(amt.toString());
+        setOverrideFinalValue(finalVal.toFixed(2));
+        setLocalPercent(pct > 0 ? pct.toFixed(1) : "");
+        setLocalFinalValue(finalVal.toFixed(2));
+      }
+    } else if (type === "final") {
+      if (localFinalValue.trim() === "") {
+        setDiscountPercent("");
+        setDiscountValue("");
+        setOverrideFinalValue(cartSubtotal.toFixed(2));
+        setLocalPercent("");
+        setLocalValue("");
+        setLocalFinalValue(cartSubtotal.toFixed(2));
+        return;
+      }
+      const finalVal = parseFloat(localFinalValue);
+      if (!isNaN(finalVal) && finalVal >= 0) {
+        const amt = Math.max(0, cartSubtotal - finalVal);
+        const pct = cartSubtotal > 0 ? (amt / cartSubtotal) * 100 : 0;
+        setDiscountPercent(pct > 0 ? pct.toFixed(1) : "");
+        setDiscountValue(amt > 0 ? amt.toFixed(2) : "");
+        setOverrideFinalValue(finalVal.toString());
+        setLocalPercent(pct > 0 ? pct.toFixed(1) : "");
+        setLocalValue(amt > 0 ? amt.toFixed(2) : "");
+      }
     }
   };
 
@@ -819,13 +858,23 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       min="0"
                       max="100"
                       disabled={cartSubtotal === 0}
-                      value={discountPercent}
-                      onChange={(e) => handlePercentChange(e.target.value)}
+                      value={localPercent}
+                      onChange={(e) => setLocalPercent(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCalculateDiscount("percent");
+                        }
+                      }}
+                      onBlur={() => handleCalculateDiscount("percent")}
                       placeholder="0"
                       className="w-full h-11 px-2.5 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] font-bold disabled:bg-zinc-50"
                     />
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-bold pointer-events-none">%</span>
                   </div>
+                  <span className="text-[9px] text-zinc-400 leading-none select-none">Enter para calcular</span>
                 </div>
 
                 {/* Desconto R$ */}
@@ -840,12 +889,22 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       step="0.01"
                       min="0"
                       disabled={cartSubtotal === 0}
-                      value={discountValue}
-                      onChange={(e) => handleValueChange(e.target.value)}
+                      value={localValue}
+                      onChange={(e) => setLocalValue(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCalculateDiscount("value");
+                        }
+                      }}
+                      onBlur={() => handleCalculateDiscount("value")}
                       placeholder="0.00"
                       className="w-full h-11 pl-7 pr-2 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] font-bold disabled:bg-zinc-50"
                     />
                   </div>
+                  <span className="text-[9px] text-zinc-400 leading-none select-none">Enter para calcular</span>
                 </div>
 
                 {/* Final Override */}
@@ -860,12 +919,22 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       step="0.01"
                       min="0"
                       disabled={cartSubtotal === 0}
-                      value={overrideFinalValue}
-                      onChange={(e) => handleFinalValueChange(e.target.value)}
+                      value={localFinalValue}
+                      onChange={(e) => setLocalFinalValue(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleCalculateDiscount("final");
+                        }
+                      }}
+                      onBlur={() => handleCalculateDiscount("final")}
                       placeholder={cartSubtotal.toFixed(2)}
                       className="w-full h-11 pl-7 pr-2 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] font-black text-[#fd8b00] disabled:bg-zinc-50"
                     />
                   </div>
+                  <span className="text-[9px] text-[#fd8b00] font-semibold leading-none select-none">Enter para calcular</span>
                 </div>
               </div>
             </div>

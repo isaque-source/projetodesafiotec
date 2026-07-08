@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { 
   DollarSign, 
   Search, 
@@ -22,7 +24,7 @@ import {
   Printer,
   Share2
 } from "lucide-react";
-import { User, Sale, Goal, InventoryItem } from "../types";
+import { User, Sale, Goal, InventoryItem, Expense } from "../types";
 
 interface SalesHistoryProps {
   user?: User;
@@ -41,6 +43,7 @@ interface SalesHistoryProps {
   onConfirmBudget?: (id: string, allowNegativeStock?: boolean) => Promise<{ success: boolean; message?: string }>;
   inventory: InventoryItem[];
   goal?: Goal;
+  expenses?: Expense[];
 }
 
 interface ReceiptContentProps {
@@ -193,7 +196,8 @@ export default function SalesHistory({
   onExchangeItems, 
   onConfirmBudget,
   inventory = [], 
-  goal 
+  goal,
+  expenses = []
 }: SalesHistoryProps) {
   const [viewMode, setViewMode] = useState<"individual" | "monthly">("individual");
   const [typeFilter, setTypeFilter] = useState<"sale" | "budget">("sale");
@@ -206,6 +210,315 @@ export default function SalesHistory({
   const [activePrintSale, setActivePrintSale] = useState<Sale | null>(null);
 
   const isInIframe = typeof window !== "undefined" && window.self !== window.top;
+
+  const handleGenerateMonthlyReport = () => {
+    const monthKey = selectedMonth;
+    const isAll = monthKey === "all";
+
+    const periodLabel = isAll ? "Todos os Meses (Geral)" : formatMonthLabel(monthKey);
+
+    // Active sales in this period
+    const periodSalesActive = sales.filter((s) => {
+      const isRealSale = (s.type || "sale") === "sale";
+      const isActive = s.status !== "canceled" && s.status !== "returned";
+      const matchesMonth = isAll || (s.date && s.date.startsWith(monthKey));
+      return isRealSale && isActive && matchesMonth;
+    });
+
+    // Cancelled / Returned sales in this period
+    const periodSalesCancelled = sales.filter((s) => {
+      const isRealSale = (s.type || "sale") === "sale";
+      const isCancelled = s.status === "canceled" || s.status === "returned";
+      const matchesMonth = isAll || (s.date && s.date.startsWith(monthKey));
+      return isRealSale && isCancelled && matchesMonth;
+    });
+
+    // Expenses/Saídas in this period
+    const periodExpenses = expenses.filter((e) => {
+      return isAll || (e.date && e.date.startsWith(monthKey));
+    });
+
+    // Budgets/Orçamentos in this period
+    const periodBudgets = sales.filter((s) => {
+      const isBudget = (s.type || "sale") === "budget";
+      const matchesMonth = isAll || (s.date && s.date.startsWith(monthKey));
+      return isBudget && matchesMonth;
+    });
+
+    // Calculations
+    const totalSalesAmount = periodSalesActive.reduce((acc, s) => acc + s.amount, 0);
+    const totalExpensesAmount = periodExpenses.reduce((acc, e) => acc + e.amount, 0);
+    const totalCancellationsAmount = periodSalesCancelled.reduce((acc, s) => acc + s.amount, 0);
+    const totalBudgetsAmount = periodBudgets.reduce((acc, b) => acc + b.amount, 0);
+    const netProfit = totalSalesAmount - totalExpensesAmount;
+
+    // Goals for the period
+    let goalProgressText = "Sem dados de meta cadastrada";
+    let goalPercent = 0;
+    let goalStatusText = "-";
+    if (!isAll && goal) {
+      const target = goal.targetAmount || 15180;
+      goalPercent = Math.round((totalSalesAmount / target) * 100);
+      goalProgressText = `Meta: R$ ${target.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | Atingido: R$ ${totalSalesAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${goalPercent}%)`;
+      goalStatusText = totalSalesAmount >= target ? "META ATINGIDA! 🏆" : "EM ANDAMENTO ⏳";
+    }
+
+    const doc = new jsPDF();
+
+    const storeName = user?.storeName || "Visu Gestão de Vendas";
+    const storePhone = user?.phoneNumber || "Não cadastrado";
+    const storeEmail = user?.email || "Não cadastrado";
+    const storeCategory = user?.category || "Comércio Geral";
+
+    // Header background band (deep slate)
+    doc.setFillColor(30, 41, 59);
+    doc.rect(10, 10, 190, 32, "F");
+
+    // Header text
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(storeName.toUpperCase(), 15, 22);
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(226, 232, 240);
+    doc.text(`Segmento: ${storeCategory}  |  Tel: ${storePhone}  |  Email: ${storeEmail}`, 15, 28);
+    doc.text(`Relatório emitido em: ${new Date().toLocaleString("pt-BR")}`, 15, 34);
+
+    // Document Title Band (orange)
+    doc.setFillColor(253, 139, 0);
+    doc.rect(10, 45, 190, 10, "F");
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(26, 28, 28);
+    doc.text(`DEMONSTRATIVO DE RESULTADOS - PERÍODO: ${periodLabel.toUpperCase()}`, 15, 51);
+
+    // Summary stats widgets
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    
+    // Box 1: Faturamento Bruto (Ativo)
+    doc.rect(10, 60, 60, 22);
+    doc.setFontSize(8);
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    doc.text("FATURAMENTO BRUTO", 14, 66);
+    doc.setFontSize(11);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`R$ ${totalSalesAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, 14, 75);
+
+    // Box 2: Total Saídas (Despesas)
+    doc.rect(75, 60, 60, 22);
+    doc.setFontSize(8);
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    doc.text("TOTAL DE SAÍDAS", 79, 66);
+    doc.setFontSize(11);
+    doc.setTextColor(239, 68, 68);
+    doc.text(`R$ ${totalExpensesAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, 79, 75);
+
+    // Box 3: Saldo Líquido Real
+    doc.rect(140, 60, 60, 22);
+    doc.setFontSize(8);
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    doc.text("SALDO LÍQUIDO REAL", 144, 66);
+    doc.setFontSize(11);
+    if (netProfit >= 0) {
+      doc.setTextColor(34, 197, 94);
+    } else {
+      doc.setTextColor(239, 68, 68);
+    }
+    doc.text(`R$ ${netProfit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, 144, 75);
+
+    // Additional Stats Row
+    doc.setFontSize(9);
+    doc.setFont("Helvetica", "normal");
+    doc.setTextColor(30, 41, 59);
+    let extraStatsY = 92;
+    doc.text(`Total Vendas Concluídas: ${periodSalesActive.length}`, 15, extraStatsY);
+    doc.text(`Total Cancelamentos/Estornos: ${periodSalesCancelled.length} (R$ ${totalCancellationsAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`, 65, extraStatsY);
+    doc.text(`Orçamentos Registrados: ${periodBudgets.length}`, 150, extraStatsY);
+
+    if (!isAll && goal) {
+      extraStatsY += 7;
+      doc.setFont("Helvetica", "bold");
+      doc.text("ACOMPANHAMENTO DE META MENSAL:", 15, extraStatsY);
+      doc.setFont("Helvetica", "normal");
+      doc.text(`${goalProgressText}   [ Status: ${goalStatusText} ]`, 15, extraStatsY + 5);
+      extraStatsY += 7;
+    }
+
+    // Tables of Details
+    let currentY = extraStatsY + 12;
+
+    const generateTable = (title: string, headers: string[], body: any[], emptyMsg: string, primaryColor: number[]) => {
+      if (currentY > 260) {
+        doc.addPage();
+        currentY = 15;
+      }
+
+      doc.setFillColor(241, 245, 249);
+      doc.rect(10, currentY, 190, 7, "F");
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text(title.toUpperCase(), 13, currentY + 5);
+      currentY += 9;
+
+      if (body.length === 0) {
+        doc.setFont("Helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(emptyMsg, 15, currentY + 4);
+        currentY += 12;
+        return;
+      }
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [headers],
+        body: body,
+        theme: 'striped',
+        headStyles: {
+          fillColor: primaryColor as any,
+          textColor: [255, 255, 255],
+          fontSize: 8,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        bodyStyles: {
+          fontSize: 7.5,
+          textColor: [51, 65, 85]
+        },
+        margin: { left: 10, right: 10 },
+        styles: { overflow: 'linebreak' },
+        didDrawPage: (data: any) => {
+          currentY = data.cursor.y + 10;
+        }
+      });
+    };
+
+    // Table 1: Completed active sales
+    const salesTableHeaders = ["Data/Hora", "Código", "Descrição do Produto/Venda", "Cliente", "Pagam.", "Valor (R$)"];
+    const salesTableBody = periodSalesActive.map((s) => {
+      const code = s.id.substring(s.id.lastIndexOf("-") + 1).substring(0, 8).toUpperCase();
+      const desc = s.items && s.items.length > 0 
+        ? s.items.map(it => `${it.quantity}x ${it.name}`).join(", ") 
+        : `${s.quantity}x ${s.itemDescription}`;
+      
+      const pMethod = s.paymentMethod 
+        ? (s.paymentMethod === "credito" && s.installments ? `Crédito ${s.installments}x` : s.paymentMethod)
+        : "-";
+
+      return [
+        `${s.date} ${s.time || ""}`,
+        `#${code}`,
+        desc.length > 55 ? desc.substring(0, 52) + "..." : desc,
+        s.clientName || "Cliente Geral",
+        pMethod.toUpperCase(),
+        s.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ];
+    });
+
+    generateTable(
+      `1. Relatório de Vendas e Entradas Realizadas (${periodSalesActive.length})`,
+      salesTableHeaders,
+      salesTableBody,
+      "Nenhuma venda ou entrada ativa registrada no período.",
+      [16, 185, 129]
+    );
+
+    // Table 2: Expenses/Saídas
+    const expensesTableHeaders = ["Data/Hora", "Descrição da Despesa", "Categoria", "Valor (R$)"];
+    const expensesTableBody = periodExpenses.map((e) => {
+      return [
+        `${e.date} ${e.time || ""}`,
+        e.description,
+        e.category.toUpperCase(),
+        `R$ ${e.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ];
+    });
+
+    generateTable(
+      `2. Relatório de Saídas, Compras e Custos (${periodExpenses.length})`,
+      expensesTableHeaders,
+      expensesTableBody,
+      "Nenhuma saída, compra ou despesa registrada no período.",
+      [239, 68, 68]
+    );
+
+    // Table 3: Cancellations and Returns
+    const cancellationsTableHeaders = ["Data/Hora", "Código", "Descrição", "Cliente", "Situação", "Valor (R$)"];
+    const cancellationsTableBody = periodSalesCancelled.map((s) => {
+      const code = s.id.substring(s.id.lastIndexOf("-") + 1).substring(0, 8).toUpperCase();
+      const desc = s.items && s.items.length > 0 
+        ? s.items.map(it => `${it.quantity}x ${it.name}`).join(", ") 
+        : `${s.quantity}x ${s.itemDescription}`;
+      
+      const statusLabel = s.status === "returned" ? "DEVOLVIDO" : "CANCELADO";
+
+      return [
+        `${s.date} ${s.time || ""}`,
+        `#${code}`,
+        desc.length > 55 ? desc.substring(0, 52) + "..." : desc,
+        s.clientName || "Cliente Geral",
+        statusLabel,
+        `R$ ${s.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ];
+    });
+
+    generateTable(
+      `3. Histórico de Cancelamentos e Devoluções (${periodSalesCancelled.length})`,
+      cancellationsTableHeaders,
+      cancellationsTableBody,
+      "Nenhum cancelamento ou devolução registrado no período.",
+      [220, 38, 38]
+    );
+
+    // Table 4: Budgets
+    const budgetsTableHeaders = ["Data/Hora", "Código", "Descrição do Orçamento", "Cliente", "Valor Estimado (R$)"];
+    const budgetsTableBody = periodBudgets.map((b) => {
+      const code = b.id.substring(b.id.lastIndexOf("-") + 1).substring(0, 8).toUpperCase();
+      const desc = b.items && b.items.length > 0 
+        ? b.items.map(it => `${it.quantity}x ${it.name}`).join(", ") 
+        : `${b.quantity}x ${b.itemDescription}`;
+
+      return [
+        `${b.date} ${b.time || ""}`,
+        `#${code}`,
+        desc.length > 55 ? desc.substring(0, 52) + "..." : desc,
+        b.clientName || "Cliente Geral",
+        `R$ ${b.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ];
+    });
+
+    generateTable(
+      `4. Orçamentos Emitidos (${periodBudgets.length})`,
+      budgetsTableHeaders,
+      budgetsTableBody,
+      "Nenhum orçamento pendente registrado no período.",
+      [79, 70, 229]
+    );
+
+    // Add page numbers
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(10, 280, 190, 10, "F");
+      
+      doc.setFont("Helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Documento de Gestão Interna - Visu Gestão de Vendas. Não possui validade como documento fiscal.", 12, 286);
+      doc.text(`Pág. ${i} de ${totalPages}`, 180, 286);
+    }
+
+    const safeMonthStr = periodLabel.replace(/\s+/g, "_").toLowerCase();
+    doc.save(`Relatorio_Visu_${safeMonthStr}.pdf`);
+  };
 
   const generateWhatsAppShareUrl = (sale: Sale) => {
     const storeName = user?.storeName || "Minha Loja";
@@ -537,7 +850,7 @@ NÃO É DOCUMENTO FISCAL
 
           {/* Month Selector section */}
           <section className="bg-white dark:bg-zinc-900 border-2 border-brand-dark p-4 rounded-xl shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-brand-dark/10 dark:border-zinc-800 pb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-brand-dark/10 dark:border-zinc-800 pb-3">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-brand-orange" />
                 <div>
@@ -549,9 +862,20 @@ NÃO É DOCUMENTO FISCAL
                   </p>
                 </div>
               </div>
-              <span className="shrink-0 text-xs font-display font-black bg-brand-orange/10 dark:bg-brand-orange/20 text-brand-orange border-2 border-brand-orange/30 px-3 py-1 rounded-full uppercase self-start sm:self-auto shadow-[1px_1px_0px_0px_rgba(253,139,0,0.2)] select-none">
-                📅 {formatMonthLabel(selectedMonth)}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="shrink-0 text-xs font-display font-black bg-brand-orange/10 dark:bg-brand-orange/20 text-brand-orange border-2 border-brand-orange/30 px-3 py-1 rounded-full uppercase shadow-[1px_1px_0px_0px_rgba(253,139,0,0.2)] select-none">
+                  📅 {formatMonthLabel(selectedMonth)}
+                </span>
+                <button
+                  onClick={handleGenerateMonthlyReport}
+                  type="button"
+                  className="h-8 px-3 rounded-lg text-xs font-display font-black uppercase tracking-wider bg-zinc-900 hover:bg-zinc-850 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 border-2 border-brand-dark transition-all flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:scale-95 cursor-pointer"
+                  title="Gerar Relatório Completo do Mês em PDF"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Relatório do Mês 📄
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2.5 pt-1 max-h-[160px] overflow-y-auto pr-1">

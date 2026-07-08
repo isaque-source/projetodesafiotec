@@ -120,6 +120,19 @@
         "password": { "type": "string", "description": "Optional administrative fallback password" }
       },
       "required": ["uid", "email"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "An outflow expense logged by the user, representing material purchases or other costs",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD date representation" },
+        "time": { "type": "string", "description": "HH:MM timestamp representation" },
+        "amount": { "type": "number", "description": "Expense monetary cost" },
+        "description": { "type": "string", "description": "Detailed description of the materials bought or outflow purpose" },
+        "category": { "type": "string", "description": "Type/category of outflow, e.g., Matéria-prima, Embalagem" }
+      },
+      "required": ["date", "description", "amount", "category"]
     }
   },
   "firestore": {
@@ -150,6 +163,10 @@
     "/usuarios/{userId}/clients/{clientId}": {
       "schema": "Client",
       "description": "Subcollection storing registered clients"
+    },
+    "/usuarios/{userId}/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Subcollection storing materials or business expenses logged by user"
     },
     "/email_to_uid/{safeEmail}": {
       "schema": "EmailToUid",

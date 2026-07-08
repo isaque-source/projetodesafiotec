@@ -13,7 +13,7 @@ import {
   getDocFromServer
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
-import { User, Sale, InventoryItem, Goal, Client } from "../types";
+import { User, Sale, InventoryItem, Goal, Client, Expense } from "../types";
 
 export interface InstagramProgressState {
   storeNiche: string;
@@ -473,6 +473,44 @@ export async function deleteEmployeePermission(uid: string, employeeEmail: strin
   const path = `usuarios/${uid}/employees/${cleanEmail}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "employees", cleanEmail));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Expenses subcollection operations
+ */
+export async function fetchExpenses(uid: string): Promise<Expense[]> {
+  const path = `usuarios/${uid}/expenses`;
+  try {
+    const colRef = collection(db, "usuarios", uid, "expenses");
+    const q = query(colRef, orderBy("date", "desc"));
+    const querySnapshot = await getDocs(q);
+    const expensesList: Expense[] = [];
+    querySnapshot.forEach((docSnap) => {
+      expensesList.push({ id: docSnap.id, ...docSnap.data() } as Expense);
+    });
+    return expensesList;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export async function addExpenseDocument(uid: string, expense: Expense): Promise<void> {
+  const path = `usuarios/${uid}/expenses/${expense.id}`;
+  try {
+    const { id, ...data } = expense;
+    await setDoc(doc(db, "usuarios", uid, "expenses", id), cleanUndefined(data));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function deleteExpenseDocument(uid: string, expenseId: string): Promise<void> {
+  const path = `usuarios/${uid}/expenses/${expenseId}`;
+  try {
+    await deleteDoc(doc(db, "usuarios", uid, "expenses", expenseId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

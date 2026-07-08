@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ArrowUpRight, ShoppingCart, Package, TrendingUp, AlertTriangle, Shield, Fingerprint, Trash2, Lock, CheckCircle, ExternalLink } from "lucide-react";
-import { User as UserType, Sale, InventoryItem, Goal } from "../types";
+import { User as UserType, Sale, InventoryItem, Goal, Expense } from "../types";
 
 interface DashboardProps {
   user: UserType;
@@ -11,6 +11,7 @@ interface DashboardProps {
   onChangeTab: (tab: string) => void;
   onFilterLowStock: () => void;
   onLockApp: () => void;
+  expenses?: Expense[];
 }
 
 const SALES_TIPS = [
@@ -35,6 +36,7 @@ export default function Dashboard({
   onChangeTab,
   onFilterLowStock,
   onLockApp,
+  expenses = [],
 }: DashboardProps) {
   
   // Tip of the hour state (updates every hour)
@@ -177,14 +179,22 @@ export default function Dashboard({
     })
     .reduce((acc, s) => acc + s.amount, 0);
 
-  // Cumulative total of all-time collected revenue from completed sales
-  const totalArrecadado = sales
+  // Total expenses of current month
+  const monthlyExpenses = expenses
+    .filter((e) => e.date.startsWith(currentYearMonth))
+    .reduce((acc, e) => acc + e.amount, 0);
+
+  // Cumulative total of current-month collected revenue from completed sales minus monthly expenses
+  const grossArrecadado = sales
     .filter((s) => {
       const isRealSale = (s.type || "sale") === "sale";
       const isActive = s.status !== "canceled" && s.status !== "returned";
-      return isRealSale && isActive;
+      const isInCurrentMonth = s.date.startsWith(currentYearMonth);
+      return isRealSale && isActive && isInCurrentMonth;
     })
     .reduce((acc, s) => acc + s.amount, 0);
+
+  const totalArrecadado = grossArrecadado - monthlyExpenses;
 
   const progressPercent = Math.min(100, Math.round((monthlySalesSum / (goal?.targetAmount || 15000)) * 100));
 
@@ -274,36 +284,42 @@ export default function Dashboard({
                 Visão de Vendas
               </h4>
               <span className="font-display font-bold text-xs text-[#fd8b00] bg-[#fd8b00]/10 px-3 py-1 rounded-full border border-[#fd8b00]/30 select-none">
-                💰 Arrecadado até o momento
+                💰 Arrecadado no Mês Atual
               </span>
             </div>
 
             <div className="mb-4">
               <span className="text-[10px] font-sans font-bold text-brand-muted dark:text-zinc-400 uppercase tracking-widest block mb-0.5">
-                Valor Total Arrecadado
+                Valor Total Arrecadado Líquido (Mês Atual)
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="font-display font-black text-3xl md:text-4xl text-[#fd8b00] dark:text-brand-yellow">
-                  R$ {totalArrecadado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                <span className={`font-display font-black text-3xl md:text-4xl ${totalArrecadado < 0 ? "text-red-500 dark:text-red-400" : "text-[#fd8b00] dark:text-brand-yellow"}`}>
+                  {totalArrecadado < 0 ? "- " : ""}R$ {Math.abs(totalArrecadado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
                 <span className="font-sans text-[11px] font-bold text-zinc-400 uppercase tracking-wide">
-                  (Acumulado)
+                  (Líquido)
                 </span>
               </div>
             </div>
 
             {/* Quick stats mini-row */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-2.5 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
-                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block">Faturamento Hoje</span>
-                <span className="font-display font-bold text-sm text-brand-dark dark:text-zinc-200">
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="p-2 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block leading-none mb-1">Faturamento Hoje</span>
+                <span className="font-display font-bold text-xs text-brand-dark dark:text-zinc-200">
                   R$ {todaySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
-              <div className="p-2.5 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
-                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block">Faturamento do Mês</span>
-                <span className="font-display font-bold text-sm text-brand-dark dark:text-zinc-200">
-                  R$ {monthlySalesSum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              <div className="p-2 bg-[#fbfbfb] dark:bg-zinc-850 border border-brand-dark/10 dark:border-zinc-750 rounded-lg">
+                <span className="text-[9px] font-sans font-bold text-zinc-400 uppercase tracking-wider block leading-none mb-1">Faturamento Bruto</span>
+                <span className="font-display font-bold text-xs text-brand-dark dark:text-zinc-200">
+                  R$ {grossArrecadado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="p-2 bg-red-50/50 dark:bg-red-950/20 border border-red-500/10 rounded-lg">
+                <span className="text-[9px] font-sans font-bold text-[#ef4444] uppercase tracking-wider block leading-none mb-1">Saídas do Mês</span>
+                <span className="font-display font-bold text-xs text-[#ef4444]">
+                  - R$ {monthlyExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Home as HomeIcon, DollarSign, ShoppingBag, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail, Users } from "lucide-react";
-import { User, Sale, InventoryItem, Goal, Client } from "./types";
+import { Home as HomeIcon, DollarSign, ShoppingBag, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail, Users, TrendingDown } from "lucide-react";
+import { User, Sale, InventoryItem, Goal, Client, Expense } from "./types";
 import { SEED_USER, SEED_INVENTORY, SEED_SALES, SEED_GOAL } from "./data";
 import { auth } from "./firebase";
 import { signOut } from "firebase/auth";
@@ -27,7 +27,10 @@ import {
   clearAllInstagramFeedbacks,
   fetchClients,
   saveClientDocument,
-  deleteClientDocument
+  deleteClientDocument,
+  fetchExpenses,
+  addExpenseDocument,
+  deleteExpenseDocument
 } from "./lib/db";
 
 // Sub-components
@@ -44,6 +47,7 @@ import Profile from "./components/Profile";
 import ResetPassword from "./components/ResetPassword";
 import ClientsManager from "./components/ClientsManager";
 import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
+import ExpensesManager from "./components/ExpensesManager";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -75,7 +79,7 @@ const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile" | "clients">("login");
+  const [activeTab, setActiveTab] = useState<"login" | "register" | "reset-password" | "home" | "sales" | "inventory" | "progress" | "profile" | "clients" | "expenses">("login");
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
   const [isLocked, setIsLocked] = useState(false);
@@ -100,6 +104,7 @@ export default function App() {
 
   const [goal, setGoal] = useState<Goal>({ targetAmount: 15180, period: "Mensal" });
   const [clients, setClients] = useState<Client[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const handleSaveClientsLocally = (updatedClients: Client[]) => {
     try {
@@ -324,10 +329,18 @@ export default function App() {
             } catch (err) {
               console.error("[Firestore Sync] Erro ao buscar clientes:", err);
             }
+
+            let dbExpenses: Expense[] = [];
+            try {
+              dbExpenses = await fetchExpenses(mappedUid);
+            } catch (err) {
+              console.error("[Firestore Sync] Erro ao buscar saídas:", err);
+            }
             
             setSales(dbSales || []);
             setInventory(dbInventory || []);
             setClients(dbClients || []);
+            setExpenses(dbExpenses || []);
             if (dbGoal) {
               setGoal(dbGoal);
             }
@@ -365,6 +378,7 @@ export default function App() {
               setSales([]);
               setInventory([]);
               setClients([]);
+              setExpenses([]);
               
               if (isResetFlow) {
                 setActiveTab("reset-password");
@@ -384,6 +398,7 @@ export default function App() {
               setSales([]);
               setInventory([]);
               setClients([]);
+              setExpenses([]);
               setGoal({ targetAmount: 15000, period: "Mensal" });
               if (isResetFlow) {
                 setActiveTab("reset-password");
@@ -489,6 +504,22 @@ export default function App() {
           }
         } else {
           setClients([]);
+        }
+
+        let savedExpenses = null;
+        try {
+          savedExpenses = localStorage.getItem("visu_expenses");
+        } catch (e) {
+          console.warn("Storage access restricted on local fallback check:", e);
+        }
+        if (savedExpenses) {
+          try {
+            setExpenses(JSON.parse(savedExpenses));
+          } catch (_) {
+            setExpenses([]);
+          }
+        } else {
+          setExpenses([]);
         }
 
         setLoadingFirebase(false);
@@ -909,12 +940,14 @@ export default function App() {
     setInventory([]);
     setGoal({ targetAmount: 15180, period: "Mensal" });
     setClients([]);
+    setExpenses([]);
     setVisuCoins(450);
     setStreak(3);
 
     try {
       localStorage.removeItem("visu_user");
       localStorage.removeItem("visu_clients");
+      localStorage.removeItem("visu_expenses");
       localStorage.removeItem("visu_sales");
       localStorage.removeItem("visu_inventory");
       localStorage.removeItem("visu_goal");
@@ -1089,6 +1122,46 @@ export default function App() {
       }
     } else {
       handleSaveState(user, updatedSales, updatedInventory, goal);
+    }
+  };
+
+  const handleAddExpense = async (newExpense: Expense) => {
+    const updatedExpenses = [newExpense, ...expenses];
+    setExpenses(updatedExpenses);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await addExpenseDocument(activeUid, newExpense);
+      } catch (err) {
+        console.error("Falha ao salvar saída no Firestore:", err);
+      }
+    } else {
+      try {
+        localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
+      } catch (e) {
+        console.warn("Storage access restricted on local fallback check:", e);
+      }
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    const updatedExpenses = expenses.filter((e) => e.id !== id);
+    setExpenses(updatedExpenses);
+
+    const activeUid = dataOwnerUid || auth.currentUser?.uid;
+    if (auth.currentUser && activeUid) {
+      try {
+        await deleteExpenseDocument(activeUid, id);
+      } catch (err) {
+        console.error("Falha ao excluir saída no Firestore:", err);
+      }
+    } else {
+      try {
+        localStorage.setItem("visu_expenses", JSON.stringify(updatedExpenses));
+      } catch (e) {
+        console.warn("Storage access restricted on local fallback check:", e);
+      }
     }
   };
 
@@ -1759,6 +1832,7 @@ export default function App() {
             sales={sales}
             inventory={inventory}
             goal={goal}
+            expenses={expenses}
             onOpenNewSale={() => setIsNewSaleOpen(true)}
             onChangeTab={(tab: any) => setActiveTab(tab)}
             onFilterLowStock={handleGoToLowStockInventory}
@@ -1780,6 +1854,7 @@ export default function App() {
             onConfirmBudget={handleConfirmBudget}
             inventory={inventory}
             goal={goal}
+            expenses={expenses}
           />
         )}
 
@@ -1829,6 +1904,15 @@ export default function App() {
             onRemoveEmployee={handleRemoveEmployee}
             sales={sales}
             onResetEmployeeCommission={handleResetEmployeeCommission}
+          />
+        )}
+
+        {user && activeTab === "expenses" && (
+          <ExpensesManager
+            expenses={expenses}
+            sales={sales}
+            onAddExpense={handleAddExpense}
+            onDeleteExpense={handleDeleteExpense}
           />
         )}
 
@@ -1906,6 +1990,19 @@ export default function App() {
           >
             <Users className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
             <span className="font-sans font-bold text-[10px] sm:text-xs">Clientes</span>
+          </button>
+
+          {/* Expenses management tab (Saídas) - SIXTH OPTION */}
+          <button
+            onClick={() => setActiveTab("expenses")}
+            className={`flex flex-col items-center justify-center cursor-pointer transition-all ${
+              activeTab === "expenses"
+                ? "bg-brand-yellow text-brand-dark rounded-xl px-2.5 py-1 sm:px-4 sm:py-1 border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] sm:shadow-[3px_3px_0px_0px_rgba(253,139,0,1)] -translate-y-0.5 sm:-translate-y-1 font-bold font-display scale-95 sm:scale-100"
+                : "text-brand-muted dark:text-zinc-300 hover:opacity-100 opacity-70 p-1.5 sm:p-2 rounded-lg"
+            }`}
+          >
+            <TrendingDown className="w-4.5 h-4.5 sm:w-5 sm:h-5 mb-0.5" />
+            <span className="font-sans font-bold text-[10px] sm:text-xs">Saídas</span>
           </button>
         </nav>
       )}

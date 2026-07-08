@@ -81,3 +81,12 @@ export interface Goal {
   targetAmount: number;
   period: string; // e.g. "Mensal"
 }
+
+export interface Expense {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:MM
+  amount: number;
+  description: string;
+  category: string;
+}
