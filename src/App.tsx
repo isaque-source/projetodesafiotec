@@ -624,13 +624,19 @@ export default function App() {
           let dbSales: Sale[] = [];
           let dbInventory: InventoryItem[] = [];
           let dbGoal: Goal | null = null;
+          let dbClients: Client[] = [];
+          let dbExpenses: Expense[] = [];
 
           try { dbSales = await fetchSales(mappedUid); } catch (_) {}
           try { dbInventory = await fetchInventory(mappedUid); } catch (_) {}
           try { dbGoal = await fetchGoal(mappedUid); } catch (_) {}
+          try { dbClients = await fetchClients(mappedUid); } catch (_) {}
+          try { dbExpenses = await fetchExpenses(mappedUid); } catch (_) {}
 
           setSales(dbSales || []);
           setInventory(dbInventory || []);
+          setClients(dbClients || []);
+          setExpenses(dbExpenses || []);
           if (dbGoal) {
             setGoal(dbGoal);
           }

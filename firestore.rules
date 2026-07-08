@@ -145,7 +145,8 @@ service cloud.firestore {
 
       // Expenses subcollection
       match /expenses/{expenseId} {
-        allow get, list, create, update, delete: if (isOwner(userId) || isEmployee(userId)) && (request.method in ['get', 'list', 'delete'] || isValidExpense(request.resource.data));
+        allow read, delete: if isOwner(userId) || isEmployee(userId);
+        allow create, update: if (isOwner(userId) || isEmployee(userId)) && isValidExpense(request.resource.data);
       }
     }
 
