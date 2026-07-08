@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Home as HomeIcon, DollarSign, ShoppingBag, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail, Users, TrendingDown, Smartphone } from "lucide-react";
+import { Home as HomeIcon, DollarSign, ShoppingBag, Package, TrendingUp, ArrowLeft, LogOut, User as UserIcon, Mail, Users, TrendingDown } from "lucide-react";
 import { User, Sale, InventoryItem, Goal, Client, Expense } from "./types";
 import { SEED_USER, SEED_INVENTORY, SEED_SALES, SEED_GOAL } from "./data";
 import { auth } from "./firebase";
@@ -48,7 +48,6 @@ import ResetPassword from "./components/ResetPassword";
 import ClientsManager from "./components/ClientsManager";
 import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
 import ExpensesManager from "./components/ExpensesManager";
-import InstallAppModal from "./components/InstallAppModal";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -147,17 +146,6 @@ export default function App() {
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [isAdjustGoalOpen, setIsAdjustGoalOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-
-  // Expose function globally to trigger the install modal from other components
-  useEffect(() => {
-    (window as any).openPwaInstallModal = () => {
-      setIsInstallModalOpen(true);
-    };
-    return () => {
-      delete (window as any).openPwaInstallModal;
-    };
-  }, []);
 
   // Initialize and synchronise state components on startup or auth change
   useEffect(() => {
@@ -1813,16 +1801,6 @@ export default function App() {
               <span>{streak} {streak === 1 ? "Dia" : "Dias"}</span>
             </div>
 
-            {/* Install/Download PWA App button in header */}
-            <button
-              onClick={() => setIsInstallModalOpen(true)}
-              className="flex items-center gap-1.5 bg-brand-yellow hover:bg-brand-orange text-brand-dark border-2 border-brand-dark px-2.5 sm:px-3 h-9 rounded-lg font-display text-xs font-black uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all"
-              title="Baixar / Instalar o Aplicativo no Celular"
-            >
-              <Smartphone className="w-4 h-4 text-brand-dark" />
-              <span className="hidden sm:inline font-sans font-bold">Baixar App</span>
-            </button>
-
             <button
               onClick={() => setActiveTab("profile")}
               className={`flex items-center gap-1.5 border-2 border-brand-dark px-2.5 sm:px-3 h-9 rounded-lg font-display text-xs font-black uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0.5 transition-all ${
@@ -2100,12 +2078,6 @@ export default function App() {
           setIsDbConnected(true);
           setIsDiagnosticOpen(false);
         }}
-      />
-
-      {/* Install app instructions for Android, iOS & PC */}
-      <InstallAppModal
-        isOpen={isInstallModalOpen}
-        onClose={() => setIsInstallModalOpen(false)}
       />
     </div>
   );
