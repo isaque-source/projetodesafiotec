@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowUpRight, ShoppingCart, Package, TrendingUp, AlertTriangle, Shield, Fingerprint, Trash2, Lock, CheckCircle, ExternalLink } from "lucide-react";
+import { ArrowUpRight, ShoppingCart, Package, TrendingUp, AlertTriangle, Shield, Fingerprint, Trash2, Lock, CheckCircle, ExternalLink, Smartphone } from "lucide-react";
 import { User as UserType, Sale, InventoryItem, Goal, Expense } from "../types";
 
 interface DashboardProps {
@@ -212,14 +212,48 @@ export default function Dashboard({
   return (
     <div className="animate-fade-in space-y-6">
       {/* Welcome Greeting and Profile Context */}
-      <section className="text-left py-2">
-        <h2 className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
-          Olá, {user.name}! 🌟
-        </h2>
-        <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
-          Pronto para gerenciar seu negócio hoje?
-        </p>
+      <section className="text-left py-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl md:text-3xl font-extrabold text-white bg-zinc-900 px-4 py-2 border-2 border-brand-dark rounded-xl inline-flex items-center gap-2 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)]">
+            Olá, {user.name}! 🌟
+          </h2>
+          <p className="font-sans text-brand-muted dark:text-zinc-400 font-medium mt-1">
+            Pronto para gerenciar seu negócio hoje?
+          </p>
+        </div>
+
+        {/* Small header PWA trigger for mobile */}
+        <button
+          onClick={() => (window as any).openPwaInstallModal && (window as any).openPwaInstallModal()}
+          className="md:hidden flex items-center gap-1.5 bg-brand-yellow text-brand-dark font-display font-black text-[11px] uppercase py-2 px-3.5 rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-1 transition-all cursor-pointer self-start"
+        >
+          <Smartphone className="w-4 h-4" />
+          Instalar App 📲
+        </button>
       </section>
+
+      {/* PWA Download Banner */}
+      <div className="bg-brand-yellow/10 dark:bg-zinc-900/60 p-4 rounded-xl border-2 border-brand-dark dark:border-zinc-850 shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] flex flex-col md:flex-row justify-between items-center gap-4 text-left">
+        <div className="flex items-center gap-3">
+          <div className="bg-brand-yellow p-2.5 rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex-shrink-0">
+            <Smartphone className="w-5 h-5 text-brand-dark" />
+          </div>
+          <div>
+            <h4 className="font-display font-black text-sm uppercase tracking-wide text-brand-dark dark:text-brand-yellow">
+              Baixe o App Visu no seu Celular
+            </h4>
+            <p className="font-sans text-xs text-brand-muted dark:text-zinc-350 font-semibold mt-0.5">
+              Tenha acesso instantâneo na tela inicial, melhor desempenho e funcionamento offline tanto no Android quanto no iPhone (iOS).
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => (window as any).openPwaInstallModal && (window as any).openPwaInstallModal()}
+          className="w-full md:w-auto bg-brand-yellow hover:bg-[#fd8b00] text-brand-dark font-display font-black text-xs uppercase tracking-wider py-2.5 px-4 rounded-lg border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-1 transition-all cursor-pointer whitespace-nowrap text-center"
+        >
+          Instalar Aplicativo 📲
+        </button>
+      </div>
 
       {/* Bento Grid Quick Actions */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">

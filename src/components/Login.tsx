@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Key, Check } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Key, Check, Smartphone } from "lucide-react";
 import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -430,7 +430,18 @@ export default function Login({
       </main>
 
       {/* FOOTER LICENSE */}
-      <footer className="mt-8 text-center pb-6 select-none font-sans text-[10px] text-zinc-400 font-bold uppercase tracking-widest leading-loose">
+      <div className="text-center pt-2 select-none mb-1">
+        <button
+          type="button"
+          onClick={() => (window as any).openPwaInstallModal && (window as any).openPwaInstallModal()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-brand-dark hover:bg-brand-yellow/10 font-sans text-xs font-black text-brand-dark dark:text-brand-yellow cursor-pointer transition-all bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:-translate-y-0.5 active:translate-y-0"
+        >
+          <Smartphone className="w-3.5 h-3.5" />
+          <span>Baixar / Instalar App</span>
+        </button>
+      </div>
+
+      <footer className="mt-4 text-center pb-6 select-none font-sans text-[10px] text-zinc-400 font-bold uppercase tracking-widest leading-loose">
         © 2026 VISU VENDAS • ARQUITETURA MULTI-TENANT EM FIREBASE
       </footer>
 
