@@ -75,6 +75,7 @@ export interface Client {
   id: string;
   name: string;
   cellphone: string;
+  cpf?: string;
   lastPurchaseDate?: string;
   lastPurchaseTime?: string;
   lastPurchaseTimestamp?: number;

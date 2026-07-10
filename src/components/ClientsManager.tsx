@@ -75,15 +75,25 @@ export default function ClientsManager({
   onAddQuickSale,
 }: ClientsManagerProps) {
   const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "name" | "cellphone" | "cpf">("all");
   const [isAdding, setIsAdding] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   // Form Fields
   const [name, setName] = useState("");
   const [cellphone, setCellphone] = useState("");
+  const [cpf, setCpf] = useState("");
   const [initialAmount, setInitialAmount] = useState("");
   const [description, setDescription] = useState("");
   const [warningDays, setWarningDays] = useState("");
+
+  const formatCPF = (value: string) => {
+    const clean = value.replace(/\D/g, "");
+    if (clean.length <= 3) return clean;
+    if (clean.length <= 6) return `${clean.slice(0, 3)}.${clean.slice(3)}`;
+    if (clean.length <= 9) return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6)}`;
+    return `${clean.slice(0, 3)}.${clean.slice(3, 6)}.${clean.slice(6, 9)}-${clean.slice(9, 11)}`;
+  };
 
   // Quick sale logger inline state
   const [activeQuickSaleId, setActiveQuickSaleId] = useState<string | null>(null);
@@ -92,10 +102,24 @@ export default function ClientsManager({
   // Filter clients
   const filteredClients = clients.filter((c) => {
     const term = search.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(term) ||
-      c.cellphone.replace(/\D/g, "").includes(term)
-    );
+    if (!term) return true;
+    const cleanCPF = c.cpf ? c.cpf.replace(/\D/g, "") : "";
+    const cleanPhone = c.cellphone.replace(/\D/g, "");
+    
+    if (searchField === "name") {
+      return c.name.toLowerCase().includes(term);
+    } else if (searchField === "cellphone") {
+      return c.cellphone.toLowerCase().includes(term) || cleanPhone.includes(term);
+    } else if (searchField === "cpf") {
+      return (c.cpf && c.cpf.toLowerCase().includes(term)) || cleanCPF.includes(term);
+    } else {
+      return (
+        c.name.toLowerCase().includes(term) ||
+        c.cellphone.replace(/\D/g, "").includes(term) ||
+        (c.cpf && c.cpf.toLowerCase().includes(term)) ||
+        cleanCPF.includes(term)
+      );
+    }
   });
 
   const handleRegisterClient = (e: React.FormEvent) => {
@@ -113,6 +137,7 @@ export default function ClientsManager({
       id: `client-${Date.now()}`,
       name: name.trim(),
       cellphone: cleanPhone,
+      cpf: cpf.trim() || undefined,
       description: description.trim() || undefined,
       warningDays: !isNaN(parsedDays) && parsedDays > 0 ? parsedDays : undefined,
     };
@@ -132,6 +157,7 @@ export default function ClientsManager({
     // Reset Form
     setName("");
     setCellphone("");
+    setCpf("");
     setInitialAmount("");
     setDescription("");
     setWarningDays("");
@@ -239,6 +265,20 @@ export default function ClientsManager({
             </div>
 
             <div className="flex flex-col gap-1">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                CPF (Opcional)
+              </label>
+              <input
+                type="text"
+                value={cpf}
+                onChange={(e) => setCpf(formatCPF(e.target.value))}
+                placeholder="Ex: 000.000.000-00"
+                maxLength={14}
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
               <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider" title="Opcional. Valor da compra se o cliente estiver comprando agora.">
                 Compra Inicial (R$ - Opcional)
               </label>
@@ -254,19 +294,6 @@ export default function ClientsManager({
             </div>
 
             <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
-                Descrição / Observações do Cliente
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
-                rows={2}
-                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange resize-none"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1 md:col-span-1">
               <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider" title="Período personalizado de dias após a última compra para alertar inatividade.">
                 Alerta de Inatividade (Dias)
               </label>
@@ -281,6 +308,19 @@ export default function ClientsManager({
               <span className="text-[10px] text-brand-muted dark:text-zinc-500 font-bold leading-none mt-1">
                 Tempo sem compras para disparar alerta.
               </span>
+            </div>
+
+            <div className="flex flex-col gap-1 md:col-span-3">
+              <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                Descrição / Observações do Cliente
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
+                rows={2}
+                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange resize-none"
+              />
             </div>
 
             <div className="md:col-span-3 flex justify-end mt-2">
@@ -337,16 +377,17 @@ export default function ClientsManager({
               />
             </div>
 
-            <div className="flex flex-col gap-1 md:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="font-sans text-xs font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
-                Descrição / Observações do Cliente
+                CPF (Opcional)
               </label>
-              <textarea
-                value={editingClient.description || ""}
-                onChange={(e) => setEditingClient({ ...editingClient, description: e.target.value })}
-                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
-                rows={2}
-                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00] resize-none"
+              <input
+                type="text"
+                value={editingClient.cpf || ""}
+                onChange={(e) => setEditingClient({ ...editingClient, cpf: formatCPF(e.target.value) })}
+                placeholder="Ex: 000.000.000-00"
+                maxLength={14}
+                className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[#1a1c1c] dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00]"
               />
             </div>
 
@@ -365,6 +406,19 @@ export default function ClientsManager({
               <span className="text-[10px] text-brand-muted dark:text-zinc-500 font-bold leading-none mt-1">
                 Período personalizado de dias para disparar o aviso de inatividade.
               </span>
+            </div>
+
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <label className="font-sans text-xs font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                Descrição / Observações do Cliente
+              </label>
+              <textarea
+                value={editingClient.description || ""}
+                onChange={(e) => setEditingClient({ ...editingClient, description: e.target.value })}
+                placeholder="Ex: Prefere receber novidades por WhatsApp, compra frequentemente presentes para familiares..."
+                rows={2}
+                className="p-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-[#fd8b00] resize-none"
+              />
             </div>
 
             <div className="md:col-span-2 flex justify-end gap-2 mt-2">
@@ -387,16 +441,52 @@ export default function ClientsManager({
       )}
 
       {/* Filter and Search */}
-      <section className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl">
+      <section className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-800 rounded-xl flex flex-col gap-4">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted dark:text-zinc-400 w-4 h-4" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome ou celular..."
+            placeholder={
+              searchField === "name"
+                ? "Buscar cliente pelo nome..."
+                : searchField === "cellphone"
+                ? "Buscar cliente pelo número/celular..."
+                : searchField === "cpf"
+                ? "Buscar cliente pelo CPF..."
+                : "Buscar por nome, celular ou CPF..."
+            }
             className="w-full h-10 pl-10 pr-4 border-2 border-brand-dark bg-[#f9f9f9] dark:bg-zinc-800 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange transition-all placeholder:text-brand-muted/50 text-brand-dark dark:text-zinc-100"
           />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-black text-brand-muted dark:text-zinc-400 uppercase tracking-wider mr-1">
+            Filtrar busca por:
+          </span>
+          {[
+            { id: "all", label: "🔍 Tudo" },
+            { id: "name", label: "👤 Nome" },
+            { id: "cellphone", label: "📞 Número" },
+            { id: "cpf", label: "🪪 CPF" },
+          ].map((field) => {
+            const isSelected = searchField === field.id;
+            return (
+              <button
+                key={field.id}
+                type="button"
+                onClick={() => setSearchField(field.id as any)}
+                className={`px-3 py-1.5 text-xs font-display font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer border-2 ${
+                  isSelected
+                    ? "bg-brand-orange text-brand-dark border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]"
+                    : "bg-zinc-50 dark:bg-zinc-850 text-zinc-500 dark:text-zinc-400 border-brand-dark/10 dark:border-zinc-850 hover:border-brand-dark/45"
+                }`}
+              >
+                {field.label}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -484,6 +574,11 @@ export default function ClientsManager({
                       <p className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 font-bold mt-0.5">
                         📞 {client.cellphone}
                       </p>
+                      {client.cpf && (
+                        <p className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 font-bold mt-0.5">
+                          🪪 CPF: {client.cpf}
+                        </p>
+                      )}
                     </div>
                     {statusBadge}
                   </div>

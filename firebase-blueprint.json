@@ -69,6 +69,7 @@
       "properties": {
         "name": { "type": "string", "description": "Client's full name" },
         "cellphone": { "type": "string", "description": "Client's cellular phone or whatsapp number" },
+        "cpf": { "type": "string", "description": "Client's optional CPF document registration number (Brazilian CPF format)" },
         "lastPurchaseDate": { "type": "string", "description": "Date of the last purchase" },
         "lastPurchaseTime": { "type": "string", "description": "Time of the last purchase" },
         "lastPurchaseTimestamp": { "type": "number", "description": "Timestamp metric in milliseconds for chrono tracking" },

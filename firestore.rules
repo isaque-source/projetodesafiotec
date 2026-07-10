@@ -63,6 +63,7 @@ service cloud.firestore {
       return client.keys().hasAll(['name', 'cellphone'])
         && client.name is string && client.name.size() <= 200
         && client.cellphone is string && client.cellphone.size() <= 50
+        && (!client.keys().hasAny(['cpf']) || client.cpf == null || (client.cpf is string && client.cpf.size() <= 30))
         && (!client.keys().hasAny(['lastPurchaseDate']) || client.lastPurchaseDate == null || (client.lastPurchaseDate is string && client.lastPurchaseDate.size() <= 30))
         && (!client.keys().hasAny(['lastPurchaseTime']) || client.lastPurchaseTime == null || (client.lastPurchaseTime is string && client.lastPurchaseTime.size() <= 10))
         && (!client.keys().hasAny(['lastPurchaseTimestamp']) || client.lastPurchaseTimestamp == null || client.lastPurchaseTimestamp is number)
