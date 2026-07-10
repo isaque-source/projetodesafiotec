@@ -144,6 +144,8 @@ export default function App() {
 
   // Modals state flags
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Sale | null>(null);
+  const [isViewingBudget, setIsViewingBudget] = useState(false);
   const [isAdjustGoalOpen, setIsAdjustGoalOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
 
@@ -1003,16 +1005,53 @@ export default function App() {
     setActiveTab("login");
   };
 
-  // Add Sale handler, deducting quantities
+  // Add Sale handler, deducting quantities (or adjusting them on edit)
   const handleAddSale = async (newSale: Sale) => {
-    const updatedSales = [newSale, ...sales];
+    const exists = sales.some(s => s.id === newSale.id);
+    const oldSale = exists ? sales.find(s => s.id === newSale.id) : null;
+    let updatedSales;
+    if (exists) {
+      updatedSales = sales.map(s => s.id === newSale.id ? newSale : s);
+    } else {
+      updatedSales = [newSale, ...sales];
+    }
     setSales(updatedSales);
 
-    // Deduct stock item quantity (do NOT deduct for budgets)
+    // Revert/Deduct stock item quantity
     let updatedInventory = inventory;
-    if (newSale.type !== "budget") {
+    
+    // 1. Revert old sale deduction if it exists, was a real sale (not budget), and not already canceled/returned
+    if (exists && oldSale && oldSale.type !== "budget" && oldSale.status !== "canceled" && oldSale.status !== "returned") {
+      if (oldSale.items && oldSale.items.length > 0) {
+        updatedInventory = updatedInventory.map((invItem) => {
+          const matchedSaleItem = oldSale.items?.find((i) => i.id === invItem.id);
+          if (matchedSaleItem) {
+            if (invItem.category === "Serviços") return invItem;
+            return {
+              ...invItem,
+              quantity: invItem.quantity + matchedSaleItem.quantity
+            };
+          }
+          return invItem;
+        });
+      } else {
+        updatedInventory = updatedInventory.map((item) => {
+          if (item.name === oldSale.itemDescription) {
+            if (item.category === "Serviços") return item;
+            return {
+              ...item,
+              quantity: item.quantity + oldSale.quantity
+            };
+          }
+          return item;
+        });
+      }
+    }
+
+    // 2. Deduct new sale quantity if it is a real sale (not budget), and active (not canceled/returned)
+    if (newSale.type !== "budget" && newSale.status !== "canceled" && newSale.status !== "returned") {
       if (newSale.items && newSale.items.length > 0) {
-        updatedInventory = inventory.map((invItem) => {
+        updatedInventory = updatedInventory.map((invItem) => {
           const matchedSaleItem = newSale.items?.find((i) => i.id === invItem.id);
           if (matchedSaleItem) {
             if (invItem.category === "Serviços") return invItem;
@@ -1024,12 +1063,12 @@ export default function App() {
           return invItem;
         });
       } else {
-        updatedInventory = inventory.map((item) => {
+        updatedInventory = updatedInventory.map((item) => {
           if (item.name === newSale.itemDescription) {
             if (item.category === "Serviços") return item;
             return {
               ...item,
-              quantity: item.quantity - newSale.quantity
+              quantity: Math.max(0, item.quantity - newSale.quantity)
             };
           }
           return item;
@@ -1044,21 +1083,14 @@ export default function App() {
       try {
         await addSaleDocument(activeUid, newSale);
         
-        // Find corresponding product item and update in db (if not budget)
-        if (newSale.type !== "budget") {
-          if (newSale.items && newSale.items.length > 0) {
-            for (const sItem of newSale.items) {
-              const matchingItem = inventory.find(i => i.id === sItem.id);
-              if (matchingItem && matchingItem.category !== "Serviços") {
-                await updateInventoryDocumentQty(activeUid, matchingItem.id, Math.max(0, matchingItem.quantity - sItem.quantity));
-              }
-            }
-          } else {
-            const matchingItem = inventory.find(i => i.name === newSale.itemDescription);
-            if (matchingItem && matchingItem.category !== "Serviços") {
-              await updateInventoryDocumentQty(activeUid, matchingItem.id, matchingItem.quantity - newSale.quantity);
-            }
-          }
+        // Find corresponding product item and update in db by detecting diff in updatedInventory
+        const itemsToUpdate = updatedInventory.filter((invItem) => {
+          const original = inventory.find(i => i.id === invItem.id);
+          return original && original.quantity !== invItem.quantity;
+        });
+
+        for (const item of itemsToUpdate) {
+          await updateInventoryDocumentQty(activeUid, item.id, item.quantity);
         }
       } catch (err) {
         console.error("Falha ao salvar venda no Firestore:", err);
@@ -1893,6 +1925,18 @@ export default function App() {
             onReturnSale={handleReturnSale}
             onExchangeItems={handleExchangeItems}
             onConfirmBudget={handleConfirmBudget}
+            onEditBudget={(budget) => {
+              setEditingBudget(budget);
+              setIsViewingBudget(false);
+            }}
+            onEditSale={(sale) => {
+              setEditingBudget(sale);
+              setIsViewingBudget(false);
+            }}
+            onViewBudget={(budget) => {
+              setEditingBudget(budget);
+              setIsViewingBudget(true);
+            }}
             inventory={inventory}
             goal={goal}
             expenses={expenses}
@@ -2053,10 +2097,16 @@ export default function App() {
         <NewSaleModal
           inventory={inventory}
           clients={clients}
-          isOpen={isNewSaleOpen}
-          onClose={() => setIsNewSaleOpen(false)}
+          isOpen={isNewSaleOpen || !!editingBudget}
+          onClose={() => {
+            setIsNewSaleOpen(false);
+            setEditingBudget(null);
+            setIsViewingBudget(false);
+          }}
           onAddSale={handleAddSale}
           employees={user.employees || []}
+          initialSale={editingBudget || undefined}
+          isReadOnly={isViewingBudget}
         />
       )}
 

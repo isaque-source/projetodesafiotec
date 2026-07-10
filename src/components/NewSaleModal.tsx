@@ -10,6 +10,8 @@ interface NewSaleModalProps {
   onClose: () => void;
   onAddSale: (sale: Sale) => void;
   employees?: Employee[];
+  initialSale?: Sale;
+  isReadOnly?: boolean;
 }
 
 interface CartItem {
@@ -21,7 +23,16 @@ interface CartItem {
   category: string;
 }
 
-export default function NewSaleModal({ inventory = [], clients = [], isOpen, onClose, onAddSale, employees = [] }: NewSaleModalProps) {
+export default function NewSaleModal({
+  inventory = [],
+  clients = [],
+  isOpen,
+  onClose,
+  onAddSale,
+  employees = [],
+  initialSale,
+  isReadOnly = false
+}: NewSaleModalProps) {
   const [transactionType, setTransactionType] = useState<"sale" | "budget">("sale");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Dinheiro");
@@ -76,24 +87,62 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
   useEffect(() => {
     if (!isOpen) return;
     
-    // Reset states
-    setCart([]);
-    setTransactionType("sale");
-    setSelectedClientId("");
-    setPaymentMethod("Dinheiro");
-    setInstallments(1);
-    setSelectedEmployeeEmail("");
-    setQuantity(1);
-    setCustomPrice("");
-    setDiscountPercent("");
-    setDiscountValue("");
-    setOverrideFinalValue("");
-    setLocalPercent("");
-    setLocalValue("");
-    setLocalFinalValue("");
-    setDescription("");
-    setErrorMsg("");
-    setAllowNegativeStock(false);
+    if (initialSale) {
+      const mappedCart: CartItem[] = (initialSale.items || []).map(it => {
+        const inv = inventory.find(i => i.id === it.id || i.name === it.name);
+        return {
+          id: it.id,
+          name: it.name,
+          quantity: it.quantity,
+          price: it.price,
+          code: it.code,
+          category: inv ? inv.category : ""
+        };
+      });
+      setCart(mappedCart);
+      setTransactionType(initialSale.type || "sale");
+      setSelectedClientId(initialSale.clientId || "");
+      setPaymentMethod(initialSale.paymentMethod || "Dinheiro");
+      setInstallments(initialSale.installments || 1);
+      setSelectedEmployeeEmail(initialSale.sellerEmail || "");
+      setQuantity(1);
+      setCustomPrice("");
+      setDiscountPercent(initialSale.discountPercent !== undefined ? initialSale.discountPercent.toString() : "");
+      setDiscountValue(initialSale.discountAmount !== undefined ? initialSale.discountAmount.toString() : "");
+      
+      if (initialSale.originalAmount && initialSale.originalAmount !== initialSale.amount) {
+        setOverrideFinalValue(initialSale.amount.toString());
+        setLocalFinalValue(initialSale.amount.toString());
+      } else {
+        setOverrideFinalValue("");
+        setLocalFinalValue("");
+      }
+      
+      setLocalPercent(initialSale.discountPercent !== undefined ? initialSale.discountPercent.toString() : "");
+      setLocalValue(initialSale.discountAmount !== undefined ? initialSale.discountAmount.toString() : "");
+      setDescription(initialSale.description || "");
+      setErrorMsg("");
+      setAllowNegativeStock(false);
+    } else {
+      // Reset states
+      setCart([]);
+      setTransactionType("sale");
+      setSelectedClientId("");
+      setPaymentMethod("Dinheiro");
+      setInstallments(1);
+      setSelectedEmployeeEmail("");
+      setQuantity(1);
+      setCustomPrice("");
+      setDiscountPercent("");
+      setDiscountValue("");
+      setOverrideFinalValue("");
+      setLocalPercent("");
+      setLocalValue("");
+      setLocalFinalValue("");
+      setDescription("");
+      setErrorMsg("");
+      setAllowNegativeStock(false);
+    }
 
     if (inventory.length > 0) {
       const first = inventory[0];
@@ -103,7 +152,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
       setSelectedItemId("");
       setSearchTerm("");
     }
-  }, [isOpen, inventory]);
+  }, [isOpen, inventory, initialSale]);
 
   // Handle active selected item description updates when dropdown selects
   useEffect(() => {
@@ -386,9 +435,9 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
     const sellerName = selectedEmployee ? selectedEmployee.name : "Dono (Admin)";
 
     const newSale: Sale = {
-      id: `sale-user-${Date.now()}`,
-      date: dateStr,
-      time: timeStr,
+      id: initialSale ? initialSale.id : `sale-user-${Date.now()}`,
+      date: initialSale ? initialSale.date : dateStr,
+      time: initialSale ? initialSale.time : timeStr,
       amount: finalAmount,
       itemDescription: itemsLabel,
       quantity: totalQuantity,
@@ -399,7 +448,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
       originalAmount: finalSubtotal,
       description: description.trim() !== "" ? description.trim() : undefined,
       type: transactionType,
-      status: "completed",
+      status: initialSale ? (initialSale.status || "completed") : "completed",
       items: saleItems,
       paymentMethod: transactionType === "sale" ? paymentMethod : undefined,
       installments: (transactionType === "sale" && paymentMethod === "credito") ? installments : undefined,
@@ -517,7 +566,13 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
             <GripHorizontal className="w-5 h-5 text-zinc-400 shrink-0 cursor-grab active:cursor-grabbing" />
             <ShoppingBag className="w-5 h-5 text-brand-dark fill-brand-yellow shrink-0" />
             <h3 className="font-display font-extrabold text-[#fd8b00] text-lg uppercase tracking-wide truncate">
-              {transactionType === "sale" ? "Registrar Nova Venda" : "Criar Orçamento de Itens"}
+              {initialSale 
+                ? isReadOnly 
+                  ? "Visualizar Orçamento" 
+                  : "Editar Orçamento" 
+                : transactionType === "sale" 
+                  ? "Registrar Nova Venda" 
+                  : "Criar Orçamento de Itens"}
             </h3>
           </div>
           <button
@@ -530,36 +585,38 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
         </div>
 
         {/* Transaction Type Choice Banner (Venda ou Orçamento) */}
-        <div className="mb-4 flex bg-zinc-100 p-1 rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setTransactionType("sale");
-              setErrorMsg("");
-            }}
-            className={`flex-1 py-1.5 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
-              transactionType === "sale"
-                ? "bg-brand-orange text-brand-dark border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-extrabold"
-                : "text-zinc-500 hover:text-brand-dark"
-            }`}
-          >
-            🏷️ registrar venda
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTransactionType("budget");
-              setErrorMsg("");
-            }}
-            className={`flex-1 py-1.5 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
-              transactionType === "budget"
-                ? "bg-brand-yellow text-brand-dark border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-extrabold"
-                : "text-zinc-500 hover:text-brand-dark"
-            }`}
-          >
-            📋 criar orçamento
-          </button>
-        </div>
+        {!initialSale && (
+          <div className="mb-4 flex bg-zinc-100 p-1 rounded-xl border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setTransactionType("sale");
+                setErrorMsg("");
+              }}
+              className={`flex-1 py-1.5 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                transactionType === "sale"
+                  ? "bg-brand-orange text-brand-dark border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-extrabold"
+                  : "text-zinc-500 hover:text-brand-dark"
+              }`}
+            >
+              🏷️ registrar venda
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTransactionType("budget");
+                setErrorMsg("");
+              }}
+              className={`flex-1 py-1.5 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                transactionType === "budget"
+                  ? "bg-brand-yellow text-brand-dark border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] font-extrabold"
+                  : "text-zinc-500 hover:text-brand-dark"
+              }`}
+            >
+              📋 criar orçamento
+            </button>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mb-4 p-3 bg-red-100 border-2 border-red-400 text-brand-dark text-xs font-bold rounded shrink-0 leading-relaxed">
@@ -572,7 +629,8 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
           <div className="flex-1 overflow-y-auto pr-1 space-y-4 pb-4 min-h-0 scrollbar-thin">
             
             {/* SEARCH AND ADD TO CART PANEL */}
-            <div className="p-4 bg-amber-500/5 rounded-xl border-2 border-dashed border-brand-dark space-y-3">
+            {!isReadOnly && (
+              <div className="p-4 bg-amber-500/5 rounded-xl border-2 border-dashed border-brand-dark space-y-3">
               <span className="font-display font-black text-[11px] text-zinc-900 uppercase tracking-widest block">
                 ⚡ Passo 1: Adicionar Produtos ao Carrinho de Compras
               </span>
@@ -741,6 +799,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                 </div>
               )}
             </div>
+            )}
 
             {/* SHOPPING CART OVERVIEW */}
             <div className="border-2 border-brand-dark rounded-xl p-4 bg-[#fbfbfb] space-y-3">
@@ -768,24 +827,30 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                         </span>
                       </div>
 
-                      {/* Quantity Incrementor */}
-                      <div className="flex items-center gap-1.5 shrink-0 bg-zinc-100 p-0.5 rounded border border-zinc-300 scale-95">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateCartItemQty(item.id, item.quantity - 1)}
-                          className="w-6 h-6 bg-white rounded border border-zinc-300 flex items-center justify-center hover:bg-brand-yellow text-zinc-600 font-bold font-mono"
-                        >
-                          -
-                        </button>
-                        <span className="font-display font-black text-xs w-5 text-center">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateCartItemQty(item.id, item.quantity + 1)}
-                          className="w-6 h-6 bg-white rounded border border-zinc-300 flex items-center justify-center hover:bg-brand-yellow text-zinc-600 font-bold font-mono"
-                        >
-                          +
-                        </button>
-                      </div>
+                      {/* Quantity Display or Incrementor */}
+                      {isReadOnly ? (
+                        <div className="shrink-0 bg-zinc-100 px-2.5 py-1 rounded border border-zinc-350">
+                          <span className="font-display font-black text-xs text-zinc-700">{item.quantity} un</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 shrink-0 bg-zinc-100 p-0.5 rounded border border-zinc-300 scale-95">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartItemQty(item.id, item.quantity - 1)}
+                            className="w-6 h-6 bg-white rounded border border-zinc-300 flex items-center justify-center hover:bg-brand-yellow text-zinc-600 font-bold font-mono"
+                          >
+                            -
+                          </button>
+                          <span className="font-display font-black text-xs w-5 text-center">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartItemQty(item.id, item.quantity + 1)}
+                            className="w-6 h-6 bg-white rounded border border-zinc-300 flex items-center justify-center hover:bg-brand-yellow text-zinc-600 font-bold font-mono"
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
 
                       {/* Line Item Total */}
                       <div className="text-right shrink-0 min-w-[70px]">
@@ -794,14 +859,16 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                         </span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFromCart(item.id)}
-                        className="w-7 h-7 bg-red-100 border border-red-300 text-red-600 rounded flex items-center justify-center cursor-pointer hover:bg-red-200"
-                        title="Remover"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromCart(item.id)}
+                          className="w-7 h-7 bg-red-100 border border-red-300 text-red-600 rounded flex items-center justify-center cursor-pointer hover:bg-red-200"
+                          title="Remover"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -821,7 +888,8 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
               <select
                 value={selectedClientId}
                 onChange={(e) => setSelectedClientId(e.target.value)}
-                className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg bg-white text-brand-dark font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00]"
+                disabled={isReadOnly}
+                className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg bg-white text-brand-dark font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00] disabled:bg-zinc-100 disabled:text-zinc-500"
               >
                 <option value="">Nenhum cliente (Venda Geral / Balcão)</option>
                 {clients.map((c) => (
@@ -857,7 +925,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       step="0.1"
                       min="0"
                       max="100"
-                      disabled={cartSubtotal === 0}
+                      disabled={isReadOnly || cartSubtotal === 0}
                       value={localPercent}
                       onChange={(e) => setLocalPercent(e.target.value)}
                       onFocus={(e) => e.target.select()}
@@ -888,7 +956,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       type="number"
                       step="0.01"
                       min="0"
-                      disabled={cartSubtotal === 0}
+                      disabled={isReadOnly || cartSubtotal === 0}
                       value={localValue}
                       onChange={(e) => setLocalValue(e.target.value)}
                       onFocus={(e) => e.target.select()}
@@ -918,7 +986,7 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       type="number"
                       step="0.01"
                       min="0"
-                      disabled={cartSubtotal === 0}
+                      disabled={isReadOnly || cartSubtotal === 0}
                       value={localFinalValue}
                       onChange={(e) => setLocalFinalValue(e.target.value)}
                       onFocus={(e) => e.target.select()}
@@ -958,8 +1026,9 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                       <button
                         key={method.id}
                         type="button"
+                        disabled={isReadOnly}
                         onClick={() => setPaymentMethod(method.id)}
-                        className={`h-9 border-2 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                        className={`h-9 border-2 font-display font-black text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-95 ${
                           isSelected
                             ? "bg-[#fd8b00] text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] translate-x-[1px] translate-y-[1px]"
                             : "bg-white hover:bg-zinc-50 text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[2px] active:shadow-none"
@@ -979,7 +1048,8 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                     <select
                       value={installments}
                       onChange={(e) => setInstallments(parseInt(e.target.value) || 1)}
-                      className="w-full h-9 px-2 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange font-bold text-brand-dark dark:text-white"
+                      disabled={isReadOnly}
+                      className="w-full h-9 px-2 border-2 border-brand-dark bg-white dark:bg-zinc-800 dark:text-white font-sans text-xs rounded-lg focus:outline-none focus:border-brand-orange font-bold text-brand-dark dark:text-white disabled:bg-zinc-100 disabled:text-zinc-500"
                     >
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
                         <option key={n} value={n}>
@@ -1001,7 +1071,8 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
                 <select
                   value={selectedEmployeeEmail}
                   onChange={(e) => setSelectedEmployeeEmail(e.target.value)}
-                  className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-brand-dark font-extrabold"
+                  disabled={isReadOnly}
+                  className="w-full h-11 px-3 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-brand-dark font-extrabold disabled:bg-zinc-100 disabled:text-zinc-500"
                   required
                 >
                   <option value="">Selecione quem realizou a venda...</option>
@@ -1023,9 +1094,10 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                disabled={isReadOnly}
                 placeholder="Exemplo: entregar no endereço, detalhes de customização, formas de parcelamento..."
                 rows={2}
-                className="w-full p-2.5 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-brand-dark font-medium placeholder-zinc-400"
+                className="w-full p-2.5 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-brand-dark font-medium placeholder-zinc-400 disabled:bg-zinc-100 disabled:text-zinc-500"
               />
             </div>
 
@@ -1055,22 +1127,34 @@ export default function NewSaleModal({ inventory = [], clients = [], isOpen, onC
 
           {/* Action buttons footer */}
           <div className="flex gap-3 pt-4 border-t border-brand-gray/40 shrink-0 bg-white">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 h-11 border-2 border-brand-dark text-brand-dark font-display font-bold text-sm rounded-lg hover:bg-brand-gray cursor-pointer transition-colors"
-            >
-              Fechar Janela
-            </button>
-            <button
-              type="submit"
-              className={`flex-1 h-11 text-brand-dark font-display font-bold text-sm border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                transactionType === "sale" ? "bg-brand-orange" : "bg-brand-yellow"
-              }`}
-            >
-              <Check className="w-4 h-4" />
-              <span>{transactionType === "sale" ? "Finalizar Venda" : "Salvar Orçamento"}</span>
-            </button>
+            {isReadOnly ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full h-11 border-2 border-brand-dark bg-zinc-900 text-white font-display font-bold text-sm rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors text-center"
+              >
+                Fechar Janela
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-11 border-2 border-brand-dark text-brand-dark font-display font-bold text-sm rounded-lg hover:bg-brand-gray cursor-pointer transition-colors"
+                >
+                  Fechar Janela
+                </button>
+                <button
+                  type="submit"
+                  className={`flex-1 h-11 text-brand-dark font-display font-bold text-sm border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                    transactionType === "sale" ? "bg-brand-orange" : "bg-brand-yellow"
+                  }`}
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{transactionType === "sale" ? "Finalizar Venda" : "Salvar Orçamento"}</span>
+                </button>
+              </>
+            )}
           </div>
         </form>
       </motion.div>

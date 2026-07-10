@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   X,
   Printer,
-  Share2
+  Share2,
+  Eye,
+  Edit
 } from "lucide-react";
 import { User, Sale, Goal, InventoryItem, Expense } from "../types";
 
@@ -41,6 +43,9 @@ interface SalesHistoryProps {
     customDiffValue?: number
   ) => void;
   onConfirmBudget?: (id: string, allowNegativeStock?: boolean) => Promise<{ success: boolean; message?: string }>;
+  onEditBudget?: (budget: Sale) => void;
+  onEditSale?: (sale: Sale) => void;
+  onViewBudget?: (budget: Sale) => void;
   inventory: InventoryItem[];
   goal?: Goal;
   expenses?: Expense[];
@@ -187,6 +192,21 @@ const MONTHS_PT = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
+function isWithin24Hours(sale: Sale): boolean {
+  if (!sale.date || !sale.time) return false;
+  try {
+    const [year, month, day] = sale.date.split("-").map(Number);
+    const [hour, minute] = sale.time.split(":").map(Number);
+    const saleDate = new Date(year, month - 1, day, hour, minute);
+    const now = new Date();
+    const diffMs = now.getTime() - saleDate.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours >= 0 && diffHours <= 24;
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function SalesHistory({ 
   user,
   sales = [], 
@@ -195,6 +215,9 @@ export default function SalesHistory({
   onReturnSale, 
   onExchangeItems, 
   onConfirmBudget,
+  onEditBudget,
+  onEditSale,
+  onViewBudget,
   inventory = [], 
   goal,
   expenses = []
@@ -656,7 +679,12 @@ NÃO É DOCUMENTO FISCAL
     const defaultType = sale.type || "sale";
     if (defaultType !== typeFilter) return false;
 
-    const matchesSearch = sale.itemDescription.toLowerCase().includes(search.toLowerCase());
+    const searchLower = search.toLowerCase();
+    const matchesSearch = 
+      sale.itemDescription.toLowerCase().includes(searchLower) ||
+      (sale.clientName && sale.clientName.toLowerCase().includes(searchLower)) ||
+      sale.id.toLowerCase().includes(searchLower) ||
+      (sale.items && sale.items.some(it => it.name.toLowerCase().includes(searchLower)));
     
     // Check if within selectedMonth (YYYY-MM)
     const saleMonth = sale.date ? sale.date.substring(0, 7) : "";
@@ -980,120 +1008,428 @@ NÃO É DOCUMENTO FISCAL
                 const isExchanged = sale.status === "exchanged";
                 const showsExchangePanel = exchangeSaleId === sale.id;
 
+                if (typeFilter === "budget") {
+                  const budgetNum = sale.id.replace("sale-user-", "").slice(-6).toUpperCase();
+                  return (
+                    <div
+                      key={sale.id}
+                      className={`bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-850 rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] transition-all hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] border-l-8 ${
+                        isCanceled 
+                          ? "border-l-red-500 opacity-60 bg-zinc-50" 
+                          : "border-l-brand-yellow hover:bg-[#fffdf9]/45 dark:hover:bg-zinc-800/10"
+                      }`}
+                    >
+                      {/* Budget Header */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-2 border-dashed border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 bg-brand-yellow/10 border-2 border-brand-dark rounded-lg flex items-center justify-center shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)]">
+                            <FolderClock className="w-5 h-5 text-[#d97706]" />
+                          </div>
+                          <div>
+                            <span className="font-display font-extrabold text-sm text-zinc-900 dark:text-zinc-100 block">
+                              Orçamento #{budgetNum}
+                            </span>
+                            <span className="font-mono text-[10px] text-zinc-400 font-bold block">
+                              Ref: {sale.id}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isCanceled ? (
+                            <span className="font-sans text-[10px] font-black bg-red-600 text-white border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1">
+                              <Ban className="w-3 h-3" /> CANCELADO
+                            </span>
+                          ) : (
+                            <span className="font-sans text-[10px] font-black bg-brand-yellow text-brand-dark border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                              </span>
+                              Orçamento Em Aberto
+                            </span>
+                          )}
+
+                          <span className="font-mono text-[10px] bg-zinc-100 dark:bg-zinc-850 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded font-bold">
+                            📅 {sale.date} às {sale.time}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Client Header Info */}
+                      <div className="mb-4 bg-zinc-50 dark:bg-zinc-950/35 border-2 border-brand-dark p-3 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">👤</span>
+                          <div>
+                            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Destinatário / Cliente:</span>
+                            <span className="font-display font-extrabold text-sm text-brand-dark dark:text-zinc-200">
+                              {sale.clientName || "Consumidor Final (Venda Geral)"}
+                            </span>
+                          </div>
+                        </div>
+                        {sale.sellerName && (
+                          <div className="flex items-center gap-1.5 sm:border-l sm:border-zinc-300 dark:sm:border-zinc-800 sm:pl-4">
+                            <span className="text-xs">💼</span>
+                            <div>
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Vendedor Responsável:</span>
+                              <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">{sale.sellerName}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Items Detailed Breakdown - Table Layout */}
+                      <div className="mb-4 border-2 border-brand-dark dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+                        <div className="bg-zinc-100 dark:bg-zinc-800/80 px-3 py-1.5 border-b-2 border-brand-dark dark:border-zinc-850 flex items-center justify-between">
+                          <span className="text-[10px] font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                            📋 Relação de Itens e Serviços do Orçamento
+                          </span>
+                          <span className="text-[10px] bg-[#fff9e6] dark:bg-yellow-950/40 text-[#fd8b00] border border-[#ffe699] font-black px-1.5 py-0.5 rounded">
+                            {sale.items?.length || 0} {(sale.items?.length || 0) === 1 ? 'item' : 'itens'}
+                          </span>
+                        </div>
+
+                        {sale.items && sale.items.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-zinc-50 dark:bg-zinc-950/20 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                                  <th className="p-2.5 pl-3">Produto / Serviço</th>
+                                  <th className="p-2.5 text-center w-16">Qtd</th>
+                                  <th className="p-2.5 text-right w-28">Preço Unit.</th>
+                                  <th className="p-2.5 text-right w-28 pr-3">Subtotal</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                {sale.items.map((it, idx) => (
+                                  <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-850/10 transition-colors">
+                                    <td className="p-2.5 pl-3 font-semibold text-brand-dark dark:text-zinc-200">
+                                      <div className="flex flex-col">
+                                        <span>{it.name}</span>
+                                        {it.code && <span className="text-[9px] text-zinc-400 font-mono font-bold">Cód: #{it.code}</span>}
+                                      </div>
+                                    </td>
+                                    <td className="p-2.5 text-center font-bold text-zinc-700 dark:text-zinc-300">
+                                      <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md font-mono text-xs">
+                                        x{it.quantity}
+                                      </span>
+                                    </td>
+                                    <td className="p-2.5 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                                      R$ {it.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="p-2.5 text-right font-bold font-mono text-brand-dark dark:text-zinc-200 pr-3">
+                                      R$ {(it.price * it.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="p-4 text-center font-bold text-zinc-500 uppercase text-xs">
+                            {sale.itemDescription}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Anotação de lançamento / Notes section */}
+                      {sale.description && (
+                        <div className="mb-4 p-3 bg-amber-50/60 dark:bg-amber-950/10 border-2 border-dashed border-amber-300 dark:border-amber-900/40 rounded-lg text-xs text-zinc-800 dark:text-zinc-300 leading-relaxed">
+                          📌 <b className="font-bold text-amber-850 dark:text-amber-400 uppercase tracking-wide text-[10px] block mb-1">Observações do Orçamento:</b>
+                          <p className="font-medium whitespace-pre-wrap">{sale.description}</p>
+                        </div>
+                      )}
+
+                      {/* Totals Summary and Actions Grid */}
+                      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-end gap-4 bg-zinc-50 dark:bg-zinc-950/20 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                        {/* Financial breakdown */}
+                        <div className="space-y-1 md:max-w-xs w-full">
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block">Resumo Financeiro</span>
+                          <div className="space-y-1.5 text-xs">
+                            <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
+                              <span>Subtotal bruto:</span>
+                              <span className="font-mono font-bold">R$ {sale.originalAmount ? sale.originalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : sale.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            {sale.discountAmount && sale.discountPercent && (
+                              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                                <span className="flex items-center gap-1">🏷️ Desconto Especial (-{sale.discountPercent}%):</span>
+                                <span className="font-mono">- R$ {sale.discountAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                              <span className="font-display font-black text-brand-dark dark:text-zinc-200 uppercase tracking-wide text-xs">Valor Total Estimado:</span>
+                              <span className="font-display font-black text-base md:text-lg text-brand-dark dark:text-white bg-brand-yellow/20 border-2 border-brand-dark rounded-lg px-2.5 py-0.5 shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">
+                                R$ {sale.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Budget Specific Actions toolbar */}
+                        <div className="flex flex-wrap items-center gap-2 justify-end flex-1 min-w-0">
+                          {/* Cancel/Delete Budget */}
+                          {!isCanceled && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm("Deseja realmente cancelar e excluir permanentemente este orçamento do aplicativo?")) {
+                                  onRemoveSale(sale.id);
+                                }
+                              }}
+                              className="h-9 px-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold animate-pulse"
+                              title="Cancelar orçamento definitivamente"
+                            >
+                              <Ban className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden lg:inline">Excluir</span>
+                            </button>
+                          )}
+
+                          {/* Print budget */}
+                          <button
+                            type="button"
+                            onClick={() => setActivePrintSale(sale)}
+                            className="h-9 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-750 border border-indigo-200 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold"
+                            title="Imprimir Cupom do Orçamento"
+                          >
+                            <Printer className="w-3.5 h-3.5 shrink-0" />
+                            <span className="hidden sm:inline">Imprimir</span>
+                          </button>
+
+                          {/* WhatsApp sharing */}
+                          <a
+                            href={generateWhatsAppShareUrl(sale)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-9 px-3 rounded-lg bg-green-50 hover:bg-green-100 text-green-750 border border-green-200 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0 no-underline"
+                            title="Enviar Orçamento para o WhatsApp do cliente"
+                          >
+                            <Share2 className="w-3.5 h-3.5 shrink-0" />
+                            <span className="hidden sm:inline">WhatsApp</span>
+                          </a>
+
+                          {/* Visualizar */}
+                          {onViewBudget && (
+                            <button
+                              type="button"
+                              onClick={() => onViewBudget(sale)}
+                              className="h-9 px-3 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-750 border border-zinc-300 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0"
+                              title="Visualizar Detalhes"
+                            >
+                              <Eye className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">Visualizar</span>
+                            </button>
+                          )}
+
+                          {/* Editar */}
+                          {!isCanceled && onEditBudget && (
+                            <button
+                              type="button"
+                              onClick={() => onEditBudget(sale)}
+                              className="h-9 px-3 rounded-lg bg-[#fff9e6] hover:bg-[#fff0cc] text-[#fd8b00] border border-[#ffe699] flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0"
+                              title="Alterar itens ou valores do orçamento"
+                            >
+                              <Edit className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </button>
+                          )}
+
+                          {/* Approve & Convert to Sale - Highlighted Emerald Trigger! */}
+                          {!isCanceled && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (onConfirmBudget) {
+                                  const res = await onConfirmBudget(sale.id, false);
+                                  if (res.success) {
+                                    alert("Orçamento confirmado com sucesso! Convertido em venda realizada.");
+                                    setTypeFilter("sale");
+                                    setDateFilter("Todos");
+                                  } else {
+                                    if (confirm(res.message || "Estoque insuficiente. Deseja forçar a conversão mesmo assim?")) {
+                                      const retryRes = await onConfirmBudget(sale.id, true);
+                                      if (retryRes.success) {
+                                        alert("Orçamento confirmado com sucesso! Convertido em venda realizada.");
+                                        setTypeFilter("sale");
+                                        setDateFilter("Todos");
+                                      } else {
+                                        alert(retryRes.message || "Falha ao converter orçamento.");
+                                      }
+                                    }
+                                  }
+                                }
+                              }}
+                              className="h-9 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-black text-xs uppercase tracking-wider border-2 border-brand-dark rounded-lg shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                              title="Aprovar este orçamento e registrar como venda realizada, baixando itens do estoque"
+                            >
+                              <CheckCircle className="w-4 h-4 shrink-0" />
+                              <span>Faturar / Vender 🚀</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={sale.id}
-                    className={`bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-850 p-5 rounded-xl transition-all shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] ${
+                    className={`bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-850 rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] transition-all hover:shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] border-l-8 ${
                       isCanceled 
-                        ? "opacity-60 bg-zinc-50 border-zinc-400 text-zinc-500" 
+                        ? "border-l-red-500 opacity-60 bg-zinc-50 dark:bg-zinc-950/20" 
                         : isReturned 
-                        ? "border-amber-600 bg-amber-50/10" 
-                        : "hover:bg-brand-gray/10 dark:hover:bg-zinc-800/20"
+                        ? "border-l-amber-500 bg-amber-50/10 dark:bg-zinc-900/10" 
+                        : isExchanged 
+                        ? "border-l-blue-500 bg-blue-50/10 dark:bg-zinc-900/10" 
+                        : "border-l-emerald-500 hover:bg-emerald-50/10 dark:hover:bg-zinc-800/10"
                     }`}
                   >
-                    <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+                    <div className="flex flex-col gap-4 w-full">
                       {/* Left Column: Icon and metadata details */}
-                      <div className="flex items-start gap-4 min-w-0 flex-1">
-                        <div className={`w-11 h-11 border border-brand-dark rounded-xl flex items-center justify-center flex-shrink-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
-                          isCanceled 
-                            ? "bg-zinc-300 border-zinc-400" 
-                            : isReturned 
-                            ? "bg-amber-100 border-amber-650"
-                            : typeFilter === "budget"
-                            ? "bg-yellow-105 border-brand-yellow"
-                            : "bg-orange-100 border-brand-orange"
-                        }`}>
-                          {typeFilter === "budget" ? (
-                            <FolderClock className="w-5 h-5 text-brand-dark" />
-                          ) : (
-                            <ShoppingBag className="w-5 h-5 text-brand-dark" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className={`font-display font-black text-sm text-white bg-zinc-900 border-2 border-brand-dark rounded-lg inline-block px-2.5 py-1 uppercase tracking-wide truncate ${
-                              isCanceled ? "line-through border-zinc-500 bg-zinc-400" : ""
+                      <div className="min-w-0 flex-1">
+                        {/* Header section */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-2 border-dashed border-zinc-200 dark:border-zinc-800 pb-3 mb-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 border-2 border-brand-dark rounded-lg flex items-center justify-center shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] ${
+                              isCanceled 
+                                ? "bg-red-100" 
+                                : isReturned 
+                                ? "bg-amber-100" 
+                                : isExchanged 
+                                ? "bg-blue-100" 
+                                : "bg-emerald-100"
                             }`}>
-                              {sale.itemDescription && sale.itemDescription.length > 55 
-                                ? sale.itemDescription.substring(0, 52) + "..." 
-                                : sale.itemDescription || "Transação Geral"}
-                            </h4>
+                              <ShoppingBag className={`w-5 h-5 ${
+                                isCanceled 
+                                  ? "text-red-650" 
+                                  : isReturned 
+                                  ? "text-amber-650" 
+                                  : isExchanged 
+                                  ? "text-blue-650" 
+                                  : "text-emerald-650"
+                              }`} />
+                            </div>
+                            <div>
+                              <span className="font-display font-extrabold text-sm text-zinc-900 dark:text-zinc-100 block">
+                                Venda Realizada #{sale.id.replace("sale-user-", "").slice(-6).toUpperCase()}
+                              </span>
+                              <span className="font-mono text-[10px] text-zinc-400 font-bold block">
+                                Ref: {sale.id}
+                              </span>
+                            </div>
+                          </div>
 
-                            {/* Tags based on status */}
+                          {/* Status Badges */}
+                          <div className="flex flex-wrap items-center gap-2">
                             {isCanceled && (
-                              <span className="font-sans text-[10px] font-black bg-red-600 text-white border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-0.5">
+                              <span className="font-sans text-[10px] font-black bg-red-600 text-white border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] flex items-center gap-1">
                                 <Ban className="w-3 h-3" /> CANCELADA
                               </span>
                             )}
                             {isReturned && (
-                              <span className="font-sans text-[10px] font-black bg-amber-500 text-brand-dark border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-0.5">
-                                <Undo2 className="w-3 h-3" /> DEVOLVIDA (RESTOCK)
+                              <span className="font-sans text-[10px] font-black bg-amber-500 text-brand-dark border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] flex items-center gap-1">
+                                <Undo2 className="w-3 h-3" /> DEVOLVIDA
                               </span>
                             )}
                             {isExchanged && (
-                              <span className="font-sans text-[10px] font-black bg-blue-500 text-white border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center gap-0.5">
+                              <span className="font-sans text-[10px] font-black bg-blue-500 text-white border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] flex items-center gap-1">
                                 <RefreshCw className="w-3 h-3" /> TROCADO
                               </span>
                             )}
-                            {typeFilter === "budget" && !isCanceled && (
-                              <span className="font-sans text-[10px] font-black bg-brand-yellow text-brand-dark border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] inline-block">
-                                ORÇAMENTO
+                            {!isCanceled && !isReturned && !isExchanged && (
+                              <span className="font-sans text-[10px] font-black bg-emerald-500 text-white border-2 border-brand-dark px-2 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] flex items-center gap-1">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                                </span>
+                                Faturada / Concluída
                               </span>
                             )}
 
-                            {sale.discountAmount && sale.discountPercent && (
-                              <span className="font-sans text-[10px] font-black bg-brand-yellow text-brand-dark border-2 border-brand-dark px-1.5 py-0.5 rounded uppercase shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] flex items-center shrink-0">
-                                🏷️ -{sale.discountPercent}%
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-brand-muted dark:text-zinc-400 font-bold mt-2">
-                            <span>{sale.date} às {sale.time}</span>
-                            {sale.clientName && (
-                              <>
-                                <span>•</span>
-                                <span className="text-brand-orange">👤 Cliente: {sale.clientName}</span>
-                              </>
-                            )}
-                            <span>•</span>
-                            <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded uppercase text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-                              {sale.quantity} itens no lançamento
+                            <span className="font-mono text-[10px] bg-zinc-100 dark:bg-zinc-850 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 px-2 py-1 rounded font-bold">
+                              📅 {sale.date} às {sale.time}
                             </span>
-                            {sale.paymentMethod && (
-                              <>
-                                <span>•</span>
-                                <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-black uppercase">
-                                  💵 {sale.paymentMethod.toLowerCase() === "credito" && sale.installments
-                                    ? `Crédito (${sale.installments}x)`
-                                    : sale.paymentMethod}
-                                </span>
-                              </>
-                            )}
-                            {sale.sellerName && (
-                              <>
-                                <span>•</span>
-                                <span className="bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-800 px-1.5 py-0.5 rounded text-[10px] font-black uppercase">
-                                  👤 Vendedor: {sale.sellerName}
-                                </span>
-                              </>
-                            )}
+                          </div>
+                        </div>
+
+                        {/* Client & Seller Card */}
+                        <div className="mb-4 bg-zinc-50 dark:bg-zinc-950/35 border-2 border-brand-dark p-3 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">👤</span>
+                            <div>
+                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Destinatário / Cliente:</span>
+                              <span className="font-display font-extrabold text-sm text-brand-dark dark:text-zinc-200">
+                                {sale.clientName || "Consumidor Final (Venda Geral)"}
+                              </span>
+                            </div>
+                          </div>
+                          {sale.sellerName && (
+                            <div className="flex items-center gap-1.5 sm:border-l sm:border-zinc-300 dark:sm:border-zinc-800 sm:pl-4">
+                              <span className="text-xs">💼</span>
+                              <div>
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Vendedor Responsável:</span>
+                                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">{sale.sellerName}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Table / List layout of items */}
+                        <div className="mb-4 border-2 border-brand-dark dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
+                          <div className="bg-zinc-100 dark:bg-zinc-800/80 px-3 py-1.5 border-b-2 border-brand-dark dark:border-zinc-850 flex items-center justify-between">
+                            <span className="text-[10px] font-black text-brand-dark dark:text-zinc-300 uppercase tracking-wider">
+                              📋 Relação de Itens da Venda
+                            </span>
+                            <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 font-black px-1.5 py-0.5 rounded">
+                              {sale.items?.length || 1} {(sale.items?.length || 1) === 1 ? 'item' : 'itens'}
+                            </span>
                           </div>
 
-                          {/* Render sub-item details breakdown if available */}
-                          {sale.items && sale.items.length > 0 && (
-                            <div className="mt-2.5 p-2 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800 rounded-lg space-y-1">
-                              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">📋 Itens Detalhados:</span>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-brand-dark dark:text-zinc-300">
-                                {sale.items.map((it, idx) => (
-                                  <div key={idx} className="flex items-center gap-1">
-                                    <span className="text-zinc-400 font-bold">•</span>
-                                    <span className="font-semibold">{it.name}</span>
-                                    <span className="bg-zinc-200 dark:bg-zinc-850 px-1 rounded text-[10px] font-black">{it.quantity}x</span>
-                                    <span className="text-[10px] text-zinc-400">({it.code ? `#${it.code}` : `R$ ${it.price.toFixed(2)}`})</span>
-                                  </div>
-                                ))}
-                              </div>
+                          {sale.items && sale.items.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-zinc-50 dark:bg-zinc-950/20 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                                    <th className="p-2.5 pl-3">Produto / Serviço</th>
+                                    <th className="p-2.5 text-center w-16">Qtd</th>
+                                    <th className="p-2.5 text-right w-28">Preço Unit.</th>
+                                    <th className="p-2.5 text-right w-28 pr-3">Subtotal</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                  {sale.items.map((it, idx) => (
+                                    <tr key={idx} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-850/10 transition-colors">
+                                      <td className="p-2.5 pl-3 font-semibold text-brand-dark dark:text-zinc-200">
+                                        <div className="flex flex-col">
+                                          <span>{it.name}</span>
+                                          {it.code && <span className="text-[9px] text-zinc-400 font-mono font-bold">Cód: #{it.code}</span>}
+                                        </div>
+                                      </td>
+                                      <td className="p-2.5 text-center font-bold text-zinc-700 dark:text-zinc-300">
+                                        <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md font-mono text-xs">
+                                          x{it.quantity}
+                                        </span>
+                                      </td>
+                                      <td className="p-2.5 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                                        R$ {it.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="p-2.5 text-right font-bold font-mono text-brand-dark dark:text-zinc-200 pr-3">
+                                        R$ {(it.price * it.quantity).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="p-4 text-center font-bold text-zinc-700 dark:text-zinc-300 uppercase text-xs flex justify-between items-center bg-white dark:bg-zinc-900">
+                              <span>{sale.itemDescription || "Transação Geral"}</span>
+                              {sale.quantity && (
+                                <span className="bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md font-mono text-xs">
+                                  x{sale.quantity}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1122,6 +1458,19 @@ NÃO É DOCUMENTO FISCAL
                         {/* Interactive operations sidebar */}
                         <div className="flex items-center gap-2 justify-start sm:justify-end">
                           
+                          {/* Editar Venda (Only within 24h, active sales only) */}
+                          {typeFilter === "sale" && !isCanceled && !isReturned && onEditSale && isWithin24Hours(sale) && (
+                            <button
+                              type="button"
+                              onClick={() => onEditSale(sale)}
+                              className="h-8 px-2.5 rounded-lg bg-[#fff9e6] hover:bg-[#fff0cc] text-[#fd8b00] border border-[#ffe699] flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0"
+                              title="Editar os itens ou dados desta venda (Disponível apenas por 24h após a venda)"
+                            >
+                              <Edit className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">Editar Venda</span>
+                            </button>
+                          )}
+
                           {/* Cancel button: can cancel active sales or budgets */}
                           {!isCanceled && !isReturned && (
                             <button
@@ -1192,6 +1541,32 @@ NÃO É DOCUMENTO FISCAL
                             <Share2 className="w-3.5 h-3.5 shrink-0" />
                             <span className="hidden sm:inline">WhatsApp</span>
                           </a>
+
+                          {/* Visualizar Orçamento button */}
+                          {(sale.type || "sale") === "budget" && onViewBudget && (
+                            <button
+                              type="button"
+                              onClick={() => onViewBudget(sale)}
+                              className="h-8 px-2.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-300 flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0"
+                              title="Visualizar Detalhes do Orçamento"
+                            >
+                              <Eye className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">Visualizar</span>
+                            </button>
+                          )}
+
+                          {/* Editar Orçamento button */}
+                          {(sale.type || "sale") === "budget" && !isCanceled && onEditBudget && (
+                            <button
+                              type="button"
+                              onClick={() => onEditBudget(sale)}
+                              className="h-8 px-2.5 rounded-lg bg-[#fff9e6] hover:bg-[#fff0cc] text-[#fd8b00] border border-[#ffe699] flex items-center justify-center gap-1 transition-colors cursor-pointer text-xs font-bold shrink-0"
+                              title="Editar Orçamento"
+                            >
+                              <Edit className="w-3.5 h-3.5 shrink-0" />
+                              <span className="hidden sm:inline">Editar</span>
+                            </button>
+                          )}
 
                           {/* Confirm budget details button - only for active budget items */}
                           {(sale.type || "sale") === "budget" && !isCanceled && (
