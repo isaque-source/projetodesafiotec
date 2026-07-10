@@ -33,14 +33,13 @@ function ClientChrono({ timestamp }: { timestamp?: number }) {
       const days = Math.floor(totalSeconds / (3600 * 24));
       const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
 
       const pad = (n: number) => String(n).padStart(2, "0");
 
       if (days > 0) {
-        return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+        return `${days}d ${pad(hours)}h ${pad(minutes)}m`;
       }
-      return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+      return `${pad(hours)}h ${pad(minutes)}m`;
     };
 
     setElapsed(calculateElapsed() || "");
