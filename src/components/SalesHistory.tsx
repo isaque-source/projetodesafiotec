@@ -225,6 +225,7 @@ export default function SalesHistory({
   const [viewMode, setViewMode] = useState<"individual" | "monthly">("individual");
   const [typeFilter, setTypeFilter] = useState<"sale" | "budget">("sale");
   const [search, setSearch] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "client" | "date" | "seller" | "code">("all");
   const [dateFilter, setDateFilter] = useState("Todos");
   const currentMonthStr = new Date().toISOString().substring(0, 7);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
@@ -680,11 +681,27 @@ NÃO É DOCUMENTO FISCAL
     if (defaultType !== typeFilter) return false;
 
     const searchLower = search.toLowerCase();
-    const matchesSearch = 
-      sale.itemDescription.toLowerCase().includes(searchLower) ||
-      (sale.clientName && sale.clientName.toLowerCase().includes(searchLower)) ||
-      sale.id.toLowerCase().includes(searchLower) ||
-      (sale.items && sale.items.some(it => it.name.toLowerCase().includes(searchLower)));
+    let matchesSearch = true;
+    if (searchLower) {
+      if (searchField === "client") {
+        matchesSearch = !!(sale.clientName && sale.clientName.toLowerCase().includes(searchLower));
+      } else if (searchField === "date") {
+        const formattedDatePT = sale.date ? sale.date.split("-").reverse().join("/") : "";
+        matchesSearch = !!(sale.date && (sale.date.includes(searchLower) || formattedDatePT.includes(searchLower)));
+      } else if (searchField === "seller") {
+        matchesSearch = !!(sale.sellerName && sale.sellerName.toLowerCase().includes(searchLower));
+      } else if (searchField === "code") {
+        const codeShort = sale.id.replace("sale-user-", "").slice(-6).toUpperCase();
+        matchesSearch = !!(sale.id.toLowerCase().includes(searchLower) || codeShort.toLowerCase().includes(searchLower));
+      } else {
+        matchesSearch = 
+          sale.itemDescription.toLowerCase().includes(searchLower) ||
+          (sale.clientName && sale.clientName.toLowerCase().includes(searchLower)) ||
+          sale.id.toLowerCase().includes(searchLower) ||
+          (sale.sellerName && sale.sellerName.toLowerCase().includes(searchLower)) ||
+          (sale.items && sale.items.some(it => it.name.toLowerCase().includes(searchLower)));
+      }
+    }
     
     // Check if within selectedMonth (YYYY-MM)
     const saleMonth = sale.date ? sale.date.substring(0, 7) : "";
@@ -982,20 +999,57 @@ NÃO É DOCUMENTO FISCAL
           </section>
 
           {/* Search Bar */}
-          <section className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-850 rounded-xl flex items-center gap-2">
-            <div className="relative flex-1">
+          <section className="bg-white dark:bg-zinc-900 p-4 border-2 border-brand-dark dark:border-zinc-850 rounded-xl flex flex-col gap-4">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted dark:text-zinc-400 w-4 h-4" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={
-                  typeFilter === "sale" 
-                    ? "Buscar venda por termo..." 
-                    : "Buscar orçamentos pelo nome gerado..."
+                  searchField === "client"
+                    ? "Buscar por nome do cliente..."
+                    : searchField === "date"
+                    ? "Buscar por data (ex: 2026-07-10 ou 10/07/2026)..."
+                    : searchField === "seller"
+                    ? "Buscar por nome do vendedor..."
+                    : searchField === "code"
+                    ? "Buscar por código da venda/orçamento..."
+                    : typeFilter === "sale" 
+                    ? "Buscar venda por termo, cliente, data, vendedor ou código..." 
+                    : "Buscar orçamentos por termo, cliente, data, vendedor ou código..."
                 }
                 className="w-full h-10 pl-10 pr-4 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-primary dark:focus:border-brand-orange"
               />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black text-brand-muted dark:text-zinc-400 uppercase tracking-wider mr-1">
+                Filtrar busca por:
+              </span>
+              {[
+                { id: "all", label: "🔍 Tudo" },
+                { id: "client", label: "👤 Cliente" },
+                { id: "date", label: "📅 Data" },
+                { id: "seller", label: "💼 Vendedor" },
+                { id: "code", label: "🔢 Código" },
+              ].map((field) => {
+                const isSelected = searchField === field.id;
+                return (
+                  <button
+                    key={field.id}
+                    type="button"
+                    onClick={() => setSearchField(field.id as any)}
+                    className={`px-3 py-1.5 text-xs font-display font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer border-2 ${
+                      isSelected
+                        ? "bg-brand-orange text-brand-dark border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]"
+                        : "bg-zinc-50 dark:bg-zinc-850 text-zinc-500 dark:text-zinc-400 border-brand-dark/10 dark:border-zinc-850 hover:border-brand-dark/45"
+                    }`}
+                  >
+                    {field.label}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
