@@ -51,6 +51,11 @@ export interface Sale {
   sellerName?: string;
 }
 
+export interface CostComponent {
+  name: string;
+  value: number;
+}
+
 export interface InventoryItem {
   id: string;
   code?: string;
@@ -63,6 +68,7 @@ export interface InventoryItem {
   costPrice?: number;
   profitMargin?: number;
   description?: string;
+  customCosts?: CostComponent[];
 }
 
 export interface Client {

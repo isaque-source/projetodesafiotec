@@ -37,6 +37,12 @@ export default function InventoryManager({
   const [newItemCostPrice, setNewItemCostPrice] = useState("");
   const [newItemProfitMargin, setNewItemProfitMargin] = useState("");
 
+  // Custom cost states for New Product
+  const [isNewCustomCostActive, setIsNewCustomCostActive] = useState(false);
+  const [newCustomCosts, setNewCustomCosts] = useState<{ name: string; value: number }[]>([]);
+  const [newCustomCostName, setNewCustomCostName] = useState("");
+  const [newCustomCostValue, setNewCustomCostValue] = useState("");
+
   // Editing state for products
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editItemName, setEditItemName] = useState("");
@@ -48,6 +54,15 @@ export default function InventoryManager({
   const [editItemQty, setEditItemQty] = useState("");
   const [editItemMinQty, setEditItemMinQty] = useState("");
   const [editItemImageUrl, setEditItemImageUrl] = useState("");
+
+  // Custom cost states for Edit Product
+  const [isEditCustomCostActive, setIsEditCustomCostActive] = useState(false);
+  const [editCustomCosts, setEditCustomCosts] = useState<{ name: string; value: number }[]>([]);
+  const [editCustomCostName, setEditCustomCostName] = useState("");
+  const [editCustomCostValue, setEditCustomCostValue] = useState("");
+
+  // Track expanded custom costs in card view
+  const [expandedCosts, setExpandedCosts] = useState<Record<string, boolean>>({});
 
   // Bi-directional automated calculation between cost price, profit margin and selling price (New Product)
   const handleNewCostChange = (valStr: string) => {
@@ -122,6 +137,10 @@ export default function InventoryManager({
     setEditItemQty(item.quantity.toString());
     setEditItemMinQty(item.minQuantity.toString());
     setEditItemImageUrl(item.imageUrl || "");
+    setIsEditCustomCostActive(!!(item.customCosts && item.customCosts.length > 0));
+    setEditCustomCosts(item.customCosts || []);
+    setEditCustomCostName("");
+    setEditCustomCostValue("");
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -144,6 +163,7 @@ export default function InventoryManager({
       quantity: isService ? 999999 : Math.max(0, parseInt(editItemQty) || 0),
       minQuantity: isService ? 0 : Math.max(0, parseInt(editItemMinQty) || 0),
       imageUrl: editItemImageUrl.trim() || undefined,
+      customCosts: editCustomCosts.length > 0 ? editCustomCosts : undefined,
     };
 
     if (onEditItem) {
@@ -191,6 +211,7 @@ export default function InventoryManager({
       minQuantity: isService ? 0 : Math.max(0, parseInt(newItemMinQty) || 0),
       category: newItemCategory,
       imageUrl: newItemImageUrl.trim() || undefined,
+      customCosts: newCustomCosts.length > 0 ? newCustomCosts : undefined,
     };
 
     onAddItem(createdItem);
@@ -204,6 +225,10 @@ export default function InventoryManager({
     setNewItemImageUrl("");
     setNewItemCostPrice("");
     setNewItemProfitMargin("");
+    setIsNewCustomCostActive(false);
+    setNewCustomCosts([]);
+    setNewCustomCostName("");
+    setNewCustomCostValue("");
     setIsAdding(false);
   };
 
@@ -284,6 +309,23 @@ export default function InventoryManager({
                 placeholder="Ex: 30.00"
                 className="h-10 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-[#f9f9f9] dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none focus:border-brand-orange"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  if (isNewCustomCostActive) {
+                    setNewCustomCosts([]);
+                  }
+                  setIsNewCustomCostActive(!isNewCustomCostActive);
+                }}
+                className={`mt-1 text-left inline-flex items-center gap-1.5 text-[11px] font-black uppercase ${isNewCustomCostActive ? 'text-red-500 hover:text-red-600' : 'text-brand-orange hover:text-brand-orange/80'} cursor-pointer transition-colors`}
+              >
+                {isNewCustomCostActive ? "✕ Cancelar Custo detalhado" : "🧮 Calcular Custo"}
+              </button>
+              {newCustomCosts.length > 0 && !isNewCustomCostActive && (
+                <span className="text-[10px] font-bold text-[#ea580c] dark:text-orange-400 bg-orange-100/60 dark:bg-orange-950/20 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-900/60 inline-flex items-center gap-1 mt-1">
+                  <span>🧮 Custo detalhado ativo: {newCustomCosts.length} itens</span>
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -312,6 +354,126 @@ export default function InventoryManager({
                 required
               />
             </div>
+
+            {/* Custom Cost detailed calculation panel for New Product */}
+            {isNewCustomCostActive && (
+              <div className="md:col-span-4 p-4 bg-orange-50/55 dark:bg-orange-950/10 border-2 border-dashed border-brand-orange rounded-xl animate-slide-up space-y-3 text-left">
+                <div className="flex justify-between items-center border-b border-brand-orange/30 pb-2">
+                  <h4 className="font-display font-extrabold text-xs text-brand-dark dark:text-orange-300 flex items-center gap-1.5 uppercase tracking-wider">
+                    <span>🧮 Calculador de Custo Composto</span>
+                  </h4>
+                  <span className="font-mono text-[10px] font-black bg-brand-orange/15 text-[#ea580c] px-2 py-0.5 rounded shadow-sm">
+                    {newCustomCosts.length} ITENS DE CUSTO
+                  </span>
+                </div>
+
+                {/* Form to add a component */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                  <div className="flex flex-col gap-1 sm:col-span-2">
+                    <label className="font-sans text-[9px] font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wide">Item / Componente (Ex: prego, madeira, cola...)</label>
+                    <input
+                      type="text"
+                      value={newCustomCostName}
+                      onChange={(e) => setNewCustomCostName(e.target.value)}
+                      placeholder="Ex: Prego"
+                      className="h-9 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-xs focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-sans text-[9px] font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wide">Valor do Item (R$)</label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newCustomCostValue}
+                        onChange={(e) => setNewCustomCostValue(e.target.value)}
+                        placeholder="1.00"
+                        className="h-9 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-xs focus:outline-none w-full"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const name = newCustomCostName.trim();
+                            const val = parseFloat(newCustomCostValue) || 0;
+                            if (name && val > 0) {
+                              setNewCustomCosts([...newCustomCosts, { name, value: val }]);
+                              setNewCustomCostName("");
+                              setNewCustomCostValue("");
+                            }
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const name = newCustomCostName.trim();
+                          const val = parseFloat(newCustomCostValue) || 0;
+                          if (name && val > 0) {
+                            setNewCustomCosts([...newCustomCosts, { name, value: val }]);
+                            setNewCustomCostName("");
+                            setNewCustomCostValue("");
+                          } else {
+                            alert("Por favor, preencha o nome do custo e um valor válido.");
+                          }
+                        }}
+                        className="h-9 px-3 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-black text-xs border-2 border-brand-dark rounded-lg cursor-pointer flex items-center justify-center transition-all shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of cost items */}
+                {newCustomCosts.length > 0 ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {newCustomCosts.map((cost, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-white dark:bg-zinc-800 border border-brand-gray dark:border-zinc-700 rounded-lg p-2 text-xs">
+                        <span className="font-sans font-medium text-brand-dark dark:text-zinc-200">
+                          Custo #{idx + 1}: <strong className="font-extrabold text-[#ea580c]">{cost.name}</strong>
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-bold text-brand-dark dark:text-zinc-100">
+                            R$ {cost.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewCustomCosts(newCustomCosts.filter((_, i) => i !== idx));
+                            }}
+                            className="text-red-600 hover:text-red-700 font-bold px-1 text-[11px] cursor-pointer"
+                            title="Remover custo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-brand-muted dark:text-zinc-400 italic">Nenhum custo personalizado adicionado ainda. Preencha acima e adicione.</p>
+                )}
+
+                {/* Total and apply button */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-2 border-t border-brand-orange/20 gap-3">
+                  <div className="font-sans text-xs text-brand-dark dark:text-zinc-200">
+                    Soma Total: <strong className="font-display font-extrabold text-sm text-[#ea580c] dark:text-orange-400">R$ {newCustomCosts.reduce((acc, c) => acc + c.value, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const total = newCustomCosts.reduce((acc, c) => acc + c.value, 0);
+                      handleNewCostChange(total.toFixed(2));
+                      setIsNewCustomCostActive(false);
+                    }}
+                    disabled={newCustomCosts.length === 0}
+                    className="px-3.5 py-1.5 bg-brand-yellow hover:bg-brand-yellow/90 disabled:opacity-50 text-brand-dark border-2 border-brand-dark text-xs font-black uppercase rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
+                  >
+                    🏁 Finalizar Cálculo
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1 md:col-span-2 text-left">
               <label className="font-sans text-xs font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wider">Foto do Produto (Fazer Upload da Galeria/Computador)</label>
@@ -604,6 +766,39 @@ export default function InventoryManager({
                       <span className="text-[#ea580c] dark:text-orange-400">Margem: {item.profitMargin.toFixed(1)}%</span>
                     )}
                   </div>
+
+                  {/* Custom Cost Composition Expander inside card */}
+                  {item.customCosts && item.customCosts.length > 0 && (
+                    <div className="mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedCosts((prev) => ({
+                            ...prev,
+                            [item.id]: !prev[item.id],
+                          }));
+                        }}
+                        className="text-[10px] font-extrabold uppercase tracking-wide text-brand-orange hover:underline cursor-pointer flex items-center gap-1 select-none"
+                      >
+                        {expandedCosts[item.id] ? "📋 Ocultar Composição ✕" : `📋 Ver Composição (${item.customCosts.length}) 🧮`}
+                      </button>
+
+                      {expandedCosts[item.id] && (
+                        <div className="mt-1.5 p-2 bg-orange-50/50 dark:bg-orange-950/10 border border-brand-orange/35 rounded-lg text-[10px] space-y-1 animate-slide-up">
+                          {item.customCosts.map((cc, i) => (
+                            <div key={i} className="flex justify-between items-center text-zinc-700 dark:text-zinc-300 font-medium">
+                              <span>• {cc.name}</span>
+                              <span className="font-mono font-bold">R$ {cc.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+                          <div className="border-t border-brand-orange/20 pt-1 mt-1 flex justify-between font-bold text-[#ea580c] dark:text-orange-400">
+                            <span>Total Calculado:</span>
+                            <span className="font-mono">R$ {item.customCosts.reduce((acc, c) => acc + c.value, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
  
                 {/* Lower Row: Stock adjustment controls or Unlimited Service Indicator */}
@@ -719,6 +914,23 @@ export default function InventoryManager({
                     placeholder="Ex: 30.00"
                     className="h-11 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-sm focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isEditCustomCostActive) {
+                        setEditCustomCosts([]);
+                      }
+                      setIsEditCustomCostActive(!isEditCustomCostActive);
+                    }}
+                    className={`mt-1 text-left inline-flex items-center gap-1.5 text-[11px] font-black uppercase ${isEditCustomCostActive ? 'text-red-500 hover:text-red-600' : 'text-brand-orange hover:text-brand-orange/80'} cursor-pointer transition-colors`}
+                  >
+                    {isEditCustomCostActive ? "✕ Cancelar Custo detalhado" : "🧮 Calcular Custo"}
+                  </button>
+                  {editCustomCosts.length > 0 && !isEditCustomCostActive && (
+                    <span className="text-[10px] font-bold text-[#ea580c] dark:text-orange-400 bg-orange-100/60 dark:bg-orange-950/20 px-2 py-0.5 rounded border border-orange-200 dark:border-orange-900/60 inline-flex items-center gap-1 mt-1">
+                      <span>🧮 Custo detalhado ativo: {editCustomCosts.length} itens</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -747,6 +959,126 @@ export default function InventoryManager({
                     required
                   />
                 </div>
+
+                {/* Custom Cost detailed calculation panel for Editing Product */}
+                {isEditCustomCostActive && (
+                  <div className="sm:col-span-2 p-4 bg-orange-50/55 dark:bg-orange-950/10 border-2 border-dashed border-brand-orange rounded-xl animate-slide-up space-y-3 text-left">
+                    <div className="flex justify-between items-center border-b border-brand-orange/30 pb-2">
+                      <h4 className="font-display font-extrabold text-xs text-brand-dark dark:text-orange-300 flex items-center gap-1.5 uppercase tracking-wider">
+                        <span>🧮 Calculador de Custo Composto</span>
+                      </h4>
+                      <span className="font-mono text-[10px] font-black bg-brand-orange/15 text-[#ea580c] px-2 py-0.5 rounded shadow-sm">
+                        {editCustomCosts.length} ITENS DE CUSTO
+                      </span>
+                    </div>
+
+                    {/* Form to add a component */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                      <div className="flex flex-col gap-1 sm:col-span-2">
+                        <label className="font-sans text-[9px] font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wide">Item do Custo (Ex: prego, madeira, cola...)</label>
+                        <input
+                          type="text"
+                          value={editCustomCostName}
+                          onChange={(e) => setEditCustomCostName(e.target.value)}
+                          placeholder="Ex: Prego"
+                          className="h-9 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-sans text-[9px] font-bold text-brand-dark dark:text-zinc-300 uppercase tracking-wide">Valor do Item (R$)</label>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editCustomCostValue}
+                            onChange={(e) => setEditCustomCostValue(e.target.value)}
+                            placeholder="1.00"
+                            className="h-9 px-3 border-2 border-brand-dark dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-dark dark:text-zinc-100 rounded-lg font-sans text-xs focus:outline-none w-full"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const name = editCustomCostName.trim();
+                                const val = parseFloat(editCustomCostValue) || 0;
+                                if (name && val > 0) {
+                                  setEditCustomCosts([...editCustomCosts, { name, value: val }]);
+                                  setEditCustomCostName("");
+                                  setEditCustomCostValue("");
+                                }
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const name = editCustomCostName.trim();
+                              const val = parseFloat(editCustomCostValue) || 0;
+                              if (name && val > 0) {
+                                setEditCustomCosts([...editCustomCosts, { name, value: val }]);
+                                setEditCustomCostName("");
+                                setEditCustomCostValue("");
+                              } else {
+                                alert("Por favor, preencha o nome do custo e um valor válido.");
+                              }
+                            }}
+                            className="h-9 px-3 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-black text-xs border-2 border-brand-dark rounded-lg cursor-pointer flex items-center justify-center transition-all shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* List of cost items */}
+                    {editCustomCosts.length > 0 ? (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                        {editCustomCosts.map((cost, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-white dark:bg-zinc-800 border border-brand-gray dark:border-zinc-700 rounded-lg p-2 text-xs">
+                            <span className="font-sans font-medium text-brand-dark dark:text-zinc-200">
+                              Custo #{idx + 1}: <strong className="font-extrabold text-[#ea580c]">{cost.name}</strong>
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono font-bold text-brand-dark dark:text-zinc-100">
+                                R$ {cost.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditCustomCosts(editCustomCosts.filter((_, i) => i !== idx));
+                                }}
+                                className="text-red-600 hover:text-red-700 font-bold px-1 text-[11px] cursor-pointer"
+                                title="Remover custo"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-brand-muted dark:text-zinc-400 italic">Nenhum custo personalizado adicionado ainda. Preencha acima e adicione.</p>
+                    )}
+
+                    {/* Total and apply button */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-2 border-t border-brand-orange/20 gap-3">
+                      <div className="font-sans text-xs text-brand-dark dark:text-zinc-200">
+                        Soma Total: <strong className="font-display font-extrabold text-sm text-[#ea580c] dark:text-orange-400">R$ {editCustomCosts.reduce((acc, c) => acc + c.value, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const total = editCustomCosts.reduce((acc, c) => acc + c.value, 0);
+                          handleEditCostChange(total.toFixed(2));
+                          setIsEditCustomCostActive(false);
+                        }}
+                        disabled={editCustomCosts.length === 0}
+                        className="px-3.5 py-1.5 bg-brand-yellow hover:bg-brand-yellow/90 disabled:opacity-50 text-brand-dark border-2 border-brand-dark text-xs font-black uppercase rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none transition-all cursor-pointer"
+                      >
+                        🏁 Finalizar Cálculo
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {editItemCategory !== "Serviços" && (
                   <>
