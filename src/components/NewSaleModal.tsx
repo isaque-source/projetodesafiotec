@@ -573,7 +573,7 @@ export default function NewSaleModal({
   return (
     <div className="fixed inset-0 bg-brand-dark/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 text-left overflow-hidden">
       <motion.div
-        drag
+        drag={typeof window !== "undefined" && window.innerWidth > 768}
         dragControls={dragControls}
         dragListener={false}
         dragMomentum={false}
@@ -581,7 +581,11 @@ export default function NewSaleModal({
       >
         {/* Grab and Move Header Handle */}
         <div 
-          onPointerDown={(e) => dragControls.start(e)}
+          onPointerDown={(e) => {
+            if (typeof window !== "undefined" && window.innerWidth > 768) {
+              dragControls.start(e);
+            }
+          }}
           className="flex justify-between items-center mb-4 border-b border-brand-gray/40 pb-3 cursor-grab select-none shrink-0"
           title="Segure e arraste aqui para mover a janela"
         >
