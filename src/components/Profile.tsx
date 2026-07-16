@@ -1005,8 +1005,8 @@ export default function Profile({
                 ) : (
                   <div className="text-left md:text-right flex md:flex-col items-center md:items-end justify-between md:justify-start gap-1 p-2 bg-zinc-50 dark:bg-zinc-850 md:bg-transparent rounded-lg border border-brand-gray/30 md:border-none">
                     <div className="flex gap-2 text-zinc-400 dark:text-zinc-500">
-                      <Monitor className="w-5 h-5" title="Computador" />
-                      <Smartphone className="w-5 h-5" title="Celular" />
+                      <span title="Computador"><Monitor className="w-5 h-5" /></span>
+                      <span title="Celular"><Smartphone className="w-5 h-5" /></span>
                     </div>
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-sans font-semibold text-left md:text-right leading-tight">
                       Disponível para instalar<br/>pelo menu do Chrome 🔗

@@ -1495,7 +1495,7 @@ NÃO É DOCUMENTO FISCAL
                         {/* Final transaction sum tag */}
                         <div className="text-left sm:text-right shrink-0">
                           <span className="font-sans text-[9px] font-black text-white bg-indigo-600 border-2 border-brand-dark rounded px-1.5 py-0.5 uppercase inline-block mb-1 shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)]">
-                            {typeFilter === "budget" ? "Aproximação" : "Total Recebido"}
+                            Total Recebido
                           </span>
                           <div className="flex flex-col sm:items-end">
                             {sale.discountAmount && sale.originalAmount && (
@@ -1530,7 +1530,7 @@ NÃO É DOCUMENTO FISCAL
                             <button
                               type="button"
                               onClick={() => {
-                                if (confirm(`Deseja realmente cancelar e excluir permanentemente este lançamento (${typeFilter === "sale" ? "venda" : "orçamento"}) do aplicativo? O estoque associado será reintegrado.`)) {
+                                if (confirm(`Deseja realmente cancelar e excluir permanentemente este lançamento (venda) do aplicativo? O estoque associado será reintegrado.`)) {
                                   onRemoveSale(sale.id);
                                 }
                               }}

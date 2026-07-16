@@ -48,6 +48,7 @@ import ResetPassword from "./components/ResetPassword";
 import ClientsManager from "./components/ClientsManager";
 import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
 import ExpensesManager from "./components/ExpensesManager";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -1860,146 +1861,148 @@ export default function App() {
       {/* Main Container Core Viewports router router */}
       <main className={`flex-1 flex flex-col ${activeTab === 'login' || activeTab === 'register' || activeTab === 'reset-password' ? 'justify-center' : 'justify-start'} w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' && activeTab !== 'reset-password' ? 'pb-28' : ''}`}>
         
-        {activeTab === "login" && (
-          <Login
-            onLoginSuccess={handleLoginSuccess}
-            onGoToRegister={() => setActiveTab("register")}
-            currentUser={user}
-            onProceedToHome={() => setActiveTab("home")}
-            onLogout={handleLogout}
-            onGoToResetPassword={(targetEmail) => {
-              try {
-                const url = new URL(window.location.href);
-                url.searchParams.set("email", targetEmail.trim().toLowerCase());
-                url.searchParams.set("reset", "true");
-                window.history.replaceState({}, document.title, url.toString());
-              } catch (urlErr) {
-                console.warn("Falha ao configurar parâmetros da URL:", urlErr);
-              }
-              setActiveTab("reset-password");
-            }}
-          />
-        )}
+        <ErrorBoundary>
+          {activeTab === "login" && (
+            <Login
+              onLoginSuccess={handleLoginSuccess}
+              onGoToRegister={() => setActiveTab("register")}
+              currentUser={user}
+              onProceedToHome={() => setActiveTab("home")}
+              onLogout={handleLogout}
+              onGoToResetPassword={(targetEmail) => {
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("email", targetEmail.trim().toLowerCase());
+                  url.searchParams.set("reset", "true");
+                  window.history.replaceState({}, document.title, url.toString());
+                } catch (urlErr) {
+                  console.warn("Falha ao configurar parâmetros da URL:", urlErr);
+                }
+                setActiveTab("reset-password");
+              }}
+            />
+          )}
 
-        {activeTab === "register" && (
-          <Register
-            onRegisterComplete={handleRegisterComplete}
-            onGoBack={() => {
-              setInvitation(null);
-              setActiveTab("login");
-            }}
-            invitation={invitation}
-          />
-        )}
+          {activeTab === "register" && (
+            <Register
+              onRegisterComplete={handleRegisterComplete}
+              onGoBack={() => {
+                setInvitation(null);
+                setActiveTab("login");
+              }}
+              invitation={invitation}
+            />
+          )}
 
-        {activeTab === "reset-password" && (
-          <ResetPassword
-            onLoginSuccess={handleLoginSuccess}
-            onGoToLogin={() => setActiveTab("login")}
-          />
-        )}
+          {activeTab === "reset-password" && (
+            <ResetPassword
+              onLoginSuccess={handleLoginSuccess}
+              onGoToLogin={() => setActiveTab("login")}
+            />
+          )}
 
-        {user && activeTab === "home" && (
-          <Dashboard
-            user={user}
-            sales={sales}
-            inventory={inventory}
-            goal={goal}
-            expenses={expenses}
-            onOpenNewSale={() => setIsNewSaleOpen(true)}
-            onChangeTab={(tab: any) => setActiveTab(tab)}
-            onFilterLowStock={handleGoToLowStockInventory}
-            onLockApp={() => {
-              sessionStorage.removeItem("visu_session_unlocked");
-              setIsLocked(true);
-            }}
-          />
-        )}
+          {user && activeTab === "home" && (
+            <Dashboard
+              user={user}
+              sales={sales}
+              inventory={inventory}
+              goal={goal}
+              expenses={expenses}
+              onOpenNewSale={() => setIsNewSaleOpen(true)}
+              onChangeTab={(tab: any) => setActiveTab(tab)}
+              onFilterLowStock={handleGoToLowStockInventory}
+              onLockApp={() => {
+                sessionStorage.removeItem("visu_session_unlocked");
+                setIsLocked(true);
+              }}
+            />
+          )}
 
-        {user && activeTab === "sales" && (
-          <SalesHistory
-            user={user}
-            sales={sales}
-            onRemoveSale={handleRemoveSale}
-            onCancelSale={handleCancelSale}
-            onReturnSale={handleReturnSale}
-            onExchangeItems={handleExchangeItems}
-            onConfirmBudget={handleConfirmBudget}
-            onEditBudget={(budget) => {
-              setEditingBudget(budget);
-              setIsViewingBudget(false);
-            }}
-            onEditSale={(sale) => {
-              setEditingBudget(sale);
-              setIsViewingBudget(false);
-            }}
-            onViewBudget={(budget) => {
-              setEditingBudget(budget);
-              setIsViewingBudget(true);
-            }}
-            inventory={inventory}
-            goal={goal}
-            expenses={expenses}
-          />
-        )}
+          {user && activeTab === "sales" && (
+            <SalesHistory
+              user={user}
+              sales={sales}
+              onRemoveSale={handleRemoveSale}
+              onCancelSale={handleCancelSale}
+              onReturnSale={handleReturnSale}
+              onExchangeItems={handleExchangeItems}
+              onConfirmBudget={handleConfirmBudget}
+              onEditBudget={(budget) => {
+                setEditingBudget(budget);
+                setIsViewingBudget(false);
+              }}
+              onEditSale={(sale) => {
+                setEditingBudget(sale);
+                setIsViewingBudget(false);
+              }}
+              onViewBudget={(budget) => {
+                setEditingBudget(budget);
+                setIsViewingBudget(true);
+              }}
+              inventory={inventory}
+              goal={goal}
+              expenses={expenses}
+            />
+          )}
 
-        {user && activeTab === "inventory" && (
-          <InventoryManager
-            inventory={inventory}
-            onUpdateQuantity={handleUpdateItemQty}
-            onAddItem={handleAddInventoryProduct}
-            onEditItem={handleUpdateInventoryProduct}
-            onDeleteItem={handleDeleteInventoryProduct}
-            initialFilterLowStock={inventoryLowStockOnly}
-            onClearLowStockFilter={() => setInventoryLowStockOnly(false)}
-          />
-        )}
+          {user && activeTab === "inventory" && (
+            <InventoryManager
+              inventory={inventory}
+              onUpdateQuantity={handleUpdateItemQty}
+              onAddItem={handleAddInventoryProduct}
+              onEditItem={handleUpdateInventoryProduct}
+              onDeleteItem={handleDeleteInventoryProduct}
+              initialFilterLowStock={inventoryLowStockOnly}
+              onClearLowStockFilter={() => setInventoryLowStockOnly(false)}
+            />
+          )}
 
-        {user && activeTab === "clients" && (
-          <ClientsManager
-            clients={clients}
-            onAddClient={handleAddClient}
-            onUpdateClient={handleUpdateClient}
-            onDeleteClient={handleDeleteClient}
-            onAddQuickSale={handleAddQuickSale}
-          />
-        )}
+          {user && activeTab === "clients" && (
+            <ClientsManager
+              clients={clients}
+              onAddClient={handleAddClient}
+              onUpdateClient={handleUpdateClient}
+              onDeleteClient={handleDeleteClient}
+              onAddQuickSale={handleAddQuickSale}
+            />
+          )}
 
-        {user && activeTab === "progress" && (
-          <Progress
-            sales={sales}
-            clients={clients}
-            goal={goal}
-            onOpenAdjustGoal={() => setIsAdjustGoalOpen(true)}
-            points={visuCoins}
-            setPoints={setVisuCoins}
-            streak={streak}
-            setStreak={setStreak}
-          />
-        )}
+          {user && activeTab === "progress" && (
+            <Progress
+              sales={sales}
+              clients={clients}
+              goal={goal}
+              onOpenAdjustGoal={() => setIsAdjustGoalOpen(true)}
+              points={visuCoins}
+              setPoints={setVisuCoins}
+              streak={streak}
+              setStreak={setStreak}
+            />
+          )}
 
-        {user && activeTab === "profile" && (
-          <Profile
-            user={user}
-            onUpdateUser={(updated) => setUser(updated)}
-            onGoBack={() => setActiveTab("home")}
-            dataOwnerUid={dataOwnerUid}
-            activeEmployee={activeEmployee}
-            onAddEmployee={handleAddEmployee}
-            onRemoveEmployee={handleRemoveEmployee}
-            sales={sales}
-            onResetEmployeeCommission={handleResetEmployeeCommission}
-          />
-        )}
+          {user && activeTab === "profile" && (
+            <Profile
+              user={user}
+              onUpdateUser={(updated) => setUser(updated)}
+              onGoBack={() => setActiveTab("home")}
+              dataOwnerUid={dataOwnerUid}
+              activeEmployee={activeEmployee}
+              onAddEmployee={handleAddEmployee}
+              onRemoveEmployee={handleRemoveEmployee}
+              sales={sales}
+              onResetEmployeeCommission={handleResetEmployeeCommission}
+            />
+          )}
 
-        {user && activeTab === "expenses" && (
-          <ExpensesManager
-            expenses={expenses}
-            sales={sales}
-            onAddExpense={handleAddExpense}
-            onDeleteExpense={handleDeleteExpense}
-          />
-        )}
+          {user && activeTab === "expenses" && (
+            <ExpensesManager
+              expenses={expenses}
+              sales={sales}
+              onAddExpense={handleAddExpense}
+              onDeleteExpense={handleDeleteExpense}
+            />
+          )}
+        </ErrorBoundary>
 
       </main>
 
@@ -2094,20 +2097,22 @@ export default function App() {
 
       {/* Registrar Sale overlays */}
       {user && (
-        <NewSaleModal
-          inventory={inventory}
-          clients={clients}
-          isOpen={isNewSaleOpen || !!editingBudget}
-          onClose={() => {
-            setIsNewSaleOpen(false);
-            setEditingBudget(null);
-            setIsViewingBudget(false);
-          }}
-          onAddSale={handleAddSale}
-          employees={user.employees || []}
-          initialSale={editingBudget || undefined}
-          isReadOnly={isViewingBudget}
-        />
+        <ErrorBoundary>
+          <NewSaleModal
+            inventory={inventory}
+            clients={clients}
+            isOpen={isNewSaleOpen || !!editingBudget}
+            onClose={() => {
+              setIsNewSaleOpen(false);
+              setEditingBudget(null);
+              setIsViewingBudget(false);
+            }}
+            onAddSale={handleAddSale}
+            employees={user.employees || []}
+            initialSale={editingBudget || undefined}
+            isReadOnly={isViewingBudget}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Adjust goal overlays */}
