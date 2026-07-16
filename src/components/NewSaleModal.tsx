@@ -51,8 +51,10 @@ export default function NewSaleModal({
   const [allowNegativeStock, setAllowNegativeStock] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedItem = inventory.find(item => item.id === selectedItemId);
   const dragControls = useDragControls();
@@ -68,6 +70,14 @@ export default function NewSaleModal({
   const [localFinalValue, setLocalFinalValue] = useState("");
   
   const [description, setDescription] = useState("");
+
+  const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
+  const [editingCartItemPrice, setEditingCartItemPrice] = useState("");
+
+  const handleUpdateCartItemPrice = (itemId: string, newPrice: number) => {
+    if (isNaN(newPrice) || newPrice < 0) return;
+    setCart(prev => prev.map(item => item.id === itemId ? { ...item, price: newPrice } : item));
+  };
 
   // Calculate cart metrics
   const cartSubtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -144,22 +154,28 @@ export default function NewSaleModal({
       setAllowNegativeStock(false);
     }
 
-    if (inventory.length > 0) {
-      const first = inventory[0];
-      setSelectedItemId(first.id);
-      setSearchTerm(`${first.name} (#${first.code || ""})`);
-    } else {
-      setSelectedItemId("");
-      setSearchTerm("");
-    }
+    setSelectedItemId("");
+    setSearchTerm("");
+    setShowSearch(false);
   }, [isOpen, inventory, initialSale]);
 
   // Handle active selected item description updates when dropdown selects
   useEffect(() => {
     if (selectedItem) {
       setSearchTerm(`${selectedItem.name} (#${selectedItem.code || ""})`);
+    } else {
+      setSearchTerm("");
     }
   }, [selectedItemId]);
+
+  // Focus search input on search field open
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [showSearch]);
 
   // Sync local inputs when cartSubtotal changes or modal is opened (not while typing)
   useEffect(() => {
@@ -316,6 +332,9 @@ export default function NewSaleModal({
     // Reset inputs for next selection
     setQuantity(1);
     setCustomPrice("");
+    setSelectedItemId("");
+    setSearchTerm("");
+    setShowSearch(false);
   };
 
   const handleRemoveFromCart = (itemId: string) => {
@@ -352,6 +371,7 @@ export default function NewSaleModal({
     setQuantity(1);
     setCustomPrice("");
     setErrorMsg("");
+    setShowSearch(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -635,91 +655,122 @@ export default function NewSaleModal({
                 ⚡ Passo 1: Adicionar Produtos ao Carrinho de Compras
               </span>
 
-              {/* Product Select search bar */}
-              <div className="flex flex-col gap-1.5" ref={dropdownRef}>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onFocus={() => {
+              {/* Product selection trigger button */}
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSearch(prev => !prev);
+                    if (!showSearch) {
                       setIsDropdownOpen(true);
-                      if (selectedItem && searchTerm === `${selectedItem.name} (#${selectedItem.code || ""})`) {
-                        setSearchTerm("");
-                      }
-                    }}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setIsDropdownOpen(true);
-                      const exactMatch = inventory.find(
-                        (item) => item.code && item.code === e.target.value.trim()
-                      );
-                      if (exactMatch) {
-                        setSelectedItemId(exactMatch.id);
-                      }
-                    }}
-                    placeholder="Nome do produto ou código de 4 dígitos..."
-                    className="w-full h-11 pl-3 pr-10 border-2 border-brand-dark rounded-lg bg-white font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00]"
-                  />
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchTerm("");
-                        setIsDropdownOpen(true);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 font-extrabold text-sm"
-                    >
-                      ✕
-                    </button>
+                    }
+                  }}
+                  className={`w-full h-11 border-2 border-brand-dark rounded-xl font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none ${
+                    selectedItem
+                      ? "bg-zinc-900 text-white hover:bg-zinc-800"
+                      : "bg-brand-yellow text-brand-dark hover:bg-amber-400"
+                  }`}
+                >
+                  {selectedItem ? (
+                    <>
+                      🎯 Selecionado: {selectedItem.name} {selectedItem.category !== "Serviços" ? `(${selectedItem.quantity} un)` : "(Serviço)"}
+                    </>
+                  ) : (
+                    <>
+                      🔍 Selecionar item
+                    </>
                   )}
+                </button>
 
-                  {/* Dropdown list */}
-                  {isDropdownOpen && (
-                    <div className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-zinc-900 border-2 border-brand-dark rounded-xl shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] z-50 p-2 space-y-1.5 custom-scrollbar">
-                      {filteredProducts.length > 0 ? (
-                        filteredProducts.map((item) => {
-                          const isSelected = item.id === selectedItemId;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleSelectProduct(item)}
-                              className={`w-full text-left p-2.5 rounded-lg border-2 flex justify-between items-center transition-all ${
-                                isSelected
-                                  ? "bg-zinc-800 border-brand-yellow text-white shadow-[2px_2px_0px_0px_rgba(253,139,0,1)]"
-                                  : "bg-zinc-950 border-zinc-900 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
-                              }`}
-                            >
-                              <div className="flex flex-col gap-1 min-w-0 flex-1 pr-2 text-left">
-                                <div className="truncate">
-                                  {highlightMatches(item.name, searchTerm)}
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                  {highlightCodeMatches(item.code || "", searchTerm)}
-                                  <span className="font-sans text-[9px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded uppercase">
-                                    {item.category}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="font-display font-black text-xs text-white block">
-                                  R$ {item.price.toFixed(2)}
-                                </span>
-                                <span className="font-sans text-[10px] font-bold text-zinc-400 block mt-0.5">
-                                  Estoque: {item.quantity} un
-                                </span>
-                              </div>
-                            </button>
+                {/* Conditional search input field */}
+                {showSearch && (
+                  <div className="flex flex-col gap-1.5 animate-fade-in" ref={dropdownRef}>
+                    <div className="relative">
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchTerm}
+                        onFocus={() => {
+                          setIsDropdownOpen(true);
+                          if (selectedItem && searchTerm === `${selectedItem.name} (#${selectedItem.code || ""})`) {
+                            setSearchTerm("");
+                          }
+                        }}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setIsDropdownOpen(true);
+                          const exactMatch = inventory.find(
+                            (item) => item.code && item.code === e.target.value.trim()
                           );
-                        })
-                      ) : (
-                        <div className="p-4 text-center text-zinc-500 font-sans text-xs font-bold">
-                          Nenhum produto cadastrado para "{searchTerm}"
+                          if (exactMatch) {
+                            setSelectedItemId(exactMatch.id);
+                          }
+                        }}
+                        placeholder="Escreva o nome do produto ou código..."
+                        className="w-full h-11 pl-3 pr-10 border-2 border-brand-dark rounded-lg bg-white font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00]"
+                      />
+                      {searchTerm && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm("");
+                            setIsDropdownOpen(true);
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 font-extrabold text-sm"
+                        >
+                          ✕
+                        </button>
+                      )}
+
+                      {/* Dropdown list */}
+                      {isDropdownOpen && (
+                        <div className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-zinc-900 border-2 border-brand-dark rounded-xl shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] z-50 p-2 space-y-1.5 custom-scrollbar">
+                          {filteredProducts.length > 0 ? (
+                            filteredProducts.map((item) => {
+                              const isSelected = item.id === selectedItemId;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleSelectProduct(item)}
+                                  className={`w-full text-left p-2.5 rounded-lg border-2 flex justify-between items-center transition-all ${
+                                    isSelected
+                                      ? "bg-zinc-800 border-brand-yellow text-white shadow-[2px_2px_0px_0px_rgba(253,139,0,1)]"
+                                      : "bg-zinc-950 border-zinc-900 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
+                                  }`}
+                                >
+                                  <div className="flex flex-col gap-1 min-w-0 flex-1 pr-2 text-left">
+                                    <div className="truncate">
+                                      {highlightMatches(item.name, searchTerm)}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      {highlightCodeMatches(item.code || "", searchTerm)}
+                                      <span className="font-sans text-[9px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded uppercase">
+                                        {item.category}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className="font-display font-black text-xs text-white block">
+                                      R$ {item.price.toFixed(2)}
+                                    </span>
+                                    <span className="font-sans text-[10px] font-bold text-zinc-400 block mt-0.5">
+                                      Estoque: {item.quantity} un
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="p-4 text-center text-zinc-500 font-sans text-xs font-bold">
+                              Nenhum produto cadastrado para "{searchTerm}"
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Selected product banner and pricing additions */}
@@ -791,10 +842,10 @@ export default function NewSaleModal({
                   <button
                     type="button"
                     onClick={handleAddToCart}
-                    className="col-span-2 h-9 bg-zinc-900 text-white border-2 border-brand-dark font-display font-bold text-xs rounded-lg flex items-center justify-center gap-1 cursor-pointer hover:bg-zinc-800 shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
+                    className="col-span-2 h-12 bg-brand-orange hover:bg-orange-500 text-brand-dark border-2 border-brand-dark font-display font-black text-sm uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5 text-brand-yellow" />
-                    <span>Adicionar Produto ao Carrinho de Compras</span>
+                    <Plus className="w-5 h-5 text-brand-dark stroke-[3]" />
+                    <span>Adicionar Produto ao Carrinho</span>
                   </button>
                 </div>
               )}
@@ -822,9 +873,62 @@ export default function NewSaleModal({
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-bold text-brand-dark block truncate uppercase tracking-tight">{item.name}</span>
-                        <span className="text-[10px] text-zinc-400 font-medium font-mono">
-                          {item.code ? `#${item.code} • ` : ""}R$ {item.price.toFixed(2)}/un
-                        </span>
+                        {editingCartItemId === item.id ? (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[10px] text-zinc-600 font-bold font-mono">R$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingCartItemPrice}
+                              onChange={(e) => setEditingCartItemPrice(e.target.value)}
+                              className="w-16 h-7 px-1 border-2 border-brand-dark rounded text-[11px] font-bold font-mono bg-white text-brand-dark focus:outline-none focus:border-brand-orange"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newP = parseFloat(editingCartItemPrice);
+                                if (!isNaN(newP) && newP >= 0) {
+                                  handleUpdateCartItemPrice(item.id, newP);
+                                }
+                                setEditingCartItemId(null);
+                              }}
+                              className="w-6 h-6 bg-emerald-500 border border-emerald-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-emerald-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                              title="Salvar"
+                            >
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCartItemId(null);
+                              }}
+                              className="w-6 h-6 bg-rose-500 border border-rose-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-rose-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                              title="Cancelar"
+                            >
+                              <X className="w-3 h-3 stroke-[3]" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-zinc-400 font-medium font-mono">
+                              {item.code ? `#${item.code} • ` : ""}R$ {item.price.toFixed(2)}/un
+                            </span>
+                            {!isReadOnly && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCartItemId(item.id);
+                                  setEditingCartItemPrice(item.price.toString());
+                                }}
+                                className="text-[9px] text-[#fd8b00] font-black hover:underline cursor-pointer uppercase tracking-tight flex items-center gap-0.5"
+                                title="Editar preço"
+                              >
+                                ✏️ Editar
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Quantity Display or Incrementor */}
