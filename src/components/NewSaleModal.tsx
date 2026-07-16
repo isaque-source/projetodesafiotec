@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Check, ShoppingBag, Plus, Minus, DollarSign, GripHorizontal, Trash2, ShoppingCart, HelpCircle } from "lucide-react";
+import { X, Check, ShoppingBag, Plus, Minus, DollarSign, GripHorizontal, Trash2, ShoppingCart, HelpCircle, Search } from "lucide-react";
 import { motion, useDragControls } from "motion/react";
 import { InventoryItem, Sale, Client, SaleItem, Employee } from "../types";
 
@@ -332,12 +332,14 @@ export default function NewSaleModal({
     });
 
     setErrorMsg("");
-    // Reset inputs for next selection
-    setQuantity(1);
-    setCustomPrice("");
-    setSelectedItemId("");
-    setSearchTerm("");
-    setShowSearch(false);
+    
+    // Safely defer resetting selected item state to prevent browser touch event unmounting crashes on mobile
+    setTimeout(() => {
+      setQuantity(1);
+      setCustomPrice("");
+      setSelectedItemId("");
+      setSearchTerm("");
+    }, 50);
   };
 
   const handleRemoveFromCart = (itemId: string) => {
@@ -374,7 +376,6 @@ export default function NewSaleModal({
     setQuantity(1);
     setCustomPrice("");
     setErrorMsg("");
-    setShowSearch(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -483,10 +484,10 @@ export default function NewSaleModal({
     onClose();
   };
 
-  // Click outside listener for the search dropdown
+  // Click outside listener for the search dropdown (supports both mouse and touch events for mobile)
   useEffect(() => {
     if (!isOpen) return;
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: Event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
         if (selectedItem) {
@@ -495,8 +496,10 @@ export default function NewSaleModal({
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, [isOpen, selectedItem]);
 
@@ -658,225 +661,178 @@ export default function NewSaleModal({
             {/* SEARCH AND ADD TO CART PANEL */}
             {!isReadOnly && (
               <div className="p-4 bg-amber-500/5 rounded-xl border-2 border-dashed border-brand-dark space-y-3">
-              <span className="font-display font-black text-[11px] text-zinc-900 uppercase tracking-widest block">
-                ⚡ Passo 1: Adicionar Produtos ao Carrinho de Compras
-              </span>
+                <span className="font-display font-black text-[11px] text-zinc-900 uppercase tracking-widest block">
+                  ⚡ Passo 1: Adicionar Produtos ao Carrinho de Compras
+                </span>
 
-              {/* Product selection trigger button */}
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={!!selectedItem}
-                    onClick={() => {
-                      if (!selectedItem) {
-                        setShowSearch(prev => !prev);
-                        if (!showSearch) {
-                          setIsDropdownOpen(true);
-                        }
-                      }
-                    }}
-                    className={`flex-1 h-11 border-2 border-brand-dark rounded-xl font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                      selectedItem
-                        ? "bg-zinc-900 text-white cursor-default"
-                        : "bg-brand-yellow text-brand-dark hover:bg-amber-400 cursor-pointer shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-                    }`}
-                  >
-                    {selectedItem ? (
-                      <>
-                        🎯 Selecionado: {selectedItem.name} {selectedItem.category !== "Serviços" ? `(${selectedItem.quantity} un)` : "(Serviço)"}
-                      </>
-                    ) : (
-                      <>
-                        🔍 Selecionar item
-                      </>
-                    )}
-                  </button>
-
-                  {selectedItem && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedItemId("");
-                        setSearchTerm("");
-                        setShowSearch(false);
+                <div className="flex flex-col gap-3" ref={dropdownRef}>
+                  {/* Search Input - Always Visible to prevent confusing UI toggling on mobile */}
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400">
+                      <Search className="w-4 h-4" />
+                    </span>
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      value={searchTerm}
+                      onFocus={() => {
+                        setIsDropdownOpen(true);
                       }}
-                      className="w-11 h-11 bg-rose-500 hover:bg-rose-600 text-white border-2 border-brand-dark rounded-xl flex items-center justify-center cursor-pointer transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none shrink-0"
-                      title="Limpar seleção e buscar outro"
-                    >
-                      <X className="w-5 h-5 stroke-[3]" />
-                    </button>
-                  )}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setIsDropdownOpen(true);
+                        
+                        // Check for exact matching of item code
+                        const exactMatch = inventory.find(
+                          (item) => item.code && item.code.toLowerCase().trim() === e.target.value.toLowerCase().trim()
+                        );
+                        if (exactMatch) {
+                          setSelectedItemId(exactMatch.id);
+                        }
+                      }}
+                      placeholder="Buscar por nome ou código do produto..."
+                      className="w-full h-12 pl-10 pr-10 border-2 border-brand-dark rounded-xl bg-white font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00] shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] focus:shadow-[2.5px_2.5px_0px_0px_rgba(0,0,0,1)] transition-all"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedItemId("");
+                          setIsDropdownOpen(true);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 font-extrabold text-sm w-8 h-8 rounded-full hover:bg-zinc-100 flex items-center justify-center transition-colors"
+                      >
+                        ✕
+                      </button>
+                    )}
+
+                    {/* Dropdown list */}
+                    {isDropdownOpen && (
+                      <div className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-zinc-900 border-2 border-brand-dark rounded-xl shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] z-50 p-2 space-y-1.5 custom-scrollbar">
+                        {filteredProducts.length > 0 ? (
+                          filteredProducts.map((item) => {
+                            const isSelected = item.id === selectedItemId;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleSelectProduct(item)}
+                                className={`w-full text-left p-2.5 rounded-lg border-2 flex justify-between items-center transition-all ${
+                                  isSelected
+                                    ? "bg-zinc-800 border-brand-yellow text-white shadow-[2px_2px_0px_0px_rgba(253,139,0,1)]"
+                                    : "bg-zinc-950 border-zinc-900 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
+                                }`}
+                              >
+                                <div className="flex flex-col gap-1 min-w-0 flex-1 pr-2 text-left">
+                                  <div className="truncate">
+                                    {highlightMatches(item.name, searchTerm)}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    {highlightCodeMatches(item.code || "", searchTerm)}
+                                    <span className="font-sans text-[9px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded uppercase">
+                                      {item.category}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="font-display font-black text-xs text-white block">
+                                    R$ {item.price.toFixed(2)}
+                                  </span>
+                                  <span className="font-sans text-[10px] font-bold text-zinc-400 block mt-0.5">
+                                    Estoque: {item.quantity} un
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="p-4 text-center text-zinc-500 font-sans text-xs font-bold">
+                            Nenhum produto cadastrado para "{searchTerm}"
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Conditional search input field */}
-                {showSearch && (
-                  <div className="flex flex-col gap-1.5 animate-fade-in" ref={dropdownRef}>
-                    <div className="relative">
-                      <input
-                        ref={searchInputRef}
-                        type="text"
-                        value={searchTerm}
-                        onFocus={() => {
-                          setIsDropdownOpen(true);
-                          if (selectedItem && searchTerm === `${selectedItem.name} (#${selectedItem.code || ""})`) {
-                            setSearchTerm("");
-                          }
-                        }}
-                        onChange={(e) => {
-                          setSearchTerm(e.target.value);
-                          setIsDropdownOpen(true);
-                          const exactMatch = inventory.find(
-                            (item) => item.code && item.code === e.target.value.trim()
-                          );
-                          if (exactMatch) {
-                            setSelectedItemId(exactMatch.id);
-                          }
-                        }}
-                        placeholder="Escreva o nome do produto ou código..."
-                        className="w-full h-11 pl-3 pr-10 border-2 border-brand-dark rounded-lg bg-white font-sans text-sm font-bold focus:outline-none focus:border-[#fd8b00]"
-                      />
-                      {searchTerm && (
+                {/* Selected product banner and pricing additions */}
+                {selectedItem && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-dashed border-zinc-200 mt-2 animate-fade-in">
+                    <div className="col-span-2 text-white bg-zinc-900 border-2 border-brand-dark rounded-lg p-2.5 font-display font-bold text-xs text-center shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] uppercase truncate">
+                      🎯 selecionado: {selectedItem.name} 
+                      {selectedItem.category !== "Serviços" ? ` (${selectedItem.quantity} un em estoque)` : " (Serviço)"}
+                    </div>
+
+                    {/* Quantity to sell */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-brand-dark uppercase">Quantidade</span>
+                      <div className="flex items-center gap-2 border-2 border-brand-dark rounded-lg p-0.5 bg-white h-11">
                         <button
                           type="button"
-                          onClick={() => {
-                            setSearchTerm("");
-                            setIsDropdownOpen(true);
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 font-extrabold text-sm"
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          className="w-9 h-9 rounded bg-[#f5f5f5] hover:bg-brand-yellow flex items-center justify-center text-zinc-700 font-black text-lg cursor-pointer transition-colors"
                         >
-                          ✕
+                          -
                         </button>
-                      )}
-
-                      {/* Dropdown list */}
-                      {isDropdownOpen && (
-                        <div className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-zinc-900 border-2 border-brand-dark rounded-xl shadow-[5px_5px_0px_0px_rgba(26,28,28,1)] z-50 p-2 space-y-1.5 custom-scrollbar">
-                          {filteredProducts.length > 0 ? (
-                            filteredProducts.map((item) => {
-                              const isSelected = item.id === selectedItemId;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => handleSelectProduct(item)}
-                                  className={`w-full text-left p-2.5 rounded-lg border-2 flex justify-between items-center transition-all ${
-                                    isSelected
-                                      ? "bg-zinc-800 border-brand-yellow text-white shadow-[2px_2px_0px_0px_rgba(253,139,0,1)]"
-                                      : "bg-zinc-950 border-zinc-900 hover:bg-zinc-850 hover:border-zinc-700 text-zinc-300"
-                                  }`}
-                                >
-                                  <div className="flex flex-col gap-1 min-w-0 flex-1 pr-2 text-left">
-                                    <div className="truncate">
-                                      {highlightMatches(item.name, searchTerm)}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                      {highlightCodeMatches(item.code || "", searchTerm)}
-                                      <span className="font-sans text-[9px] font-bold text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded uppercase">
-                                        {item.category}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <span className="font-display font-black text-xs text-white block">
-                                      R$ {item.price.toFixed(2)}
-                                    </span>
-                                    <span className="font-sans text-[10px] font-bold text-zinc-400 block mt-0.5">
-                                      Estoque: {item.quantity} un
-                                    </span>
-                                  </div>
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className="p-4 text-center text-zinc-500 font-sans text-xs font-bold">
-                              Nenhum produto cadastrado para "{searchTerm}"
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        <span className="flex-1 text-center font-display font-black text-sm">
+                          {quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(quantity + 1)}
+                          className="w-9 h-9 rounded bg-[#f5f5f5] hover:bg-brand-yellow flex items-center justify-center text-zinc-700 font-black text-lg cursor-pointer transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Pricing Overwrites */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-brand-dark uppercase">Preço Especial (Opcional)</span>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-bold">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={customPrice}
+                          onChange={(e) => setCustomPrice(e.target.value)}
+                          placeholder={selectedItem.price.toFixed(2)}
+                          className="w-full h-11 pl-8 pr-2 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-zinc-800 font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stock overage check and negative auth checkbox */}
+                    {transactionType !== "budget" && selectedItem.category !== "Serviços" && quantity > selectedItem.quantity && (
+                      <div className="col-span-2 p-2.5 bg-red-100 border-2 border-red-400 rounded-lg text-[11px] leading-tight space-y-1 flex flex-col">
+                        <span className="text-red-700 font-extrabold uppercase tracking-wide">⚠️ Atenção: Estoque insuficiente!</span>
+                        <label className="flex items-center gap-2 cursor-pointer mt-0.5 select-none">
+                          <input
+                            type="checkbox"
+                            checked={allowNegativeStock}
+                            onChange={(e) => setAllowNegativeStock(e.target.checked)}
+                            className="w-4 h-4 accent-brand-orange border-2 border-zinc-900 rounded cursor-pointer"
+                          />
+                          <span className="font-bold text-zinc-800">Concordo vender mesmo sem estoque de segurança</span>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Add to list trigger button */}
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="col-span-2 h-12 bg-brand-orange hover:bg-orange-500 text-brand-dark border-2 border-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
+                    >
+                      <Plus className="w-5 h-5 text-brand-dark stroke-[3]" />
+                      <span>Adicionar ao Carrinho</span>
+                    </button>
                   </div>
                 )}
               </div>
-
-              {/* Selected product banner and pricing additions */}
-              {selectedItem && (
-                <div className="grid grid-cols-2 gap-3 pt-1 animate-fade-in">
-                  <div className="col-span-2 text-white bg-zinc-900 border-2 border-brand-dark rounded-lg p-2 font-display font-bold text-xs text-center shadow-[2px_2px_0px_0px_rgba(253,139,0,1)] uppercase truncate">
-                    🎯 selecionado: {selectedItem.name} 
-                    {selectedItem.category !== "Serviços" ? ` (${selectedItem.quantity} un em estoque)` : " (Serviço)"}
-                  </div>
-
-                  {/* Quantity to sell */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-brand-dark uppercase">Quantidade</span>
-                    <div className="flex items-center gap-2 border-2 border-brand-dark rounded-lg p-0.5 bg-white h-9">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-7 h-7 rounded bg-[#f5f5f5] hover:bg-brand-yellow flex items-center justify-center text-zinc-700 font-bold"
-                      >
-                        -
-                      </button>
-                      <span className="flex-1 text-center font-display font-black text-xs">
-                        {quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(quantity + 1)}
-                        className="w-7 h-7 rounded bg-[#f5f5f5] hover:bg-brand-yellow flex items-center justify-center text-zinc-700 font-bold"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Pricing Overwrites */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-brand-dark uppercase">Preço Especial (Opcional)</span>
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-xs font-bold">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={customPrice}
-                        onChange={(e) => setCustomPrice(e.target.value)}
-                        placeholder={selectedItem.price.toFixed(2)}
-                        className="w-full h-9 pl-7 pr-2 border-2 border-brand-dark rounded-lg font-sans text-xs focus:outline-none focus:border-[#fd8b00] bg-white text-zinc-800 font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Stock overage check and negative auth checkbox */}
-                  {transactionType !== "budget" && selectedItem.category !== "Serviços" && quantity > selectedItem.quantity && (
-                    <div className="col-span-2 p-2 bg-red-100 border border-red-300 rounded-lg text-[11px] leading-tight space-y-1 flex flex-col">
-                      <span className="text-red-700 font-bold">⚠️ Atenção: Menos estoque do que exigido!</span>
-                      <label className="flex items-center gap-1.5 cursor-pointer mt-0.5">
-                        <input
-                          type="checkbox"
-                          checked={allowNegativeStock}
-                          onChange={(e) => setAllowNegativeStock(e.target.checked)}
-                          className="w-3.5 h-3.5 accent-brand-orange border border-zinc-900 rounded"
-                        />
-                        <span className="font-bold text-zinc-800">Concordo vender mesmo sem estoque de segurança</span>
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Add to list trigger button */}
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    className="col-span-2 h-12 bg-brand-orange hover:bg-orange-500 text-brand-dark border-2 border-brand-dark font-display font-black text-sm uppercase tracking-wider rounded-lg flex items-center justify-center gap-2 cursor-pointer shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all"
-                  >
-                    <Plus className="w-5 h-5 text-brand-dark stroke-[3]" />
-                    <span>Adicionar Produto ao Carrinho</span>
-                  </button>
-                </div>
-              )}
-            </div>
             )}
 
             {/* SHOPPING CART OVERVIEW */}
@@ -903,7 +859,7 @@ export default function NewSaleModal({
                         <div className="min-w-0 flex-1">
                           <span className="font-bold text-brand-dark block truncate uppercase tracking-tight">{item.name}</span>
                           {editingCartItemId === item.id ? (
-                            <div className="flex items-center gap-1 mt-1">
+                            <div className="flex items-center gap-1.5 mt-1">
                               <span className="text-[10px] text-zinc-600 font-bold font-mono">R$</span>
                               <input
                                 type="number"
@@ -911,7 +867,7 @@ export default function NewSaleModal({
                                 min="0"
                                 value={editingCartItemPrice}
                                 onChange={(e) => setEditingCartItemPrice(e.target.value)}
-                                className="w-16 h-7 px-1 border-2 border-brand-dark rounded text-[11px] font-bold font-mono bg-white text-brand-dark focus:outline-none focus:border-brand-orange"
+                                className="w-24 h-9 px-2 border-2 border-brand-dark rounded-lg text-xs font-bold font-mono bg-white text-brand-dark focus:outline-none focus:border-brand-orange"
                               />
                               <button
                                 type="button"
@@ -922,24 +878,24 @@ export default function NewSaleModal({
                                   }
                                   setEditingCartItemId(null);
                                 }}
-                                className="w-6 h-6 bg-emerald-500 border border-emerald-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-emerald-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                                className="w-9 h-9 md:w-7 md:h-7 bg-emerald-500 border-2 border-brand-dark text-white rounded-lg flex items-center justify-center cursor-pointer hover:bg-emerald-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
                                 title="Salvar"
                               >
-                                <Check className="w-3 h-3 stroke-[3]" />
+                                <Check className="w-4 h-4 md:w-3.5 md:h-3.5 stroke-[3]" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setEditingCartItemId(null);
                                 }}
-                                className="w-6 h-6 bg-rose-500 border border-rose-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-rose-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                                className="w-9 h-9 md:w-7 md:h-7 bg-rose-500 border-2 border-brand-dark text-white rounded-lg flex items-center justify-center cursor-pointer hover:bg-rose-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
                                 title="Cancelar"
                               >
-                                <X className="w-3 h-3 stroke-[3]" />
+                                <X className="w-4 h-4 md:w-3.5 md:h-3.5 stroke-[3]" />
                               </button>
                             </div>
                           ) : (
-                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               <span className="text-[10px] text-zinc-400 font-medium font-mono">
                                 {item.code ? `#${item.code} • ` : ""}R$ {priceVal.toFixed(2)}/un
                               </span>
@@ -950,7 +906,7 @@ export default function NewSaleModal({
                                     setEditingCartItemId(item.id);
                                     setEditingCartItemPrice(priceVal.toString());
                                   }}
-                                  className="text-[9px] text-[#fd8b00] font-black hover:underline cursor-pointer uppercase tracking-tight flex items-center gap-0.5"
+                                  className="text-[10px] text-[#fd8b00] font-black hover:underline cursor-pointer uppercase tracking-tight py-1 px-2 -ml-2 bg-amber-500/10 rounded-md border border-amber-500/20 md:border-none md:bg-transparent"
                                   title="Editar preço"
                                 >
                                   ✏️ Editar
