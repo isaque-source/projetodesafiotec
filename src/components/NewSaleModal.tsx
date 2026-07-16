@@ -664,30 +664,50 @@ export default function NewSaleModal({
 
               {/* Product selection trigger button */}
               <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSearch(prev => !prev);
-                    if (!showSearch) {
-                      setIsDropdownOpen(true);
-                    }
-                  }}
-                  className={`w-full h-11 border-2 border-brand-dark rounded-xl font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none ${
-                    selectedItem
-                      ? "bg-zinc-900 text-white hover:bg-zinc-800"
-                      : "bg-brand-yellow text-brand-dark hover:bg-amber-400"
-                  }`}
-                >
-                  {selectedItem ? (
-                    <>
-                      🎯 Selecionado: {selectedItem.name} {selectedItem.category !== "Serviços" ? `(${selectedItem.quantity} un)` : "(Serviço)"}
-                    </>
-                  ) : (
-                    <>
-                      🔍 Selecionar item
-                    </>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!!selectedItem}
+                    onClick={() => {
+                      if (!selectedItem) {
+                        setShowSearch(prev => !prev);
+                        if (!showSearch) {
+                          setIsDropdownOpen(true);
+                        }
+                      }
+                    }}
+                    className={`flex-1 h-11 border-2 border-brand-dark rounded-xl font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                      selectedItem
+                        ? "bg-zinc-900 text-white cursor-default"
+                        : "bg-brand-yellow text-brand-dark hover:bg-amber-400 cursor-pointer shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+                    }`}
+                  >
+                    {selectedItem ? (
+                      <>
+                        🎯 Selecionado: {selectedItem.name} {selectedItem.category !== "Serviços" ? `(${selectedItem.quantity} un)` : "(Serviço)"}
+                      </>
+                    ) : (
+                      <>
+                        🔍 Selecionar item
+                      </>
+                    )}
+                  </button>
+
+                  {selectedItem && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedItemId("");
+                        setSearchTerm("");
+                        setShowSearch(false);
+                      }}
+                      className="w-11 h-11 bg-rose-500 hover:bg-rose-600 text-white border-2 border-brand-dark rounded-xl flex items-center justify-center cursor-pointer transition-all shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] hover:shadow-[1.5px_1.5px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none shrink-0"
+                      title="Limpar seleção e buscar outro"
+                    >
+                      <X className="w-5 h-5 stroke-[3]" />
+                    </button>
                   )}
-                </button>
+                </div>
 
                 {/* Conditional search input field */}
                 {showSearch && (
