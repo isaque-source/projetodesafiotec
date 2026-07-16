@@ -80,7 +80,10 @@ export default function NewSaleModal({
   };
 
   // Calculate cart metrics
-  const cartSubtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const cartSubtotal = cart.reduce((acc, item) => {
+    const p = typeof item.price === "number" ? item.price : parseFloat(item.price as any) || 0;
+    return acc + (p * item.quantity);
+  }, 0);
   
   // Derived final value for consistent display and saving
   const displayFinalAmount = (() => {
@@ -866,70 +869,72 @@ export default function NewSaleModal({
 
               {cart.length > 0 ? (
                 <div className="space-y-2 max-h-[140px] overflow-y-auto scrollbar-thin pr-1 pb-1">
-                  {cart.map((item) => (
-                    <div 
-                      key={item.id} 
-                      className="bg-white border-2 border-brand-dark p-2 rounded-lg flex items-center justify-between gap-3 text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,0.04)]"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <span className="font-bold text-brand-dark block truncate uppercase tracking-tight">{item.name}</span>
-                        {editingCartItemId === item.id ? (
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-[10px] text-zinc-600 font-bold font-mono">R$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editingCartItemPrice}
-                              onChange={(e) => setEditingCartItemPrice(e.target.value)}
-                              className="w-16 h-7 px-1 border-2 border-brand-dark rounded text-[11px] font-bold font-mono bg-white text-brand-dark focus:outline-none focus:border-brand-orange"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newP = parseFloat(editingCartItemPrice);
-                                if (!isNaN(newP) && newP >= 0) {
-                                  handleUpdateCartItemPrice(item.id, newP);
-                                }
-                                setEditingCartItemId(null);
-                              }}
-                              className="w-6 h-6 bg-emerald-500 border border-emerald-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-emerald-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
-                              title="Salvar"
-                            >
-                              <Check className="w-3 h-3 stroke-[3]" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCartItemId(null);
-                              }}
-                              className="w-6 h-6 bg-rose-500 border border-rose-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-rose-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
-                              title="Cancelar"
-                            >
-                              <X className="w-3 h-3 stroke-[3]" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] text-zinc-400 font-medium font-mono">
-                              {item.code ? `#${item.code} • ` : ""}R$ {item.price.toFixed(2)}/un
-                            </span>
-                            {!isReadOnly && (
+                  {cart.map((item) => {
+                    const priceVal = typeof item.price === "number" ? item.price : parseFloat(item.price as any) || 0;
+                    return (
+                      <div 
+                        key={item.id} 
+                        className="bg-white border-2 border-brand-dark p-2 rounded-lg flex items-center justify-between gap-3 text-xs shadow-[2px_2px_0px_0px_rgba(0,0,0,0.04)]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-brand-dark block truncate uppercase tracking-tight">{item.name}</span>
+                          {editingCartItemId === item.id ? (
+                            <div className="flex items-center gap-1 mt-1">
+                              <span className="text-[10px] text-zinc-600 font-bold font-mono">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingCartItemPrice}
+                                onChange={(e) => setEditingCartItemPrice(e.target.value)}
+                                className="w-16 h-7 px-1 border-2 border-brand-dark rounded text-[11px] font-bold font-mono bg-white text-brand-dark focus:outline-none focus:border-brand-orange"
+                              />
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditingCartItemId(item.id);
-                                  setEditingCartItemPrice(item.price.toString());
+                                  const newP = parseFloat(editingCartItemPrice);
+                                  if (!isNaN(newP) && newP >= 0) {
+                                    handleUpdateCartItemPrice(item.id, newP);
+                                  }
+                                  setEditingCartItemId(null);
                                 }}
-                                className="text-[9px] text-[#fd8b00] font-black hover:underline cursor-pointer uppercase tracking-tight flex items-center gap-0.5"
-                                title="Editar preço"
+                                className="w-6 h-6 bg-emerald-500 border border-emerald-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-emerald-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                                title="Salvar"
                               >
-                                ✏️ Editar
+                                <Check className="w-3 h-3 stroke-[3]" />
                               </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCartItemId(null);
+                                }}
+                                className="w-6 h-6 bg-rose-500 border border-rose-600 text-white rounded flex items-center justify-center cursor-pointer hover:bg-rose-600 font-bold shadow-[1px_1px_0px_0px_rgba(26,28,28,1)]"
+                                title="Cancelar"
+                              >
+                                <X className="w-3 h-3 stroke-[3]" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-zinc-400 font-medium font-mono">
+                                {item.code ? `#${item.code} • ` : ""}R$ {priceVal.toFixed(2)}/un
+                              </span>
+                              {!isReadOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCartItemId(item.id);
+                                    setEditingCartItemPrice(priceVal.toString());
+                                  }}
+                                  className="text-[9px] text-[#fd8b00] font-black hover:underline cursor-pointer uppercase tracking-tight flex items-center gap-0.5"
+                                  title="Editar preço"
+                                >
+                                  ✏️ Editar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
 
                       {/* Quantity Display or Incrementor */}
                       {isReadOnly ? (
@@ -959,7 +964,7 @@ export default function NewSaleModal({
                       {/* Line Item Total */}
                       <div className="text-right shrink-0 min-w-[70px]">
                         <span className="font-display font-black text-xs text-brand-dark">
-                          R$ {(item.price * item.quantity).toFixed(2)}
+                          R$ {(priceVal * item.quantity).toFixed(2)}
                         </span>
                       </div>
 
@@ -974,7 +979,8 @@ export default function NewSaleModal({
                         </button>
                       )}
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               ) : (
                 <div className="p-4 border-2 border-dotted border-zinc-300 rounded-lg text-center text-zinc-400 font-semibold text-[11px] leading-relaxed flex flex-col items-center gap-1">
