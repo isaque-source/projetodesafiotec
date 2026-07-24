@@ -773,8 +773,12 @@ export default function App() {
     const resetMissions = [
       { id: 1, moduleName: "Módulo 1: Vitrine", title: "Refinar a Proposta de Valor da Bio do Instagram", points: 150, completed: false },
       { id: 2, moduleName: "Módulo 2: Conteúdo", title: "Pesquisar 3 referências de Reels para seu nicho", points: 100, completed: false },
-      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete activa de preferência de produto", points: 120, completed: false },
-      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false }
+      { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete ativa de preferência de produto", points: 120, completed: false },
+      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false },
+      { id: 5, moduleName: "Módulo 5: Reels", title: "Gravar Reels curto (15s) com gancho e chamada para o Direct", points: 200, completed: false },
+      { id: 6, moduleName: "Módulo 6: Prova Social", title: "Publicar print de depoimento nos Stories e salvar nos Destaques", points: 130, completed: false },
+      { id: 7, moduleName: "Módulo 7: Tráfego", title: "Adicionar localização e palavras-chave de busca na legenda do post", points: 110, completed: false },
+      { id: 8, moduleName: "Módulo 8: Atendimento", title: "Enviar resposta em áudio personalizada para uma dúvida no Direct", points: 160, completed: false }
     ];
 
     try {

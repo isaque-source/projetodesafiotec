@@ -64,66 +64,30 @@ export default function InventoryManager({
   // Track expanded custom costs in card view
   const [expandedCosts, setExpandedCosts] = useState<Record<string, boolean>>({});
 
-  // Bi-directional automated calculation between cost price, profit margin and selling price (New Product)
+  // Fully manual independent state handlers for cost price, profit margin and selling price (New Product)
   const handleNewCostChange = (valStr: string) => {
     setNewItemCostPrice(valStr);
-    const cost = parseFloat(valStr);
-    const margin = parseFloat(newItemProfitMargin);
-    if (!isNaN(cost) && !isNaN(margin)) {
-      const calculated = cost * (1 + margin / 100);
-      setNewItemPrice(calculated.toFixed(2));
-    }
   };
 
   const handleNewMarginChange = (valStr: string) => {
     setNewItemProfitMargin(valStr);
-    const cost = parseFloat(newItemCostPrice);
-    const margin = parseFloat(valStr);
-    if (!isNaN(cost) && !isNaN(margin)) {
-      const calculated = cost * (1 + margin / 100);
-      setNewItemPrice(calculated.toFixed(2));
-    }
   };
 
   const handleNewPriceChange = (valStr: string) => {
     setNewItemPrice(valStr);
-    const cost = parseFloat(newItemCostPrice);
-    const price = parseFloat(valStr);
-    if (!isNaN(cost) && cost > 0 && !isNaN(price)) {
-      const calculatedMargin = ((price - cost) / cost) * 100;
-      setNewItemProfitMargin(calculatedMargin.toFixed(1));
-    }
   };
 
-  // Bi-directional automated calculation (Editing Product)
+  // Fully manual independent state handlers (Editing Product)
   const handleEditCostChange = (valStr: string) => {
     setEditItemCostPrice(valStr);
-    const cost = parseFloat(valStr);
-    const margin = parseFloat(editItemProfitMargin);
-    if (!isNaN(cost) && !isNaN(margin)) {
-      const calculated = cost * (1 + margin / 100);
-      setEditItemPrice(calculated.toFixed(2));
-    }
   };
 
   const handleEditMarginChange = (valStr: string) => {
     setEditItemProfitMargin(valStr);
-    const cost = parseFloat(editItemCostPrice);
-    const margin = parseFloat(valStr);
-    if (!isNaN(cost) && !isNaN(margin)) {
-      const calculated = cost * (1 + margin / 100);
-      setEditItemPrice(calculated.toFixed(2));
-    }
   };
 
   const handleEditPriceChange = (valStr: string) => {
     setEditItemPrice(valStr);
-    const cost = parseFloat(editItemCostPrice);
-    const price = parseFloat(valStr);
-    if (!isNaN(cost) && cost > 0 && !isNaN(price)) {
-      const calculatedMargin = ((price - cost) / cost) * 100;
-      setEditItemProfitMargin(calculatedMargin.toFixed(1));
-    }
   };
 
   const startEditing = (item: InventoryItem) => {

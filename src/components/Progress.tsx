@@ -135,6 +135,78 @@ const INSTAGRAM_TASKS: LearningTask[] = [
     description: "Configure uma resposta prévia de atendimento no Direct para agilizar suas vendas.",
     instructions: "Em Configurações no Instagram, selecione Respostas Rápidas/Atalhos de Teclado. Salve uma resposta gentil que informe os preços padrão e formas de contato quando digitado um atalho curto como '/preco' ou '/catalogo'.",
     example: "Exemplo: \"Criei o atalho '/catalogo' que autopreenche uma saudação super fofa com o arquivo PDF dos vasos e cupom de frete para o WhatsApp!\""
+  },
+  {
+    id: 9,
+    moduleIndex: 5,
+    moduleName: "Módulo 5: Reels & Engajamento em Vídeo",
+    title: "10. Roteiro Prático de Reels de 15s (Gancho + Solução)",
+    description: "Grave um vídeo dinâmico e curto focado em prender a atenção no primeiro segundo.",
+    instructions: "Grave um vídeo de 15 segundos: 0-3s gancho de impacto ('Você sabia deste segredo sobre o seu produto/serviço?'), 3-12s demonstração prática rápida, 12-15s chamada para ação ('Comente QUERO ou clique no link da Bio!').",
+    example: "Exemplo: \"Gravei um Reels de 14s mostrando a transformação rápida do produto. Recebi comentários e novos visitantes interessados!\""
+  },
+  {
+    id: 10,
+    moduleIndex: 5,
+    moduleName: "Módulo 5: Reels & Engajamento em Vídeo",
+    title: "11. Capa Nítida e Título Magnético com Contraste",
+    description: "Crie uma imagem de capa legível para destacar suas publicações no feed principal.",
+    instructions: "Capas com texto em negrito e contraste chamam até 3x mais atenção. Coloque o título do vídeo centralizado com termos que despertem curiosidade em quem navega pela grade do perfil.",
+    example: "Exemplo: \"Criei uma capa limpa com fundo escuro e fonte amarela legível: '3 Erros Comuns na Hora de Comprar!'\""
+  },
+  {
+    id: 11,
+    moduleIndex: 6,
+    moduleName: "Módulo 6: Prova Social & Autoridade",
+    title: "12. Destaque 'Depoimentos & Casos de Sucesso'",
+    description: "Reúna avaliações reais de clientes para gerar confiança instantânea.",
+    instructions: "Tire print de conversas do WhatsApp/Direct com elogios e fotos dos clientes usando o produto (ocultando dados pessoais). Crie um Destaque chamado 'Depoimentos' ou 'Clientes Satisfeitos'.",
+    example: "Exemplo: \"Montei o Destaque Depoimentos com 5 prints de clientes elogiando a qualidade e a agilidade da entrega!\""
+  },
+  {
+    id: 12,
+    moduleIndex: 6,
+    moduleName: "Módulo 6: Prova Social & Autoridade",
+    title: "13. Carrossel Educativo 'Salvável' de Alto Engajamento",
+    description: "Crie um post carrossel (3 a 5 slides) respondendo à dúvida mais comum dos clientes.",
+    instructions: "Posts carrossel incentivam salvamentos e compartilhamentos: Slide 1 (Título curioso), Slide 2 (O Erro Comum), Slide 3 (A Solução Passo a Passo), Slide 4 (Chamada para o Direct/Link).",
+    example: "Exemplo: \"Publiquei um carrossel educativo sobre 'Como escolher a opção perfeita' e registrei meus primeiros salvamentos!\""
+  },
+  {
+    id: 13,
+    moduleIndex: 7,
+    moduleName: "Módulo 7: SEO Web & Parcerias Estratégicas",
+    title: "14. Otimização SEO de Legenda, Tags e Localização",
+    description: "Insira palavras-chave relevantes e localização para ser encontrado nas buscas.",
+    instructions: "Adicione sua cidade/bairro na tag de Localização e insira palavras-chave do seu nicho na legenda e no texto alternativo. Isso faz seu perfil aparecer nas buscas do Google e das redes sociais.",
+    example: "Exemplo: \"Adicionei a localização do meu bairro e 5 palavras-chave estratégicas na legenda para atrair clientes locais!\""
+  },
+  {
+    id: 14,
+    moduleIndex: 7,
+    moduleName: "Módulo 7: SEO Web & Parcerias Estratégicas",
+    title: "15. Colaboração Estratégica (Post em Collab)",
+    description: "Faça uma publicação conjunta com um parceiro complementar para multiplicar o alcance.",
+    instructions: "Use a função 'Convidar Colaborador' ao publicar para que o post apareça simultaneamente no seu feed e no feed do seu parceiro, dobrando a visibilidade para públicos qualificados.",
+    example: "Exemplo: \"Fiz uma publicação em collab com uma marca parceira da região e recebi novos seguidores interessados no mesmo dia!\""
+  },
+  {
+    id: 15,
+    moduleIndex: 8,
+    moduleName: "Módulo 8: Atendimento VIP Direct & Pós-Venda",
+    title: "16. Script Comercial de Atendimento Humanizado em Áudio",
+    description: "Responda orçamentos no Direct com atenção personalizada para fechar mais vendas.",
+    instructions: "Ao responder um orçamento, chame o cliente pelo nome, envie um áudio curto de 15 segundos com tom amigável e conclua com uma pergunta aberta para manter a negociação ativa.",
+    example: "Exemplo: \"Enviei um áudio amigável tirando a dúvida do cliente pelo nome e fechamos a proposta logo em seguida!\""
+  },
+  {
+    id: 16,
+    moduleIndex: 8,
+    moduleName: "Módulo 8: Atendimento VIP Direct & Pós-Venda",
+    title: "17. Cartão Virtual de Links & Botão de Avaliação/Pós-Venda",
+    description: "Mantenha sua página de links organizada com botões claros para catálogo e feedbacks.",
+    instructions: "Mantenha sua página de links limpa e funcional: insira um botão para o catálogo/cardápio, um botão direto para WhatsApp de Vendas e um link de pós-venda para clientes deixarem avaliações.",
+    example: "Exemplo: \"Organizei minha página com botões para 'Ver Catálogo 2026', 'Falar com Atendimento' e 'Deixar uma Avaliação'!\""
   }
 ];
 
@@ -173,7 +245,11 @@ export default function Progress({ sales, clients, goal, onOpenAdjustGoal, point
       { id: 1, moduleName: "Módulo 1: Vitrine", title: "Refinar a Proposta de Valor da Bio do Instagram", points: 150, completed: false },
       { id: 2, moduleName: "Módulo 2: Conteúdo", title: "Pesquisar 3 referências de Reels para seu nicho", points: 100, completed: false },
       { id: 3, moduleName: "Módulo 3: Conexão", title: "Publicar Story com Enquete ativa de preferência de produto", points: 120, completed: false },
-      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false }
+      { id: 4, moduleName: "Módulo 4: Conversão", title: "Configurar resposta rápida (/preco) de atendimento no direct", points: 150, completed: false },
+      { id: 5, moduleName: "Módulo 5: Reels", title: "Gravar Reels curto (15s) com gancho e chamada para o Direct", points: 200, completed: false },
+      { id: 6, moduleName: "Módulo 6: Prova Social", title: "Publicar print de depoimento nos Stories e salvar nos Destaques", points: 130, completed: false },
+      { id: 7, moduleName: "Módulo 7: Tráfego", title: "Adicionar localização e palavras-chave de busca na legenda do post", points: 110, completed: false },
+      { id: 8, moduleName: "Módulo 8: Atendimento", title: "Enviar resposta em áudio personalizada para uma dúvida no Direct", points: 160, completed: false }
     ];
   });
 
@@ -373,11 +449,11 @@ export default function Progress({ sales, clients, goal, onOpenAdjustGoal, point
       setLastFeedback(data.feedback);
       setUserSubmission("");
 
-      // Unlock next task or remain at 9 if complete
+      // Unlock next task or remain at INSTAGRAM_TASKS.length if complete
       if (currentTaskIndex < INSTAGRAM_TASKS.length - 1) {
         nextIndex = currentTaskIndex + 1;
       } else if (currentTaskIndex === INSTAGRAM_TASKS.length - 1) {
-        nextIndex = 9; // 9 represents fully complete trilha!
+        nextIndex = INSTAGRAM_TASKS.length; // INSTAGRAM_TASKS.length represents fully complete trilha!
       }
       setCurrentTaskIndex(nextIndex);
 
@@ -456,7 +532,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
       if (currentTaskIndex < INSTAGRAM_TASKS.length - 1) {
         nextIndex = currentTaskIndex + 1;
       } else if (currentTaskIndex === INSTAGRAM_TASKS.length - 1) {
-        nextIndex = 9;
+        nextIndex = INSTAGRAM_TASKS.length;
       }
       setCurrentTaskIndex(nextIndex);
 
@@ -909,55 +985,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
             </div>
           </div>
 
-          {/* SIMULATED RESULTS DASHBOARD */}
-          <section className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-800 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left">
-            <h4 className="font-display font-black text-xs text-brand-primary dark:text-brand-orange-light uppercase tracking-widest mb-4 flex items-center gap-1.5">
-              📈 RESUMO DE RESULTADOS DO INSTAGRAM (Simulado)
-            </h4>
-            
-            <div className="grid grid-cols-3 gap-4">
-              
-              <div className="bg-[#f9f9f9] dark:bg-zinc-800 border-2 border-brand-dark dark:border-zinc-700/60 rounded-xl p-3 flex flex-col justify-between hover:scale-105 transition-all">
-                <span className="font-sans font-extrabold text-[10px] text-brand-muted dark:text-zinc-400 uppercase leading-tight flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-brand-orange" />
-                  Seguidores
-                </span>
-                <span className="font-display font-black text-lg md:text-2xl text-brand-dark dark:text-zinc-100 mt-1">
-                  {instaMetrics.followers}
-                </span>
-                <span className="text-[10px] text-green-600 dark:text-green-400 font-extrabold mt-1">
-                  + crescimento orgânico
-                </span>
-              </div>
 
-              <div className="bg-[#f9f9f9] dark:bg-zinc-800 border-2 border-brand-dark dark:border-zinc-700/60 rounded-xl p-3 flex flex-col justify-between hover:scale-105 transition-all">
-                <span className="font-sans font-extrabold text-[10px] text-brand-muted dark:text-zinc-400 uppercase leading-tight flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5 text-brand-primary" />
-                  Engajamento
-                </span>
-                <span className="font-display font-black text-lg md:text-2xl text-brand-primary mt-1">
-                  {instaMetrics.engagement}%
-                </span>
-                <span className="text-[10px] text-brand-muted dark:text-zinc-400 font-bold mt-1">
-                  taxa de relevância
-                </span>
-              </div>
-
-              <div className="bg-[#f9f9f9] dark:bg-zinc-805 border-2 border-brand-dark dark:border-zinc-700/60 rounded-xl p-3 flex flex-col justify-between hover:scale-105 transition-all">
-                <span className="font-sans font-extrabold text-[10px] text-brand-muted dark:text-zinc-400 uppercase leading-tight flex items-center gap-1">
-                  <MousePointer className="w-3.5 h-3.5 text-blue-600" />
-                  Cliques no Link
-                </span>
-                <span className="font-display font-black text-lg md:text-2xl text-white bg-zinc-900 border-2 border-brand-dark rounded-lg mt-1 inline-block self-start px-2 py-0.5 shadow-[2px_2px_0px_0px_rgba(26,28,28,1)]">
-                  {instaMetrics.linkClicks}
-                </span>
-                <span className="text-[10px] text-green-600 dark:text-green-400 font-extrabold mt-1">
-                  conversões iniciadas
-                </span>
-              </div>
-
-            </div>
-          </section>
 
           {/* ROADMAP TIMELINE */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -970,9 +998,9 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
 
               <div className="space-y-4 relative pl-4 border-l-2 border-brand-gray dark:border-zinc-800 text-left">
                 {INSTAGRAM_TASKS.map((task) => {
-                  const isCompleted = currentTaskIndex > task.id || currentTaskIndex === 9;
+                  const isCompleted = currentTaskIndex > task.id || currentTaskIndex >= INSTAGRAM_TASKS.length;
                   const isActive = currentTaskIndex === task.id;
-                  const isLocked = currentTaskIndex < task.id && currentTaskIndex !== 9;
+                  const isLocked = currentTaskIndex < task.id && currentTaskIndex < INSTAGRAM_TASKS.length;
 
                   return (
                     <div
@@ -1048,21 +1076,21 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
                   );
                 })}
 
-                {/* If cumulative task index is 9 (fully completed track) */}
-                {currentTaskIndex === 9 && (
-                  <div className="bg-emerald-50 border-2 border-green-600 rounded-2xl p-6 text-center space-y-3 animate-fade-in">
+                {/* If cumulative task index equals or exceeds total tasks (fully completed track) */}
+                {currentTaskIndex >= INSTAGRAM_TASKS.length && (
+                  <div className="bg-emerald-50 border-2 border-green-600 rounded-2xl p-6 text-center space-y-4 animate-fade-in">
                     <Award className="w-12 h-12 text-emerald-600 mx-auto" />
                     <h5 className="font-display font-black text-emerald-800 text-lg">
-                      👑 Você Completou Toda a Trilha Prática do Instagram!
+                      👑 Você Completou Todos os Módulos da Trilha do Instagram!
                     </h5>
-                    <p className="text-xs text-emerald-700 font-bold max-w-lg mx-auto">
-                      Parabéns! Sua bio é magnética, seus links operam sem atritos, seus reels prendem espectadores e você domina o fechamento de vendas direto!
+                    <p className="text-xs text-emerald-800 font-bold max-w-lg mx-auto leading-relaxed">
+                      Parabéns! Sua estrutura, perfil, reels e roteiros estão preparados para vender. No entanto, lembre-se: <strong>o seu perfil no Instagram não irá crescer somente com dicas</strong>, mas sim com a sua ação constante. Continue firme fazendo suas publicações, criando Stories diariamente, postando conteúdos e interagindo com potenciais clientes. O crescimento real do seu perfil virá com <strong>insistência e perseverança!</strong> 🚀
                     </p>
                     <button
                       onClick={handleResetTrilha}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-display font-black text-xs py-2 px-5 rounded-lg border border-emerald-800 cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-1"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-display font-black text-xs py-2.5 px-5 rounded-lg border border-emerald-800 cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 active:translate-y-1 transition-all"
                     >
-                      Refazer do Início
+                      Refazer a Trilha
                     </button>
                   </div>
                 )}
@@ -1073,7 +1101,7 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
             <div className="lg:col-span-1 space-y-6">
               
               {/* Submission Card for CURRENT active task */}
-              {currentTaskIndex !== 9 ? (
+              {currentTaskIndex < INSTAGRAM_TASKS.length ? (
                 <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark dark:border-zinc-800 rounded-2xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] dark:shadow-none text-left relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 h-16 bg-brand-yellow/30 dark:bg-brand-yellow/10 rounded-bl-full flex items-center justify-center pointer-events-none">
                     <Sparkles className="w-5 h-5 text-brand-orange-light mr-[-10px] mt-[-10px]" />
@@ -1124,10 +1152,15 @@ Você seguiu os princípios fundamentais do exercício comercial proposto de for
                   </form>
                 </div>
               ) : (
-                <div className="bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-600 rounded-2xl p-5 text-left text-emerald-800 dark:text-emerald-300">
-                  <p className="text-xs font-black">📅 Parabéns!</p>
-                  <p className="text-[11px] font-bold leading-relaxed mt-1">
-                    Você venceu todas as metas da Trilha e agora possui uma biografia excelente orientada para vendas no Instagram. Use os recursos do Dashboard principal para acompanhar o faturamento real das conversões geradas no Direct!
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-600 rounded-2xl p-5 text-left text-emerald-800 dark:text-emerald-300 space-y-2">
+                  <p className="text-xs font-black flex items-center gap-1.5 text-emerald-900 dark:text-emerald-200">
+                    🚀 Módulos Concluídos! O Trabalho Continua!
+                  </p>
+                  <p className="text-[11px] font-semibold leading-relaxed">
+                    Parabéns por concluir todos os módulos! Lembre-se: <strong>o perfil do seu Instagram não irá crescer apenas com dicas, mas com a sua insistência e perseverança!</strong>
+                  </p>
+                  <p className="text-[11px] font-semibold leading-relaxed">
+                    Mantenha a frequência publicando posts, criando Stories diariamente e interagindo no Direct. É a sua constância no dia a dia que trará os grandes resultados!
                   </p>
                 </div>
               )}
