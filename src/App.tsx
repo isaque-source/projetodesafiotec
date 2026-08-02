@@ -174,11 +174,12 @@ export default function App() {
       } else if (
         currentUrl.pathname === "/redefinir-senha" || 
         currentUrl.pathname.includes("redefinir-senha") || 
+        currentUrl.searchParams.has("oobCode") ||
+        currentUrl.searchParams.get("mode") === "resetPassword" ||
+        currentUrl.searchParams.get("reset") === "true" ||
         currentUrl.searchParams.has("email")
       ) {
-        if (currentUrl.searchParams.get("email")) {
-          setActiveTab("reset-password");
-        }
+        setActiveTab("reset-password");
       }
     } catch (err) {
       console.warn("Could not parse location query:", err);
@@ -216,11 +217,13 @@ export default function App() {
       let isResetFlow = false;
       try {
         const currentUrl = new URL(window.location.href);
-        isResetFlow = (
+        isResetFlow = 
           currentUrl.pathname === "/redefinir-senha" || 
           currentUrl.pathname.includes("redefinir-senha") || 
-          currentUrl.searchParams.has("email")
-        ) && !!currentUrl.searchParams.get("email");
+          currentUrl.searchParams.has("oobCode") ||
+          currentUrl.searchParams.get("mode") === "resetPassword" ||
+          currentUrl.searchParams.get("reset") === "true" ||
+          currentUrl.searchParams.has("email");
       } catch (e) {
         console.warn("Error parsing URL inside auth change:", e);
       }

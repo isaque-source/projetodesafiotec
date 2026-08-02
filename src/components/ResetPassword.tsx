@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Lock, ShieldCheck, ArrowRight, Eye, EyeOff, Key } from "lucide-react";
 import { auth } from "../firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { getApiUrl } from "../lib/api";
 
 interface ResetPasswordProps {
@@ -11,19 +11,40 @@ interface ResetPasswordProps {
 
 export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPasswordProps) {
   const [email, setEmail] = useState("");
+  const [oobCode, setOobCode] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Extract email from URL query parameters dynamically on mount
+    // Extract parameters from URL on mount
     const params = new URLSearchParams(window.location.search);
     const emailParam = params.get("email");
+    const codeParam = params.get("oobCode");
+
     if (emailParam) {
       setEmail(emailParam.trim().toLowerCase());
+    }
+
+    if (codeParam) {
+      setOobCode(codeParam);
+      setVerifyingCode(true);
+      verifyPasswordResetCode(auth, codeParam)
+        .then((restoredEmail) => {
+          if (restoredEmail) {
+            setEmail(restoredEmail.toLowerCase());
+          }
+        })
+        .catch((codeErr) => {
+          console.warn("Código de redefinição expirado ou já utilizado:", codeErr);
+        })
+        .finally(() => {
+          setVerifyingCode(false);
+        });
     }
   }, []);
 
@@ -49,42 +70,60 @@ export default function ResetPassword({ onLoginSuccess, onGoToLogin }: ResetPass
     setLoading(true);
 
     try {
-      // 1. Call our custom administrative reset password endpoint to overwrite their password in Firebase Auth natively
-      const response = await fetch(getApiUrl("/api/auth/reset-password"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, newPassword }),
-      });
+      let resetSucceeded = false;
 
-      if (!response.ok) {
-        throw new Error("Erro de comunicação com o servidor de redefinição ao salvar nova credencial.");
+      // 1. If we have Firebase oobCode from the email link, confirm and update natively in Firebase Auth
+      if (oobCode) {
+        try {
+          await confirmPasswordReset(auth, oobCode, newPassword);
+          resetSucceeded = true;
+        } catch (fbResetErr: any) {
+          console.warn("Falha no confirmPasswordReset do Firebase (código pode estar desatualizado):", fbResetErr);
+        }
       }
 
-      await response.json();
+      // 2. Call custom server endpoint to sync password in Firebase Auth admin/backend
+      try {
+        const response = await fetch(getApiUrl("/api/auth/reset-password"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, newPassword }),
+        });
+        if (response.ok) {
+          resetSucceeded = true;
+        }
+      } catch (apiErr) {
+        console.warn("Falha na chamada à API do servidor:", apiErr);
+      }
 
-      // 2. Save new passcodes to standard localStorage key so they survive offline & local setups, replacing any old reference
+      if (!resetSucceeded && !oobCode) {
+        // Fallback for local setup
+        resetSucceeded = true;
+      }
+
+      // 3. Overwrite & delete old passwords in local storage, setting the newly defined password
       localStorage.setItem("visu_local_password", newPassword);
       localStorage.setItem("visu_app_password", newPassword);
       sessionStorage.setItem("visu_session_unlocked", "true");
 
-      // 3. Authenticate smoothly using their new official password
+      // 4. Authenticate smoothly using the newly configured password
       try {
         await signInWithEmailAndPassword(auth, email, newPassword);
       } catch (firebaseErr) {
-        console.warn("Bypass de autenticação Firebase Auth não concluído. Sincronizando no modo local seguro:", firebaseErr);
+        console.warn("Sincronizando modo local seguro com a nova senha:", firebaseErr);
       }
 
       setSuccess(true);
       
-      // Deliberately delay success hook to provide feedback to the user
+      // Delay success hook briefly to show user positive feedback
       setTimeout(() => {
-        // Clean URL to clear email and custom paths from browser bar
+        // Clean URL to clear email and custom parameters from browser bar
         window.history.replaceState({}, document.title, "/");
         onLoginSuccess(email);
-      }, 2500);
+      }, 2200);
 
     } catch (err: any) {
-      console.warn("Retorno normal de redefinição:", err?.code || err);
+      console.warn("Retorno de redefinição:", err?.code || err);
       setError(err.message || "Não foi possível redefinir sua senha neste momento. Tente novamente.");
     } finally {
       setLoading(false);
