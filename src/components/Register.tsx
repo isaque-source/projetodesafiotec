@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Utensils, Shirt, Wrench, Paintbrush, MoreHorizontal, Target, Package, Check, Sparkles, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Utensils, Shirt, Wrench, Paintbrush, MoreHorizontal, Target, Package, Check, Sparkles, ShoppingBag, Crown, Zap, ShieldCheck, ArrowRight, AlertTriangle, XCircle } from "lucide-react";
 import { User, InventoryItem, Goal } from "../types";
 import { auth } from "../firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getEmailToUidMapping } from "../lib/db";
+import { APP_SUBSCRIPTION_PLANS, isVipEmail, getDefaultSubscriptionForEmail, BASIC_PLAN_MISSING_FEATURES } from "../lib/vipWhitelist";
 
 interface RegisterProps {
   onRegisterComplete: (user: User, initialGoal?: Goal, initialItem?: InventoryItem) => void;
@@ -24,6 +25,9 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
   const [category, setCategory] = useState("Artesanato");
   const [email, setEmail] = useState(invitation?.employeeEmail || "");
   const [password, setPassword] = useState("");
+
+  // Step 3: Subscription Plan selection
+  const [chosenPlanId, setChosenPlanId] = useState<'basic' | 'pro' | 'annual'>('pro');
 
   // Sync with invitation if loaded asynchronously
   useEffect(() => {
@@ -90,6 +94,8 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
     setErrorMessage("");
     // Generate simulated user & store profile in localStorage
     const simulatedEmail = email.toLowerCase().trim() || "offline-user@exemplo.com";
+    const subscription = getDefaultSubscriptionForEmail(simulatedEmail, chosenPlanId);
+
     const newUser: User = {
       name: fullName.split(" ")[0] || "João",
       storeName: storeName,
@@ -97,6 +103,8 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
       registered: true,
       email: simulatedEmail,
       phoneNumber: phoneNumber.trim(),
+      isVip: isVipEmail(simulatedEmail),
+      subscription: subscription
     };
 
     const finalGoal: Goal = {
@@ -144,7 +152,13 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         setErrorMessage("A senha de acesso deve conter pelo menos 6 dígitos numéricos (somente números).");
         return;
       }
-      setStep(2);
+      setStep(invitation ? 3 : 2);
+    } else if (step === 2) {
+      if (goalAmount <= 0) {
+        setErrorMessage("Por favor, configure uma meta real de faturamento.");
+        return;
+      }
+      setStep(3);
     }
   };
 
@@ -195,6 +209,8 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         // Fall through safely to do direct-to-Firestore registration
       }
 
+      const subscription = getDefaultSubscriptionForEmail(finalEmail, chosenPlanId);
+
       // Assemble final user profile
       const newUser: User = {
         name: fullName.split(" ")[0] || "João",
@@ -204,6 +220,8 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         email: finalEmail,
         phoneNumber: phoneNumber.trim(),
         password: password, // Store in Firestore as official password
+        isVip: isVipEmail(finalEmail),
+        subscription: subscription
       };
 
       const finalGoal: Goal = invitation ? { targetAmount: 0, period: "Mensal" } : {
@@ -275,15 +293,21 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         {/* Progress indicator steps header */}
         <div className="mb-6">
           <div className="flex justify-between items-center text-xs font-bold font-display uppercase tracking-widest text-brand-muted mb-2">
-            <span>Passo {step} de 2</span>
+            <span>Passo {step} de {invitation ? 1 : 3}</span>
             <span>
               {step === 1 && "Informações Gerais"}
               {step === 2 && "Definição de Metas"}
+              {step === 3 && "Escolha do Plano"}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <div className={`h-3 flex-1 rounded-full border-2 border-brand-dark transition-all duration-300 ${step >= 1 ? 'bg-brand-orange shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-brand-gray'}`}></div>
-            <div className={`h-3 flex-1 rounded-full border-2 border-brand-dark transition-all duration-300 ${step >= 2 ? 'bg-brand-orange shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-brand-gray'}`}></div>
+            {!invitation && (
+              <>
+                <div className={`h-3 flex-1 rounded-full border-2 border-brand-dark transition-all duration-300 ${step >= 2 ? 'bg-brand-orange shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-brand-gray'}`}></div>
+                <div className={`h-3 flex-1 rounded-full border-2 border-brand-dark transition-all duration-300 ${step >= 3 ? 'bg-brand-orange shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'bg-brand-gray'}`}></div>
+              </>
+            )}
           </div>
         </div>
 
@@ -532,31 +556,151 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
           </div>
         )}
 
+        {step === 3 && (
+          <div className="animate-fade-in space-y-6">
+            <div className="text-left">
+              <h2 className="font-display text-2xl font-extrabold text-brand-dark">
+                Escolha seu Plano de Acesso
+              </h2>
+              <p className="font-sans text-brand-muted font-medium mt-1 text-sm">
+                Selecione o plano ideal para alavancar seu negócio com o Visu.
+              </p>
+            </div>
+
+            {/* VIP Notification Whitelist Banner */}
+            {isVipEmail(email) && (
+              <div className="p-4 bg-amber-50 border-2 border-brand-dark rounded-xl shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex items-center gap-3 text-left">
+                <div className="p-2.5 bg-brand-yellow border-2 border-brand-dark rounded-lg shrink-0">
+                  <Crown className="w-6 h-6 text-brand-dark" />
+                </div>
+                <div>
+                  <h4 className="font-display font-black text-sm text-brand-dark uppercase tracking-wide flex items-center gap-1.5">
+                    ✨ E-mail VIP Reconhecido! ({email})
+                  </h4>
+                  <p className="font-sans text-xs text-brand-dark font-bold leading-relaxed mt-0.5">
+                    Seu e-mail possui <strong>acesso VIP Cortesia totalmente liberado sem custos (R$ 0,00)</strong>! Clique em finalizar para entrar diretamente.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Plans Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+              {APP_SUBSCRIPTION_PLANS.map((plan) => {
+                const isSelected = chosenPlanId === plan.id;
+                return (
+                  <div
+                    key={plan.id}
+                    onClick={() => setChosenPlanId(plan.id)}
+                    className={`relative flex flex-col justify-between p-5 border-2 rounded-2xl cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-amber-50/60 border-brand-dark shadow-[6px_6px_0px_0px_rgba(26,28,28,1)] ring-2 ring-brand-orange -translate-y-1"
+                        : "bg-white border-brand-gray hover:border-brand-dark hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)]"
+                    }`}
+                  >
+                    {plan.badge && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-brand-orange text-brand-dark font-display font-black text-[9px] uppercase tracking-wider border-2 border-brand-dark rounded-full shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] whitespace-nowrap">
+                        {plan.badge}
+                      </span>
+                    )}
+
+                    <div>
+                      <div className="text-center pb-3 border-b border-brand-gray">
+                        <h3 className="font-display font-extrabold text-base text-brand-dark">
+                          {plan.name}
+                        </h3>
+                        <div className="mt-1 flex items-baseline justify-center gap-1">
+                          <span className="font-display font-black text-2xl text-brand-dark">
+                            {plan.price}
+                          </span>
+                          <span className="font-sans font-bold text-xs text-brand-muted">
+                            {plan.period}
+                          </span>
+                        </div>
+                        {plan.savings && (
+                          <span className="inline-block mt-1 font-sans font-bold text-[10px] text-green-700 bg-green-100 px-2 py-0.5 rounded border border-green-300">
+                            {plan.savings}
+                          </span>
+                        )}
+                        <p className="font-sans text-[11px] text-brand-muted mt-2 font-medium leading-snug">
+                          {plan.description}
+                        </p>
+                      </div>
+
+                      <ul className="py-3 space-y-2 text-[11px] font-sans font-bold text-brand-dark">
+                        {plan.features.slice(0, 4).map((f, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-brand-orange shrink-0 mt-0.5 stroke-[3]" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="pt-3 border-t border-brand-gray mt-auto">
+                      <div className={`w-full py-2 rounded-xl border-2 font-display font-bold text-xs uppercase tracking-wider text-center transition-all ${
+                        isSelected
+                          ? "bg-brand-yellow text-brand-dark border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                          : "bg-brand-gray text-brand-muted border-transparent"
+                      }`}>
+                        {isSelected ? "✓ Plano Selecionado" : "Escolher Este"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* What you lose banner if basic plan is selected */}
+            {chosenPlanId === 'basic' && (
+              <div className="p-4 bg-red-50 border-2 border-red-300 rounded-xl shadow-[3px_3px_0px_0px_rgba(239,68,68,0.2)] text-left animate-fade-in">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <h4 className="font-display font-black text-xs text-red-950 uppercase tracking-wide">
+                    ⚠️ Atenção: Limitações do Plano Básico
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-sans font-semibold text-red-900">
+                  {BASIC_PLAN_MISSING_FEATURES.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Global Action Footer bar in register */}
         <div className="mt-8 flex flex-col items-center">
           {invitation ? (
             <button
               onClick={handleFinish}
+              disabled={registerLoading}
               className="w-full max-w-md h-12 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-extrabold uppercase tracking-widest rounded-lg border-2 border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] active:translate-y-1 active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Check className="w-5 h-5" />
-              <span>Finalizar Cadastro de Funcionário</span>
+              <span>{registerLoading ? "Registrando..." : "Finalizar Cadastro de Funcionário"}</span>
             </button>
-          ) : step < 2 ? (
+          ) : step < 3 ? (
             <button
               type="button"
               onClick={handleNextStep}
               className="w-full max-w-md h-12 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-display font-extrabold uppercase tracking-widest rounded-lg border-2 border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] active:translate-y-1 active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <span>Avançar Passo</span>
+              <span>{step === 1 ? "Próximo: Meta Comercial" : "Próximo: Escolher Plano"}</span>
+              <ArrowRight className="w-5 h-5" />
             </button>
           ) : (
             <button
               onClick={handleFinish}
+              disabled={registerLoading}
               className="w-full max-w-md h-12 bg-brand-yellow hover:bg-brand-yellow/95 text-brand-dark font-display font-extrabold uppercase tracking-widest rounded-lg border-2 border-brand-dark shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] active:translate-y-1 active:shadow-none transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Check className="w-5 h-5" />
-              <span>Finalizar Cadastro</span>
+              <span>{registerLoading ? "Criando sua Conta..." : "Finalizar Cadastro & Começar"}</span>
             </button>
           )}
         </div>

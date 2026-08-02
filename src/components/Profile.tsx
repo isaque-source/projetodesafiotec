@@ -4,6 +4,8 @@ import { auth } from "../firebase";
 import { updatePassword, updateProfile } from "firebase/auth";
 import { saveUserProfile } from "../lib/db";
 import { compressImage } from "../lib/imageCompression";
+import PlansModal from "./PlansModal";
+import { isVipEmail, isBasicPlan, hasReachedEmployeeLimit, BASIC_PLAN_LIMITS } from "../lib/vipWhitelist";
 import { 
   User as UserIcon, 
   Phone, 
@@ -20,7 +22,9 @@ import {
   Smartphone,
   Monitor,
   Percent,
-  Coins
+  Coins,
+  Crown,
+  Sparkles
 } from "lucide-react";
 
 const maskEmail = (email: string): string => {
@@ -77,6 +81,7 @@ export default function Profile({
   const [storeName, setStoreName] = useState(user.storeName || "");
   const [category, setCategory] = useState(user.category || "");
   const [darkModeEnabled, setDarkModeEnabled] = useState(!!user.darkModeEnabled);
+  const [showPlansModal, setShowPlansModal] = useState(false);
 
   const getEmployeeCommission = (emp: Employee) => {
     if (!emp.hasCommission || !emp.commissionPercentage) return 0;
@@ -403,6 +408,41 @@ export default function Profile({
               </button>
             </div>
           </div>
+
+          {/* Subscription Plan Widget */}
+          <div className="bg-white dark:bg-zinc-900 border-2 border-brand-dark rounded-xl p-5 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] space-y-3 text-left">
+            <div className="flex items-center justify-between border-b border-brand-gray/35 pb-2">
+              <h4 className="font-display font-black text-xs text-brand-muted dark:text-zinc-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-brand-orange" />
+                Plano de Assinatura
+              </h4>
+              <span className={`text-[10px] font-display font-black uppercase px-2 py-0.5 rounded border ${
+                user.isVip || isVipEmail(user.email)
+                  ? 'bg-amber-100 text-amber-900 border-amber-400'
+                  : 'bg-emerald-100 text-emerald-900 border-emerald-400'
+              }`}>
+                {user.isVip || isVipEmail(user.email) ? 'VIP Cortesia' : 'Ativo'}
+              </span>
+            </div>
+
+            <div>
+              <p className="font-display font-black text-base text-brand-dark dark:text-zinc-100">
+                {user.subscription?.planName || (user.isVip || isVipEmail(user.email) ? 'Plano VIP Cortesia' : 'Plano Pro')}
+              </p>
+              <p className="font-sans text-xs font-extrabold text-brand-muted dark:text-zinc-400 mt-0.5">
+                {user.subscription?.price || (user.isVip || isVipEmail(user.email) ? 'R$ 0,00' : 'R$ 79,90/mês')}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPlansModal(true)}
+              className="w-full py-2.5 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Gerenciar / Alterar Plano</span>
+            </button>
+          </div>
         </div>
 
         {/* Right Side: Account Info Form */}
@@ -690,11 +730,53 @@ export default function Profile({
                   )}
                 </div>
 
+                {/* Basic Plan Employee Limit Notification */}
+                {isBasicPlan(user) && (
+                  <div className={`p-3.5 border-2 border-brand-dark rounded-xl shadow-[3px_3px_0px_0px_rgba(26,28,28,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left ${
+                    hasReachedEmployeeLimit(user, (user.employees || []).length)
+                      ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-600'
+                      : 'bg-zinc-50 dark:bg-zinc-850'
+                  }`}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 bg-brand-yellow border-2 border-brand-dark rounded-lg shrink-0">
+                        <Lock className="w-4 h-4 text-brand-dark" />
+                      </div>
+                      <div>
+                        <h5 className="font-display font-black text-xs text-brand-dark dark:text-zinc-200 uppercase tracking-wide flex items-center gap-2">
+                          Plano Básico: {(user.employees || []).length} de {BASIC_PLAN_LIMITS.maxEmployees} funcionário cadastrado
+                          {hasReachedEmployeeLimit(user, (user.employees || []).length) && (
+                            <span className="px-1.5 py-0.5 bg-red-500 text-white font-black text-[8px] rounded uppercase tracking-wider">
+                              LIMITE ATINGIDO
+                            </span>
+                          )}
+                        </h5>
+                        <p className="font-sans text-[11px] text-brand-muted dark:text-zinc-400 font-medium mt-0.5">
+                          {hasReachedEmployeeLimit(user, (user.employees || []).length)
+                            ? `Você atingiu o limite de ${BASIC_PLAN_LIMITS.maxEmployees} funcionário do Plano Básico. Mude para o Plano Pro para funcionários ilimitados!`
+                            : `O Plano Básico permite cadastrar até ${BASIC_PLAN_LIMITS.maxEmployees} funcionário na equipe.`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPlansModal(true)}
+                      className="px-3 py-1 bg-brand-orange text-brand-dark font-display font-black text-[10px] uppercase tracking-wider rounded-lg border-2 border-brand-dark shadow-[1.5px_1.5px_0px_0px_rgba(0,0,0,1)] shrink-0 cursor-pointer"
+                    >
+                      Mudar de Plano
+                    </button>
+                  </div>
+                )}
+
                 {/* Add employee action and form expand */}
                 {!showInviteForm ? (
                   <button
                     type="button"
                     onClick={() => {
+                      if (hasReachedEmployeeLimit(user, (user.employees || []).length)) {
+                        alert(`⚠️ Limite do Plano Básico Atingido!\n\nNo Plano Básico você pode cadastrar no máximo ${BASIC_PLAN_LIMITS.maxEmployees} funcionário.\n\nFaça o upgrade para o Plano Pro ou Anual para cadastrar sua equipe completa!`);
+                        setShowPlansModal(true);
+                        return;
+                      }
                       setShowInviteForm(true);
                       setEmployeeFormError("");
                       setEmployeeFormSuccess("");
@@ -709,6 +791,13 @@ export default function Profile({
                       e.preventDefault();
                       setEmployeeFormError("");
                       setEmployeeFormSuccess("");
+
+                      if (hasReachedEmployeeLimit(user, (user.employees || []).length)) {
+                        setEmployeeFormError(`Limite do Plano Básico atingido (${BASIC_PLAN_LIMITS.maxEmployees} funcionário). Faça upgrade para cadastrar mais.`);
+                        setShowPlansModal(true);
+                        return;
+                      }
+
                       if (!employeeName.trim()) {
                         setEmployeeFormError("Por favor, preencha o nome do funcionário.");
                         return;
@@ -1027,6 +1116,26 @@ export default function Profile({
         </div>
 
       </div>
+
+      {/* Subscription Plans Modal */}
+      {showPlansModal && (
+        <PlansModal
+          isOpen={showPlansModal}
+          currentUser={user}
+          onClose={() => setShowPlansModal(false)}
+          onUpdateSubscription={async (updatedUser) => {
+            onUpdateUser(updatedUser);
+            try {
+              const currentUid = auth.currentUser?.uid || updatedUser.email;
+              if (currentUid) {
+                await saveUserProfile(currentUid, updatedUser);
+              }
+            } catch (err) {
+              console.warn("Failed to persist subscription update to Firestore:", err);
+            }
+          }}
+        />
+      )}
 
     </div>
   );

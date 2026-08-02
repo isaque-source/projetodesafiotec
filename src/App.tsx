@@ -49,6 +49,7 @@ import ClientsManager from "./components/ClientsManager";
 import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
 import ExpensesManager from "./components/ExpensesManager";
 import ErrorBoundary from "./components/ErrorBoundary";
+import PlansModal from "./components/PlansModal";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -88,6 +89,7 @@ export default function App() {
   
   // State variables synchronized from localStorage, Firebase or Seed templates
   const [user, setUser] = useState<User | null>(null);
+  const [isPlansModalOpen, setIsPlansModalOpen] = useState(false);
   const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
   const [invitation, setInvitation] = useState<{ ownerUid: string; storeName: string; employeeEmail: string; employeeName: string } | null>(null);
   const [activeEmployee, setActiveEmployee] = useState<{ email: string; name: string } | null>(null);
@@ -195,6 +197,11 @@ export default function App() {
     if (requireLock && !isSessionUnlocked) {
       setIsLocked(true);
     }
+
+    // Safety max timeout: ensure loading screen disappears after 3 seconds max even if Firebase auth check is slow
+    const safetyTimer = setTimeout(() => {
+      setLoadingFirebase(false);
+    }, 3000);
 
     // Check if we are connected on mount (with a small delay to let Firebase initialize)
     setTimeout(() => {
@@ -562,7 +569,10 @@ export default function App() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Synchronise dark mode class configuration dynamically on active user preference shifts
@@ -606,61 +616,82 @@ export default function App() {
     // Explicitly set initial check to false on user login interaction to avoid any background race resetting screen to 'login'
     isInitialAuthCheckRef.current = false;
     
-    if (auth.currentUser) {
-      // Firebase auth is already active. The onAuthStateChanged listener handles central fetching and profile redirect, so we do not double-trigger.
-      return; 
-    }
-    
-    // Fallback/Firestore Login Success: fetch correct Cloud data if db connects
+    // Show spinner while fetching or populating user profile
     setLoadingFirebase(true);
+
+    const currentFbUser = auth.currentUser;
+    const userEmail = email || currentFbUser?.email || "";
+    
     try {
-      const safeEmail = email.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
-      const mappedUid = await getEmailToUidMapping(safeEmail);
-      
+      const uid = currentFbUser?.uid;
+      const safeEmail = userEmail ? userEmail.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_") : "";
+      let mappedUid = uid;
+      if (safeEmail) {
+        try {
+          const existingUid = await getEmailToUidMapping(safeEmail);
+          if (existingUid) mappedUid = existingUid;
+        } catch (_) {}
+      }
+      if (!mappedUid && uid) mappedUid = uid;
+
       if (mappedUid) {
         setDataOwnerUid(mappedUid);
-        const profile = await getUserProfile(mappedUid);
-        if (profile) {
-          setUser(profile);
-          setIsDbConnected(true);
-          
-          let dbSales: Sale[] = [];
-          let dbInventory: InventoryItem[] = [];
-          let dbGoal: Goal | null = null;
-          let dbClients: Client[] = [];
-          let dbExpenses: Expense[] = [];
-
-          try { dbSales = await fetchSales(mappedUid); } catch (_) {}
-          try { dbInventory = await fetchInventory(mappedUid); } catch (_) {}
-          try { dbGoal = await fetchGoal(mappedUid); } catch (_) {}
-          try { dbClients = await fetchClients(mappedUid); } catch (_) {}
-          try { dbExpenses = await fetchExpenses(mappedUid); } catch (_) {}
-
-          setSales(dbSales || []);
-          setInventory(dbInventory || []);
-          setClients(dbClients || []);
-          setExpenses(dbExpenses || []);
-          if (dbGoal) {
-            setGoal(dbGoal);
-          }
-          
-          setActiveTab("home");
-          setLoadingFirebase(false);
-          return;
+        let profile = null;
+        try { profile = await getUserProfile(mappedUid); } catch (_) {}
+        if (!profile && uid && uid !== mappedUid) {
+          try { profile = await getUserProfile(uid); } catch (_) {}
         }
+        if (!profile) {
+          profile = {
+            name: currentFbUser?.displayName?.split(" ")[0] || userEmail.split("@")[0] || "Usuário",
+            storeName: "Minha Loja",
+            category: "Artesanato",
+            registered: true,
+            email: userEmail,
+          };
+          if (mappedUid) {
+            await saveUserProfile(mappedUid, profile).catch(() => {});
+          }
+        }
+        setUser(profile);
+        setIsDbConnected(true);
+
+        let dbSales: Sale[] = [];
+        let dbInventory: InventoryItem[] = [];
+        let dbGoal: Goal | null = null;
+        let dbClients: Client[] = [];
+        let dbExpenses: Expense[] = [];
+
+        try { dbSales = await fetchSales(mappedUid); } catch (_) {}
+        try { dbInventory = await fetchInventory(mappedUid); } catch (_) {}
+        try { dbGoal = await fetchGoal(mappedUid); } catch (_) {}
+        try { dbClients = await fetchClients(mappedUid); } catch (_) {}
+        try { dbExpenses = await fetchExpenses(mappedUid); } catch (_) {}
+
+        setSales(dbSales || []);
+        setInventory(dbInventory || []);
+        setClients(dbClients || []);
+        setExpenses(dbExpenses || []);
+        if (dbGoal) setGoal(dbGoal);
       }
-    } catch (firestoreErr) {
-      console.warn("Quietly falling back to local storage mapping: ", firestoreErr);
-    } finally {
-      setLoadingFirebase(false);
+    } catch (err) {
+      console.warn("Erro ao processar login no handleLoginSuccess:", err);
     }
-    
-    // Fallback: local demo mock login success
-    const defaultUser = user || SEED_USER;
-    const finalUser = { ...defaultUser, email, registered: true };
-    setUser(finalUser);
-    handleSaveState(finalUser, sales, inventory, goal);
+
+    // Ensure fallback user is set if user state is still null
+    setUser((prevUser) => {
+      if (prevUser) return prevUser;
+      return {
+        name: userEmail.split("@")[0] || "Usuário",
+        storeName: "Minha Loja",
+        category: "Artesanato",
+        registered: true,
+        email: userEmail,
+      };
+    });
+
     setActiveTab("home");
+    setLoadingFirebase(false);
   };
 
   // Register completion handler
@@ -1866,7 +1897,7 @@ export default function App() {
       <main className={`flex-1 flex flex-col ${activeTab === 'login' || activeTab === 'register' || activeTab === 'reset-password' ? 'justify-center' : 'justify-start'} w-full max-w-7xl mx-auto px-4 md:px-8 py-6 ${activeTab !== 'login' && activeTab !== 'register' && activeTab !== 'reset-password' ? 'pb-28' : ''}`}>
         
         <ErrorBoundary>
-          {activeTab === "login" && (
+          {(!user || activeTab === "login") && activeTab !== "register" && activeTab !== "reset-password" && (
             <Login
               onLoginSuccess={handleLoginSuccess}
               onGoToRegister={() => setActiveTab("register")}
@@ -1951,6 +1982,7 @@ export default function App() {
 
           {user && activeTab === "inventory" && (
             <InventoryManager
+              user={user}
               inventory={inventory}
               onUpdateQuantity={handleUpdateItemQty}
               onAddItem={handleAddInventoryProduct}
@@ -1958,6 +1990,7 @@ export default function App() {
               onDeleteItem={handleDeleteInventoryProduct}
               initialFilterLowStock={inventoryLowStockOnly}
               onClearLowStockFilter={() => setInventoryLowStockOnly(false)}
+              onOpenPlansModal={() => setIsPlansModalOpen(true)}
             />
           )}
 
@@ -2126,6 +2159,26 @@ export default function App() {
           isOpen={isAdjustGoalOpen}
           onClose={() => setIsAdjustGoalOpen(false)}
           onUpdateGoal={handleUpdateGoal}
+        />
+      )}
+
+      {/* Global Subscription Plans Modal */}
+      {user && isPlansModalOpen && (
+        <PlansModal
+          isOpen={isPlansModalOpen}
+          currentUser={user}
+          onClose={() => setIsPlansModalOpen(false)}
+          onUpdateSubscription={async (updatedUser) => {
+            setUser(updatedUser);
+            const currentUid = auth.currentUser?.uid || updatedUser.email;
+            if (currentUid) {
+              try {
+                await saveUserProfile(currentUid, updatedUser);
+              } catch (err) {
+                console.warn("Failed to persist subscription update to Firestore:", err);
+              }
+            }
+          }}
         />
       )}
 

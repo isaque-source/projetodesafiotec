@@ -58,6 +58,13 @@ export default function Login({
   const [resetSuccess, setResetSuccess] = useState("");
   const [resetError, setResetError] = useState("");
 
+  // Automatically redirect logged in user to the home page (pagina inicial)
+  React.useEffect(() => {
+    if (currentUser && currentUser.registered && onProceedToHome) {
+      onProceedToHome();
+    }
+  }, [currentUser, onProceedToHome]);
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail || !resetEmail.includes("@")) {

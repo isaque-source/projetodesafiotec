@@ -8,6 +8,15 @@ export interface Employee {
   commissionResetTimestamp?: number;
 }
 
+export interface Subscription {
+  planId: 'basic' | 'pro' | 'annual' | 'vip';
+  planName: string;
+  price: string;
+  status: 'active' | 'vip' | 'pending';
+  billingCycle: 'monthly' | 'annual' | 'lifetime';
+  subscribedAt?: string;
+}
+
 export interface User {
   name: string;
   storeName: string;
@@ -19,6 +28,8 @@ export interface User {
   darkModeEnabled?: boolean;
   password?: string;
   employees?: Employee[];
+  subscription?: Subscription;
+  isVip?: boolean;
 }
 
 export interface SaleItem {

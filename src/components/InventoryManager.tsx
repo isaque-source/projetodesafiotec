@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Package, Plus, Minus, Search, AlertTriangle, ShieldCheck, ShoppingBag } from "lucide-react";
-import { InventoryItem } from "../types";
+import { Package, Plus, Minus, Search, AlertTriangle, ShieldCheck, ShoppingBag, Crown, Lock, Sparkles } from "lucide-react";
+import { InventoryItem, User } from "../types";
 import { compressImage } from "../lib/imageCompression";
+import { hasReachedItemLimit, isBasicPlan, BASIC_PLAN_LIMITS } from "../lib/vipWhitelist";
 
 interface InventoryManagerProps {
+  user?: User;
   inventory: InventoryItem[];
   onUpdateQuantity: (id: string, newQty: number) => void;
   onAddItem: (item: InventoryItem) => void;
@@ -11,9 +13,11 @@ interface InventoryManagerProps {
   onDeleteItem?: (id: string) => void;
   initialFilterLowStock: boolean;
   onClearLowStockFilter: () => void;
+  onOpenPlansModal?: () => void;
 }
 
 export default function InventoryManager({
+  user,
   inventory,
   onUpdateQuantity,
   onAddItem,
@@ -21,6 +25,7 @@ export default function InventoryManager({
   onDeleteItem,
   initialFilterLowStock,
   onClearLowStockFilter,
+  onOpenPlansModal,
 }: InventoryManagerProps) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Todos");
@@ -157,6 +162,11 @@ export default function InventoryManager({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasReachedItemLimit(user, inventory.length)) {
+      alert(`⚠️ Limite do Plano Básico Atingido!\nVocê já atingiu o limite de ${BASIC_PLAN_LIMITS.maxItems} produtos cadastrados do Plano Básico.\nFaça o upgrade para o Plano Pro ou Anual para cadastrar produtos ilimitados.`);
+      return;
+    }
+
     const isService = newItemCategory === "Serviços";
     if (!newItemName.trim() || !newItemPrice || (!isService && (!newItemQty || !newItemMinQty))) {
       alert("Por favor, preencha todos os campos do produto.");
@@ -210,13 +220,59 @@ export default function InventoryManager({
           </p>
         </div>
         <button
-          onClick={() => setIsAdding(!isAdding)}
+          onClick={() => {
+            if (hasReachedItemLimit(user, inventory.length)) {
+              alert(`⚠️ Limite do Plano Básico Atingido!\n\nSeu catálogo já contém ${inventory.length} de ${BASIC_PLAN_LIMITS.maxItems} produtos permitidos no Plano Básico.\n\nClique no botão "Fazer Upgrade" para migrar para o Plano Pro ou Anual e liberar produtos ilimitados!`);
+              if (onOpenPlansModal) onOpenPlansModal();
+              return;
+            }
+            setIsAdding(!isAdding);
+          }}
           className="bg-brand-orange hover:bg-brand-orange/95 text-brand-dark font-display font-extrabold text-sm px-5 h-11 border-2 border-brand-dark dark:border-zinc-750 shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(26,28,28,1)] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center gap-2 self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-5 h-5" />
           <span>ADICIONAR PRODUTO</span>
         </button>
       </section>
+
+      {/* Basic Plan Item Limit Warning Banner */}
+      {isBasicPlan(user) && (
+        <div className={`p-4 border-2 border-brand-dark rounded-xl shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left ${
+          hasReachedItemLimit(user, inventory.length)
+            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-600'
+            : 'bg-white dark:bg-zinc-900'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-brand-yellow border-2 border-brand-dark rounded-lg shrink-0">
+              <Lock className="w-5 h-5 text-brand-dark" />
+            </div>
+            <div>
+              <h4 className="font-display font-black text-xs text-brand-dark dark:text-zinc-200 uppercase tracking-wide flex items-center gap-2">
+                Plano Básico: {inventory.length} de {BASIC_PLAN_LIMITS.maxItems} produtos no catálogo
+                {hasReachedItemLimit(user, inventory.length) && (
+                  <span className="px-2 py-0.5 bg-red-500 text-white font-black text-[9px] rounded-full uppercase tracking-wider">
+                    LIMITE ATINGIDO
+                  </span>
+                )}
+              </h4>
+              <p className="font-sans text-xs text-brand-muted dark:text-zinc-400 font-medium mt-0.5">
+                {hasReachedItemLimit(user, inventory.length)
+                  ? `Você atingiu a cota máxima de ${BASIC_PLAN_LIMITS.maxItems} produtos cadastrados. Faça upgrade para o Plano Pro para produtos ilimitados!`
+                  : `O Plano Básico possui limite de até ${BASIC_PLAN_LIMITS.maxItems} produtos cadastrados.`}
+              </p>
+            </div>
+          </div>
+          {onOpenPlansModal && (
+            <button
+              onClick={onOpenPlansModal}
+              className="px-3.5 py-1.5 bg-brand-orange hover:bg-brand-orange/90 text-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-lg border-2 border-brand-dark shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] shrink-0 cursor-pointer flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Fazer Upgrade</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Adding Modal / Card Form */}
       {isAdding && (
