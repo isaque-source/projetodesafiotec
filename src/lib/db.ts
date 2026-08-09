@@ -12,8 +12,22 @@ import {
   orderBy,
   getDocFromServer
 } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../firebase";
+import { auth, db, handleFirestoreError, OperationType } from "../firebase";
 import { User, Sale, InventoryItem, Goal, Client, Expense } from "../types";
+
+/**
+ * Ensures any Firestore read or write operation ONLY occurs when a valid, non-empty uid is provided
+ * AND the user is confirmed as authenticated via Firebase Auth (auth.currentUser).
+ */
+export function isValidUidAndAuth(uid?: string | null): boolean {
+  if (!uid || typeof uid !== "string" || uid.trim() === "" || uid === "null" || uid === "undefined") {
+    return false;
+  }
+  if (!auth.currentUser) {
+    return false;
+  }
+  return true;
+}
 
 export interface InstagramProgressState {
   storeNiche: string;
@@ -37,6 +51,12 @@ export async function testFirestoreConnection(): Promise<boolean> {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     console.log("[Firestore Connection]: O navegador está offline.");
     return false;
+  }
+
+  // Only attempt network connection lookup if auth state is present
+  if (!auth.currentUser) {
+    console.log("[Firestore Connection]: Usuário não logado. Sincronização em segundo plano aguardando confirmação de autenticação.");
+    return true;
   }
 
   let attempts = 4;
@@ -125,6 +145,7 @@ export function cleanUndefined<T>(obj: T): T {
  * User Profile Operations
  */
 export async function saveUserProfile(uid: string, userData: User): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}`;
   try {
     await setDoc(doc(db, "usuarios", uid), cleanUndefined(userData));
@@ -134,6 +155,7 @@ export async function saveUserProfile(uid: string, userData: User): Promise<void
 }
 
 export async function getUserProfile(uid: string): Promise<User | null> {
+  if (!isValidUidAndAuth(uid)) return null;
   const path = `usuarios/${uid}`;
   try {
     const snap = await getDoc(doc(db, "usuarios", uid));
@@ -150,6 +172,7 @@ export async function getUserProfile(uid: string): Promise<User | null> {
  * Sales History Ledger Operations
  */
 export async function fetchSales(uid: string): Promise<Sale[]> {
+  if (!isValidUidAndAuth(uid)) return [];
   const path = `usuarios/${uid}/sales`;
   try {
     const colRef = collection(db, "usuarios", uid, "sales");
@@ -162,10 +185,12 @@ export async function fetchSales(uid: string): Promise<Sale[]> {
     return salesList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 }
 
 export async function addSaleDocument(uid: string, sale: Sale): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/sales/${sale.id}`;
   try {
     // Extract ID and build clean object for Firestore
@@ -177,6 +202,7 @@ export async function addSaleDocument(uid: string, sale: Sale): Promise<void> {
 }
 
 export async function deleteSaleDocument(uid: string, saleId: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/sales/${saleId}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "sales", saleId));
@@ -189,6 +215,7 @@ export async function deleteSaleDocument(uid: string, saleId: string): Promise<v
  * Clients Operations
  */
 export async function fetchClients(uid: string): Promise<Client[]> {
+  if (!isValidUidAndAuth(uid)) return [];
   const path = `usuarios/${uid}/clients`;
   try {
     const colRef = collection(db, "usuarios", uid, "clients");
@@ -200,10 +227,12 @@ export async function fetchClients(uid: string): Promise<Client[]> {
     return clientsList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 }
 
 export async function saveClientDocument(uid: string, client: Client): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/clients/${client.id}`;
   try {
     const { id, ...data } = client;
@@ -214,6 +243,7 @@ export async function saveClientDocument(uid: string, client: Client): Promise<v
 }
 
 export async function deleteClientDocument(uid: string, clientId: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/clients/${clientId}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "clients", clientId));
@@ -226,6 +256,7 @@ export async function deleteClientDocument(uid: string, clientId: string): Promi
  * Inventory Manager Catalog Operations
  */
 export async function fetchInventory(uid: string): Promise<InventoryItem[]> {
+  if (!isValidUidAndAuth(uid)) return [];
   const path = `usuarios/${uid}/inventory`;
   try {
     const colRef = collection(db, "usuarios", uid, "inventory");
@@ -237,10 +268,12 @@ export async function fetchInventory(uid: string): Promise<InventoryItem[]> {
     return itemsList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 }
 
 export async function addInventoryDocument(uid: string, item: InventoryItem): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/inventory/${item.id}`;
   try {
     const { id, ...data } = item;
@@ -251,6 +284,7 @@ export async function addInventoryDocument(uid: string, item: InventoryItem): Pr
 }
 
 export async function updateInventoryDocumentQty(uid: string, itemId: string, newQty: number): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/inventory/${itemId}`;
   try {
     const docRef = doc(db, "usuarios", uid, "inventory", itemId);
@@ -261,6 +295,7 @@ export async function updateInventoryDocumentQty(uid: string, itemId: string, ne
 }
 
 export async function updateInventoryDocumentFull(uid: string, item: InventoryItem): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/inventory/${item.id}`;
   try {
     const { id, ...data } = item;
@@ -271,6 +306,7 @@ export async function updateInventoryDocumentFull(uid: string, item: InventoryIt
 }
 
 export async function deleteInventoryDocument(uid: string, itemId: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/inventory/${itemId}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "inventory", itemId));
@@ -283,6 +319,7 @@ export async function deleteInventoryDocument(uid: string, itemId: string): Prom
  * Goals Configuration Operations
  */
 export async function fetchGoal(uid: string): Promise<Goal | null> {
+  if (!isValidUidAndAuth(uid)) return null;
   const path = `usuarios/${uid}/goals/current`;
   try {
     const snap = await getDoc(doc(db, "usuarios", uid, "goals", "current"));
@@ -292,10 +329,12 @@ export async function fetchGoal(uid: string): Promise<Goal | null> {
     return null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
+    return null;
   }
 }
 
 export async function saveGoal(uid: string, goal: Goal): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/goals/current`;
   try {
     await setDoc(doc(db, "usuarios", uid, "goals", "current"), cleanUndefined(goal));
@@ -308,6 +347,7 @@ export async function saveGoal(uid: string, goal: Goal): Promise<void> {
  * Instagram Learning Progress Tracker Operations
  */
 export async function fetchInstagramProgress(uid: string): Promise<InstagramProgressState | null> {
+  if (!isValidUidAndAuth(uid)) return null;
   const path = `usuarios/${uid}/instagram/progress`;
   try {
     const snap = await getDoc(doc(doc(db, "usuarios", uid), "instagram", "progress"));
@@ -317,10 +357,12 @@ export async function fetchInstagramProgress(uid: string): Promise<InstagramProg
     return null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
+    return null;
   }
 }
 
 export async function saveInstagramProgress(uid: string, progress: InstagramProgressState): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/instagram/progress`;
   try {
     await setDoc(doc(doc(db, "usuarios", uid), "instagram", "progress"), cleanUndefined(progress));
@@ -333,6 +375,7 @@ export async function saveInstagramProgress(uid: string, progress: InstagramProg
  * Instagram Mentor Feedbacks Log Operations
  */
 export async function fetchInstagramFeedbacks(uid: string): Promise<InstagramFeedbackState[]> {
+  if (!isValidUidAndAuth(uid)) return [];
   const path = `usuarios/${uid}/instagramFeedbacks`;
   try {
     const colRef = collection(db, "usuarios", uid, "instagramFeedbacks");
@@ -344,10 +387,12 @@ export async function fetchInstagramFeedbacks(uid: string): Promise<InstagramFee
     return feedbackList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 }
 
 export async function addInstagramFeedback(uid: string, feedback: InstagramFeedbackState): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const id = `task-${feedback.taskId}`;
   const path = `usuarios/${uid}/instagramFeedbacks/${id}`;
   try {
@@ -358,6 +403,7 @@ export async function addInstagramFeedback(uid: string, feedback: InstagramFeedb
 }
 
 export async function clearAllInstagramFeedbacks(uid: string, list: InstagramFeedbackState[]): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/instagramFeedbacks`;
   try {
     for (const item of list) {
@@ -418,6 +464,7 @@ export async function getEmailToUidMapping(safeEmail: string): Promise<string | 
     }
     
     handleFirestoreError(error, OperationType.GET, path);
+    return null;
   }
 }
 
@@ -455,6 +502,7 @@ export async function deleteEmailToUidMapping(safeEmail: string): Promise<void> 
 }
 
 export async function saveEmployeePermission(uid: string, employeeEmail: string, employeeName: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const cleanEmail = employeeEmail.trim().toLowerCase();
   const path = `usuarios/${uid}/employees/${cleanEmail}`;
   try {
@@ -469,6 +517,7 @@ export async function saveEmployeePermission(uid: string, employeeEmail: string,
 }
 
 export async function deleteEmployeePermission(uid: string, employeeEmail: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const cleanEmail = employeeEmail.trim().toLowerCase();
   const path = `usuarios/${uid}/employees/${cleanEmail}`;
   try {
@@ -482,6 +531,10 @@ export async function deleteEmployeePermission(uid: string, employeeEmail: strin
  * Expenses subcollection operations
  */
 export async function fetchExpenses(uid: string): Promise<Expense[]> {
+  if (!isValidUidAndAuth(uid)) {
+    console.warn("[Firestore fetchExpenses] Aborted fetch: user is not authenticated or uid is null/empty.", { uid, currentUser: auth.currentUser?.uid });
+    return [];
+  }
   const path = `usuarios/${uid}/expenses`;
   try {
     const colRef = collection(db, "usuarios", uid, "expenses");
@@ -494,10 +547,12 @@ export async function fetchExpenses(uid: string): Promise<Expense[]> {
     return expensesList;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 }
 
 export async function addExpenseDocument(uid: string, expense: Expense): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/expenses/${expense.id}`;
   try {
     const { id, ...data } = expense;
@@ -508,6 +563,7 @@ export async function addExpenseDocument(uid: string, expense: Expense): Promise
 }
 
 export async function deleteExpenseDocument(uid: string, expenseId: string): Promise<void> {
+  if (!isValidUidAndAuth(uid)) return;
   const path = `usuarios/${uid}/expenses/${expenseId}`;
   try {
     await deleteDoc(doc(db, "usuarios", uid, "expenses", expenseId));

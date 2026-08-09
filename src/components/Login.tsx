@@ -34,21 +34,30 @@ interface LoginProps {
 }
 
 // Helper function to send password reset email with custom redirect URL
-export async function redefinirSenha(emailDoUsuario: string) {
+export async function redefinirSenha(emailDoUsuario: string): Promise<boolean> {
   try {
-    await sendPasswordResetEmail(auth, emailDoUsuario, {
+    const cleanEmail = (emailDoUsuario || "").trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      alert("Por favor, digite um e-mail válido para redefinir a senha.");
+      return false;
+    }
+    await sendPasswordResetEmail(auth, cleanEmail, {
       url: "https://app-visu.com/login", // Para onde o usuário volta após redefinir
     });
     alert("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
+    return true;
   } catch (error: any) {
-    console.error("Erro ao enviar e-mail:", error?.code, error?.message);
+    console.error("Erro ao enviar e-mail de redefinição:", error?.code, error?.message);
     let friendlyMessage = "Não foi possível enviar o e-mail de redefinição.";
     if (error?.code === "auth/user-not-found") {
       friendlyMessage = "Nenhum usuário cadastrado com este e-mail.";
     } else if (error?.code === "auth/invalid-email") {
       friendlyMessage = "O e-mail digitado é inválido.";
+    } else if (error?.code === "auth/too-many-requests") {
+      friendlyMessage = "Muitas solicitações enviadas em curto prazo. Aguarde alguns instantes e tente novamente.";
     }
     alert(friendlyMessage);
+    return false;
   }
 }
 
@@ -96,21 +105,15 @@ export default function Login({
     setResetError("");
 
     try {
-      await sendPasswordResetEmail(auth, emailToUse, {
-        url: "https://app-visu.com/login",
-      });
-      const msg = "E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.";
-      setResetSuccess(msg);
-      alert(msg);
-    } catch (error: any) {
-      console.error("Erro ao enviar e-mail:", error?.code, error?.message);
-      let friendlyMessage = "Erro ao enviar e-mail de redefinição.";
-      if (error?.code === "auth/user-not-found") {
-        friendlyMessage = "Nenhum usuário cadastrado com este e-mail.";
-      } else if (error?.code === "auth/invalid-email") {
-        friendlyMessage = "O e-mail informado é inválido.";
+      const ok = await redefinirSenha(emailToUse);
+      if (ok) {
+        setResetSuccess("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
+      } else {
+        setResetError("Não foi possível enviar o e-mail de redefinição.");
       }
-      setResetError(friendlyMessage);
+    } catch (err: any) {
+      console.error("Erro no envio do e-mail de redefinição:", err);
+      setResetError("Erro ao enviar e-mail de redefinição.");
     } finally {
       setResetLoading(false);
     }
