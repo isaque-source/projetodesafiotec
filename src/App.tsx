@@ -50,6 +50,7 @@ import FirebaseDiagnosticModal from "./components/FirebaseDiagnosticModal";
 import ExpensesManager from "./components/ExpensesManager";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PlansModal from "./components/PlansModal";
+import { isSubscriptionExpired, getDaysRemainingInSubscription, isVipEmail } from "./lib/vipWhitelist";
 
 const ensureAllItemsHaveCodes = (items: InventoryItem[]): InventoryItem[] => {
   if (!items) return [];
@@ -1862,6 +1863,17 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Trial badge if user is in free trial */}
+            {user && user.subscription?.status === 'trial' && !user.isVip && !isVipEmail(user.email) && (
+              <button
+                onClick={() => setIsPlansModalOpen(true)}
+                className="flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-2 border-emerald-500/40 px-2 sm:px-2.5 h-9 rounded-lg font-display text-[11px] sm:text-xs font-black uppercase cursor-pointer hover:-translate-y-0.5 active:translate-y-0.5 transition-all shadow-[2px_2px_0px_0px_rgba(16,185,129,0.2)]"
+                title="Período de Teste Grátis Ativo. Toque para ver ou gerenciar seu plano."
+              >
+                <span>🎁 Teste: {getDaysRemainingInSubscription(user)}d</span>
+              </button>
+            )}
+
             {/* Interactive Money Bag (Sacolinha) Streak Tracker in Header */}
             <div 
               onClick={() => setActiveTab("progress")}
@@ -2165,14 +2177,17 @@ export default function App() {
         />
       )}
 
-      {/* Global Subscription Plans Modal */}
-      {user && isPlansModalOpen && (
+      {/* Global Subscription Plans Modal (Supports normal mode & mandatory lock mode when subscription is expired) */}
+      {user && (isPlansModalOpen || isSubscriptionExpired(user)) && activeTab !== "login" && activeTab !== "register" && activeTab !== "reset-password" && (
         <PlansModal
-          isOpen={isPlansModalOpen}
+          isOpen={isPlansModalOpen || isSubscriptionExpired(user)}
           currentUser={user}
+          isMandatoryLock={isSubscriptionExpired(user)}
+          onLogout={handleLogout}
           onClose={() => setIsPlansModalOpen(false)}
           onUpdateSubscription={async (updatedUser) => {
             setUser(updatedUser);
+            setIsPlansModalOpen(false);
             const currentUid = auth.currentUser?.uid || updatedUser.email;
             if (currentUid) {
               try {

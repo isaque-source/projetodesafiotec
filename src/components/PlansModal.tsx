@@ -1,13 +1,15 @@
 import React, { useState } from "react";
-import { X, Check, Crown, Zap, ShieldCheck, Sparkles, Star, ArrowRight, AlertTriangle, XCircle } from "lucide-react";
+import { X, Check, Crown, Zap, ShieldCheck, Sparkles, Star, ArrowRight, AlertTriangle, XCircle, LogOut } from "lucide-react";
 import { User } from "../types";
-import { APP_SUBSCRIPTION_PLANS, isVipEmail, getDefaultSubscriptionForEmail, BASIC_PLAN_MISSING_FEATURES } from "../lib/vipWhitelist";
+import { APP_SUBSCRIPTION_PLANS, isVipEmail, createPaidSubscription, BASIC_PLAN_MISSING_FEATURES } from "../lib/vipWhitelist";
 
 interface PlansModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: User;
   onUpdateSubscription: (updatedUser: User) => void;
+  isMandatoryLock?: boolean;
+  onLogout?: () => void;
 }
 
 export default function PlansModal({
@@ -15,6 +17,8 @@ export default function PlansModal({
   onClose,
   currentUser,
   onUpdateSubscription,
+  isMandatoryLock = false,
+  onLogout
 }: PlansModalProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<'basic' | 'pro' | 'annual'>(
     (currentUser.subscription?.planId as 'basic' | 'pro' | 'annual') || 'pro'
@@ -25,14 +29,14 @@ export default function PlansModal({
   if (!isOpen) return null;
 
   const isVip = currentUser.isVip || isVipEmail(currentUser.email);
-  const currentPlanId = currentUser.subscription?.planId || (isVip ? 'vip' : 'pro');
+  const currentPlanId = currentUser.subscription?.status === 'active' ? currentUser.subscription?.planId : (isVip ? 'vip' : undefined);
 
   const handleConfirmPlan = (planId: 'basic' | 'pro' | 'annual') => {
     setSelectedPlanId(planId);
     setLoading(true);
 
     setTimeout(() => {
-      const newSub = getDefaultSubscriptionForEmail(currentUser.email, planId);
+      const newSub = createPaidSubscription(currentUser.email, planId);
       const updatedUser: User = {
         ...currentUser,
         isVip: isVip,
@@ -46,16 +50,44 @@ export default function PlansModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-brand-dark/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+    <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
       <div className="bg-white dark:bg-zinc-900 border-4 border-brand-dark dark:border-zinc-800 rounded-2xl max-w-4xl w-full p-6 md:p-8 shadow-[10px_10px_0px_0px_rgba(26,28,28,1)] relative my-8 text-left">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          aria-label="Fechar"
-          className="absolute top-4 right-4 p-2 text-brand-muted hover:text-brand-dark dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-brand-gray/50 dark:hover:bg-zinc-800 rounded-xl border-2 border-transparent hover:border-brand-dark transition-all cursor-pointer"
-        >
-          <X className="w-6 h-6" />
-        </button>
+        
+        {/* Close Button or Logout Option */}
+        {!isMandatoryLock ? (
+          <button
+            onClick={onClose}
+            aria-label="Fechar"
+            className="absolute top-4 right-4 p-2 text-brand-muted hover:text-brand-dark dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-brand-gray/50 dark:hover:bg-zinc-800 rounded-xl border-2 border-transparent hover:border-brand-dark transition-all cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        ) : onLogout ? (
+          <button
+            onClick={onLogout}
+            className="absolute top-4 right-4 px-3 py-1.5 bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 font-display font-black text-xs uppercase tracking-wider rounded-xl border-2 border-red-500 hover:bg-red-200 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sair</span>
+          </button>
+        ) : null}
+
+        {/* Mandatory Lock Banner */}
+        {isMandatoryLock && !checkoutSuccess && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/40 border-2 border-red-500 rounded-xl shadow-[4px_4px_0px_0px_rgba(239,68,68,0.3)] flex items-start gap-3">
+            <div className="p-2 bg-red-600 text-white rounded-lg border border-red-800 shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-display font-black text-sm text-red-950 dark:text-red-200 uppercase tracking-wide">
+                🔒 Período de Teste ou Assinatura Concluído
+              </h3>
+              <p className="font-sans text-xs font-semibold text-red-900 dark:text-red-300 leading-relaxed mt-1">
+                Seu mês de teste grátis ou assinatura anterior expirou. Para desbloquear o aplicativo, acessar seu estoque, cadastros e lançamentos de vendas, selecione o plano desejado abaixo e ative sua assinatura.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-8 pr-8 md:pr-0">
@@ -241,7 +273,7 @@ export default function PlansModal({
                 <AlertTriangle className="w-4 h-4" />
               </div>
               <h4 className="font-display font-black text-xs md:text-sm text-red-950 dark:text-red-300 uppercase tracking-wide">
-                Resumo: O que o usuário perde no Plano Básico (R$ 47,00/mês)
+                Resumo: O que o usuário perde no Plano Básico (R$ 29,00/mês)
               </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">

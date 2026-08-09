@@ -12,9 +12,10 @@ export interface Subscription {
   planId: 'basic' | 'pro' | 'annual' | 'vip';
   planName: string;
   price: string;
-  status: 'active' | 'vip' | 'pending';
+  status: 'active' | 'vip' | 'pending' | 'trial' | 'expired';
   billingCycle: 'monthly' | 'annual' | 'lifetime';
   subscribedAt?: string;
+  expiresAt?: string;
 }
 
 export interface User {

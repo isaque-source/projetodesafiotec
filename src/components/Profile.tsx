@@ -430,7 +430,7 @@ export default function Profile({
                 {user.subscription?.planName || (user.isVip || isVipEmail(user.email) ? 'Plano VIP Cortesia' : 'Plano Pro')}
               </p>
               <p className="font-sans text-xs font-extrabold text-brand-muted dark:text-zinc-400 mt-0.5">
-                {user.subscription?.price || (user.isVip || isVipEmail(user.email) ? 'R$ 0,00' : 'R$ 79,90/mês')}
+                {user.subscription?.price || (user.isVip || isVipEmail(user.email) ? 'R$ 0,00' : 'R$ 34,99/mês')}
               </p>
             </div>
 

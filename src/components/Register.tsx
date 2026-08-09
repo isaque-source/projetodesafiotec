@@ -94,7 +94,7 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
     setErrorMessage("");
     // Generate simulated user & store profile in localStorage
     const simulatedEmail = email.toLowerCase().trim() || "offline-user@exemplo.com";
-    const subscription = getDefaultSubscriptionForEmail(simulatedEmail, chosenPlanId);
+    const subscription = getDefaultSubscriptionForEmail(simulatedEmail, chosenPlanId, true);
 
     const newUser: User = {
       name: fullName.split(" ")[0] || "João",
@@ -209,7 +209,7 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         // Fall through safely to do direct-to-Firestore registration
       }
 
-      const subscription = getDefaultSubscriptionForEmail(finalEmail, chosenPlanId);
+      const subscription = getDefaultSubscriptionForEmail(finalEmail, chosenPlanId, true);
 
       // Assemble final user profile
       const newUser: User = {
@@ -566,6 +566,23 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
                 Selecione o plano ideal para alavancar seu negócio com o Visu.
               </p>
             </div>
+
+            {/* 1 Month Free Trial Banner */}
+            {!isVipEmail(email) && (
+              <div className="p-4 bg-emerald-50 border-2 border-emerald-600 rounded-xl shadow-[4px_4px_0px_0px_rgba(26,28,28,1)] flex items-center gap-3 text-left">
+                <div className="p-2.5 bg-emerald-500 text-white border-2 border-brand-dark rounded-lg shrink-0">
+                  <Sparkles className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h4 className="font-display font-black text-sm text-emerald-950 uppercase tracking-wide flex items-center gap-1.5">
+                    🎁 1 Mês de Teste Grátis Incluso!
+                  </h4>
+                  <p className="font-sans text-xs text-emerald-900 font-bold leading-relaxed mt-0.5">
+                    Ao criar sua conta, você ganha <strong>30 dias de acesso gratuito completo</strong> no plano escolhido. A cobrança só será iniciada após o término do período de teste.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* VIP Notification Whitelist Banner */}
             {isVipEmail(email) && (
