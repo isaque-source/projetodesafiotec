@@ -33,6 +33,25 @@ interface LoginProps {
   onGoToResetPassword?: (email: string) => void;
 }
 
+// Helper function to send password reset email with custom redirect URL
+export async function redefinirSenha(emailDoUsuario: string) {
+  try {
+    await sendPasswordResetEmail(auth, emailDoUsuario, {
+      url: "https://app-visu.com/login", // Para onde o usuário volta após redefinir
+    });
+    alert("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
+  } catch (error: any) {
+    console.error("Erro ao enviar e-mail:", error?.code, error?.message);
+    let friendlyMessage = "Não foi possível enviar o e-mail de redefinição.";
+    if (error?.code === "auth/user-not-found") {
+      friendlyMessage = "Nenhum usuário cadastrado com este e-mail.";
+    } else if (error?.code === "auth/invalid-email") {
+      friendlyMessage = "O e-mail digitado é inválido.";
+    }
+    alert(friendlyMessage);
+  }
+}
+
 export default function Login({ 
   onLoginSuccess, 
   onGoToRegister,
@@ -67,7 +86,8 @@ export default function Login({
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail || !resetEmail.includes("@")) {
+    const emailToUse = (resetEmail || email).trim().toLowerCase();
+    if (!emailToUse || !emailToUse.includes("@")) {
       setResetError("Por favor, preencha um e-mail válido.");
       return;
     }
@@ -75,96 +95,22 @@ export default function Login({
     setResetSuccess("");
     setResetError("");
 
-    const cleanEmail = resetEmail.trim().toLowerCase();
-    
-    // Keep the active origin exactly as is so the email link points to the same working instance
-    let originToUse = window.location.origin;
-
-    const actionCodeSettings = {
-      url: `${originToUse}/?email=${encodeURIComponent(cleanEmail)}&reset=true`,
-      handleCodeInApp: false,
-    };
-
-    const sendResilientResetEmail = async (emailStr: string) => {
-      try {
-        await sendPasswordResetEmail(auth, emailStr, actionCodeSettings);
-      } catch (err: any) {
-        if (
-          err.code === "auth/unauthorized-continue-uri" || 
-          err.code === "auth/invalid-continue-uri" || 
-          err.message?.includes("unauthorized-continue-uri") ||
-          err.message?.includes("continue")
-        ) {
-          console.warn("Domínio atual do app não está cadastrado nos 'Authorized Domains' no console do Firebase Auth. Enviando fluxo clássico resiliente de e-mail.");
-          await sendPasswordResetEmail(auth, emailStr);
-        } else {
-          throw err;
-        }
-      }
-    };
-
     try {
-      // 1. Attempt SMTP request via customized server API
-      const response = await fetch(getApiUrl("/api/forgot-password"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          email: cleanEmail,
-          origin: originToUse
-        }),
+      await sendPasswordResetEmail(auth, emailToUse, {
+        url: "https://app-visu.com/login",
       });
-
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (jsonErr) {
-        // If server response isn't parseable JSON, it usually means Google proxy intercept or offline state.
-        // Fallback straight to native Firebase password reset API
-        console.warn("Retorno da API não é JSON ou redirecionou. Acionando Firebase Auth nativo:", jsonErr);
-        await sendResilientResetEmail(cleanEmail);
-        setResetSuccess("E-mail de recuperação enviado com sucesso via Firebase Auth! Verifique no seu Gmail (incluindo abas de Promoções, Spam ou Principal) para redefinir.");
-        return;
-      }
-
-      if (response.ok && data.success) {
-        setResetSuccess(data.message || "E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada no seu Gmail.");
-      } else {
-        // Server API returned an error (e.g., SMTP config error). Let's attempt resilient Firebase Auth fallback!
-        try {
-          await sendResilientResetEmail(cleanEmail);
-          setResetSuccess("Envio realizado com sucesso via canal seguro do Firebase Auth! Acesse seu Gmail para criar a nova senha.");
-        } catch (fbError: any) {
-          console.error("Falha no fallback Firebase:", fbError);
-          setResetError(data.error || "Ocorreu um erro ao enviar o e-mail de recuperação.");
-        }
-      }
+      const msg = "E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.";
+      setResetSuccess(msg);
+      alert(msg);
     } catch (error: any) {
-      console.warn("Erro ao enviar via SMTP/API do servidor. Acionando canal do Firebase Auth:", error);
-      try {
-        // Ultimate high-reliability fallback using Firebase Authentication SDK
-        await sendResilientResetEmail(cleanEmail);
-        setResetSuccess("E-mail enviado de forma segura via Firebase Auth! Verifique sua caixa de entrada para criar a nova senha.");
-      } catch (fbError: any) {
-        console.error("Falha inclusive do Firebase Auth:", fbError);
-        
-        // Humanized Firestore and Firebase error handler
-        let friendlyMessage = "Não foi possível enviar o e-mail de redefinição de senha.";
-        if (fbError && typeof fbError === "object") {
-          const code = fbError.code;
-          if (code === "auth/user-not-found") {
-            friendlyMessage = "Nenhum usuário cadastrado com este endereço de e-mail.";
-          } else if (code === "auth/invalid-email") {
-            friendlyMessage = "O formato do e-mail inserido é inválido.";
-          } else if (code === "auth/too-many-requests") {
-            friendlyMessage = "Muitas solicitações enviadas em curto prazo. Aguarde alguns instantes e tente novamente.";
-          } else {
-            friendlyMessage = `${friendlyMessage} Detalhes: ${fbError.message || code}`;
-          }
-        }
-        setResetError(friendlyMessage);
+      console.error("Erro ao enviar e-mail:", error?.code, error?.message);
+      let friendlyMessage = "Erro ao enviar e-mail de redefinição.";
+      if (error?.code === "auth/user-not-found") {
+        friendlyMessage = "Nenhum usuário cadastrado com este e-mail.";
+      } else if (error?.code === "auth/invalid-email") {
+        friendlyMessage = "O e-mail informado é inválido.";
       }
+      setResetError(friendlyMessage);
     } finally {
       setResetLoading(false);
     }
@@ -376,10 +322,14 @@ export default function Login({
                   <button
                     type="button"
                     onClick={() => {
-                      setResetEmail(email);
+                      const userEmail = email.trim();
+                      setResetEmail(userEmail);
                       setResetSuccess("");
                       setResetError("");
                       setShowForgotPasswordModal(true);
+                      if (userEmail && userEmail.includes("@")) {
+                        redefinirSenha(userEmail);
+                      }
                     }}
                     className="text-[10px] text-[#fd8b00] hover:underline font-extrabold tracking-wide uppercase cursor-pointer"
                   >

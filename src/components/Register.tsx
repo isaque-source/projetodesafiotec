@@ -2,7 +2,20 @@ import React, { useState, useEffect } from "react";
 import { ArrowLeft, Utensils, Shirt, Wrench, Paintbrush, MoreHorizontal, Target, Package, Check, Sparkles, ShoppingBag, Crown, Zap, ShieldCheck, ArrowRight, AlertTriangle, XCircle } from "lucide-react";
 import { User, InventoryItem, Goal } from "../types";
 import { auth } from "../firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, sendEmailVerification } from "firebase/auth";
+
+export async function enviarConfirmacaoEmail() {
+  if (auth.currentUser) {
+    try {
+      await sendEmailVerification(auth.currentUser, {
+        url: "https://app-visu.com/dashboard", // Redirecionamento após clicar
+      });
+      alert("E-mail de verificação enviado!");
+    } catch (error: any) {
+      console.error("Erro ao enviar verificação:", error?.code, error?.message);
+    }
+  }
+}
 import { getEmailToUidMapping } from "../lib/db";
 import { APP_SUBSCRIPTION_PLANS, isVipEmail, getDefaultSubscriptionForEmail, BASIC_PLAN_MISSING_FEATURES } from "../lib/vipWhitelist";
 
@@ -200,6 +213,9 @@ export default function Register({ onRegisterComplete, onGoBack, invitation }: R
         }
         // Create standard Firebase Auth user
         await createUserWithEmailAndPassword(auth, email.trim(), password);
+        
+        // Send email verification automatically upon successful registration
+        await enviarConfirmacaoEmail();
       } catch (authErr: any) {
         console.warn("Firebase Auth registration failed, attempting custom Firestore registration fallback:", authErr);
         

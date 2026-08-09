@@ -35,6 +35,14 @@ export default function PlansModal({
     setSelectedPlanId(planId);
     setLoading(true);
 
+    // Open InfinitePay checkout URL in a new window
+    const checkoutUrl = "https://checkout.infinitepay.io/isaque-victor-aji/DtPmfWEZRI";
+    try {
+      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.warn("Could not open window automatically:", e);
+    }
+
     setTimeout(() => {
       const newSub = createPaidSubscription(currentUser.email, planId);
       const updatedUser: User = {
@@ -134,17 +142,30 @@ export default function PlansModal({
               Assinatura Atualizada com Sucesso!
             </h3>
             <p className="font-sans text-sm font-semibold text-emerald-800 dark:text-emerald-200 max-w-md mx-auto">
-              Sua conta agora está ativa no <strong>{currentUser.subscription?.planName || 'Plano Pro'}</strong>. Aproveite todos os recursos liberados!
+              Sua conta agora está ativa no <strong>{currentUser.subscription?.planName || 'Plano Pro'}</strong>.
             </p>
-            <button
-              onClick={() => {
-                setCheckoutSuccess(false);
-                onClose();
-              }}
-              className="mt-4 px-6 py-3 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-xl border-2 border-brand-dark shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-            >
-              Continuar para o Aplicativo
-            </button>
+            <p className="font-sans text-xs text-emerald-700 dark:text-emerald-400">
+              Caso a aba de pagamento no InfinitePay não tenha aberto automaticamente, toque no botão abaixo:
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <a
+                href="https://checkout.infinitepay.io/isaque-victor-aji/DtPmfWEZRI"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-display font-black text-xs uppercase tracking-wider rounded-xl border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1.5 transition-all"
+              >
+                <span>💳 Abrir Checkout InfinitePay</span>
+              </a>
+              <button
+                onClick={() => {
+                  setCheckoutSuccess(false);
+                  onClose();
+                }}
+                className="px-6 py-2.5 bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark font-display font-black text-xs uppercase tracking-wider rounded-xl border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+              >
+                Continuar para o Aplicativo
+              </button>
+            </div>
           </div>
         ) : (
           /* Grid of 3 Plans */
@@ -239,24 +260,29 @@ export default function PlansModal({
                         <span>Plano Atual Ativo</span>
                       </button>
                     ) : (
-                      <button
-                        onClick={() => handleConfirmPlan(plan.id)}
-                        disabled={loading}
-                        className={`w-full py-3 font-display font-extrabold text-xs uppercase tracking-wider rounded-xl border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                          plan.popular
-                            ? "bg-brand-orange hover:bg-brand-orange/90 text-brand-dark"
-                            : "bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark"
-                        }`}
-                      >
-                        {loading && selectedPlanId === plan.id ? (
-                          <span>Processando...</span>
-                        ) : (
-                          <>
-                            <span>Selecionar {plan.name}</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        )}
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          onClick={() => handleConfirmPlan(plan.id)}
+                          disabled={loading}
+                          className={`w-full py-3 font-display font-extrabold text-xs uppercase tracking-wider rounded-xl border-2 border-brand-dark shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                            plan.popular
+                              ? "bg-brand-orange hover:bg-brand-orange/90 text-brand-dark"
+                              : "bg-brand-yellow hover:bg-brand-yellow/90 text-brand-dark"
+                          }`}
+                        >
+                          {loading && selectedPlanId === plan.id ? (
+                            <span>Redirecionando...</span>
+                          ) : (
+                            <>
+                              <span>Pagar {plan.price} via InfinitePay</span>
+                              <ArrowRight className="w-4 h-4" />
+                            </>
+                          )}
+                        </button>
+                        <p className="text-[10px] font-sans text-center font-bold text-brand-muted dark:text-zinc-400">
+                          💳 Pagamento seguro via Pix ou Cartão
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
