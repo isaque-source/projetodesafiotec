@@ -35,29 +35,20 @@ interface LoginProps {
 
 // Helper function to send password reset email with custom redirect URL
 export async function redefinirSenha(emailDoUsuario: string): Promise<boolean> {
+  const cleanEmail = (emailDoUsuario || "").trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    alert("Por favor, digite um e-mail válido para redefinir a senha.");
+    return false;
+  }
+  
   try {
-    const cleanEmail = (emailDoUsuario || "").trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes("@")) {
-      alert("Por favor, digite um e-mail válido para redefinir a senha.");
-      return false;
-    }
     await sendPasswordResetEmail(auth, cleanEmail, {
       url: "https://app-visu.com/login", // Para onde o usuário volta após redefinir
     });
-    alert("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
     return true;
   } catch (error: any) {
     console.error("Erro ao enviar e-mail de redefinição:", error?.code, error?.message);
-    let friendlyMessage = "Não foi possível enviar o e-mail de redefinição.";
-    if (error?.code === "auth/user-not-found") {
-      friendlyMessage = "Nenhum usuário cadastrado com este e-mail.";
-    } else if (error?.code === "auth/invalid-email") {
-      friendlyMessage = "O e-mail digitado é inválido.";
-    } else if (error?.code === "auth/too-many-requests") {
-      friendlyMessage = "Muitas solicitações enviadas em curto prazo. Aguarde alguns instantes e tente novamente.";
-    }
-    alert(friendlyMessage);
-    return false;
+    throw error;
   }
 }
 
@@ -105,15 +96,19 @@ export default function Login({
     setResetError("");
 
     try {
-      const ok = await redefinirSenha(emailToUse);
-      if (ok) {
-        setResetSuccess("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
-      } else {
-        setResetError("Não foi possível enviar o e-mail de redefinição.");
-      }
+      await redefinirSenha(emailToUse);
+      setResetSuccess("E-mail de redefinição enviado com sucesso! Verifique sua caixa de entrada e spam.");
     } catch (err: any) {
-      console.error("Erro no envio do e-mail de redefinição:", err);
-      setResetError("Erro ao enviar e-mail de redefinição.");
+      console.error("Erro no envio do e-mail de redefinição via Firebase Auth:", err);
+      let friendlyError = "Não foi possível enviar o e-mail de redefinição.";
+      if (err?.code === "auth/user-not-found") {
+        friendlyError = "Nenhum usuário cadastrado com este e-mail.";
+      } else if (err?.code === "auth/invalid-email") {
+        friendlyError = "O e-mail digitado é inválido.";
+      } else if (err?.code === "auth/too-many-requests") {
+        friendlyError = "Muitas solicitações enviadas em curto prazo. Aguarde alguns instantes e tente novamente.";
+      }
+      setResetError(friendlyError);
     } finally {
       setResetLoading(false);
     }
@@ -330,9 +325,6 @@ export default function Login({
                       setResetSuccess("");
                       setResetError("");
                       setShowForgotPasswordModal(true);
-                      if (userEmail && userEmail.includes("@")) {
-                        redefinirSenha(userEmail);
-                      }
                     }}
                     className="text-[10px] text-[#fd8b00] hover:underline font-extrabold tracking-wide uppercase cursor-pointer"
                   >
